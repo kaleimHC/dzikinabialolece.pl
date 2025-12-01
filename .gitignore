@@ -1,0 +1,61 @@
+# =============================================================================
+# .gitignore — Dziki na Białołęce
+# =============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+staticfiles/
+media/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Node/Frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# R
+.Rhistory
+.Rproj.user/
+*.Rproj.user
+
+# Backup artifacts (używaj gita zamiast *.backup)
+*.backup
+*.backup_*
+*.bak
+_archive/
+
+# Docker
+*.log
+
+# Secrets (nigdy nie commituj!)
+config/pgbouncer/userlist.txt
+*.pem
+*.key
