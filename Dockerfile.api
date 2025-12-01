@@ -1,0 +1,122 @@
+# =============================================================================
+# Dockerfile.api - Django + GeoDjango API
+# MASTER_SPEC v2.2 Architecture
+# 
+# VERIFIED AGAINST:
+# - DR-1: python:3.11-slim-bookworm + apt packages
+# - DR-2: OWASP Docker Security (non-root, no-new-privileges)
+# - DR-3: libgdal-dev (builder) vs gdal-bin (runtime)
+# - NotebookLM: gfortran, libssl-dev, libxml2-dev in builder
+#
+# Target size: ~600 MB
+# =============================================================================
+
+# syntax=docker/dockerfile:1.7
+
+# -----------------------------------------------------------------------------
+# Stage 1: Builder - kompilacja zależności
+# -----------------------------------------------------------------------------
+FROM python:3.11-slim-bookworm AS builder
+
+# Prevent Python from writing .pyc files and buffering stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Install build dependencies for GeoDjango (GDAL, GEOS, PROJ)
+# DR-3: libgdal-dev, libgeos-dev, libproj-dev for compilation
+# NotebookLM Q4: gfortran, libssl-dev, libxml2-dev for full geopandas support
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgdal-dev \
+    libgeos-dev \
+    libproj-dev \
+    python3-dev \
+    gfortran \
+    libssl-dev \
+    libxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set GDAL environment for compilation
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal \
+    C_INCLUDE_PATH=/usr/include/gdal
+
+WORKDIR /build
+
+# Layer caching: copy requirements first (DR-2 optimization)
+COPY requirements.txt .
+
+# Install Python dependencies with cache mount (DR-2 BuildKit)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --upgrade pip && \
+    pip wheel --no-cache-dir --wheel-dir /build/wheels -r requirements.txt
+
+# -----------------------------------------------------------------------------
+# Stage 2: Runtime - finalny obraz
+# -----------------------------------------------------------------------------
+FROM python:3.11-slim-bookworm AS runtime
+
+# Labels
+LABEL maintainer="Dziki na Białołęce" \
+      version="1.0" \
+      description="Django + GeoDjango API"
+
+# Build arguments for UID/GID (DR-2: configurable non-root user)
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+# Prevent Python from writing .pyc files and buffering stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # Django settings
+    DJANGO_SETTINGS_MODULE=dziki.settings \
+    # Timezone
+    TZ=Europe/Warsaw \
+    # Python path for installed packages
+    PATH=/home/appuser/.local/bin:$PATH
+
+# Install runtime dependencies only
+# DR-3: gdal-bin (provides libgdal.so), libproj-dev (dual-purpose: runtime + headers)
+# DR-1: binutils for GEOS
+# DEV: docker.io for R pipeline execution from worker-py
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    binutils \
+    gdal-bin \
+    libproj-dev \
+    libgeos-c1v5 \
+    curl \
+    postgresql-client \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Create non-root user for security (DR-2: OWASP requirement)
+# DEV: Add to docker group for R pipeline execution
+RUN groupadd --gid ${APP_GID} appgroup && \
+    useradd --uid ${APP_UID} --gid appgroup --shell /sbin/nologin --create-home appuser && \
+    usermod -aG docker appuser || true
+
+WORKDIR /app
+
+# Copy wheels from builder and install to user directory
+COPY --from=builder /build/wheels /wheels
+RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+
+# Copy application code with correct ownership
+COPY --chown=appuser:appgroup ./src /app
+
+# Prevent privilege escalation (DR-2)
+RUN chmod -R o-w /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check (enhanced per NotebookLM Q20)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health/ || exit 1
+
+# Default command
+CMD ["gunicorn", "dziki.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2"]
