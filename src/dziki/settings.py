@@ -46,6 +46,9 @@ INSTALLED_APPS = [
     # Django REST Framework (NotebookLM Q10)
     'rest_framework',
     'rest_framework_gis',  # drf-gis for GeoJSON
+
+    # Project apps
+    'sightings',
     
     # Celery (NotebookLM Q10)
     'django_celery_beat',    # Scheduled tasks (ADR-009)
