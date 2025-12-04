@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 
     # Project apps
     'sightings',
+    'analytics',
     
     # Celery (NotebookLM Q10)
     'django_celery_beat',    # Scheduled tasks (ADR-009)
