@@ -23,6 +23,11 @@ export default function MapContainer() {
       zoom: 12,
     });
     mapRef.current = map;
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(
+      new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }),
+      'top-right'
+    );
     map.on('load', () => setMapReady(true));
     return () => { map.remove(); mapRef.current = null; };
   }, []);
