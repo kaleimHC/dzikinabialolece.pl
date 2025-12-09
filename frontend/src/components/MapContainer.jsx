@@ -28,7 +28,20 @@ export default function MapContainer() {
       new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }),
       'top-right'
     );
-    map.on('load', () => setMapReady(true));
+    map.on('load', () => {
+      // Białołęka boundary outline
+      map.addSource('boundary', {
+        type: 'geojson',
+        data: '/api/analytics/boundaries/',
+      });
+      map.addLayer({
+        id: 'boundary-outline',
+        type: 'line',
+        source: 'boundary',
+        paint: { 'line-color': '#10B981', 'line-width': 2, 'line-opacity': 0.8 },
+      });
+      setMapReady(true);
+    });
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
