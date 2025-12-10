@@ -36,5 +36,44 @@ export const useSightingsStore = create(
         set({ error: err.message, isLoading: false });
       }
     },
+
+    submitSighting: async (payload) => {
+      set({ isLoading: true, error: null });
+      // Optimistic update: add placeholder
+      const tempId = `temp-${Date.now()}`;
+      const optimistic = {
+        id: tempId,
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [payload.longitude, payload.latitude] },
+        properties: { ...payload, status: 'pending' },
+      };
+      set(state => ({ sightings: [optimistic, ...state.sightings] }));
+
+      try {
+        const res = await fetch('/api/sightings/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(JSON.stringify(err));
+        }
+        const created = await res.json();
+        // Replace optimistic with real
+        set(state => ({
+          sightings: state.sightings.map(s => s.id === tempId ? created : s),
+          isLoading: false,
+        }));
+      } catch (err) {
+        // Rollback optimistic
+        set(state => ({
+          sightings: state.sightings.filter(s => s.id !== tempId),
+          error: err.message,
+          isLoading: false,
+        }));
+        throw err;
+      }
+    },
   }))
 );
