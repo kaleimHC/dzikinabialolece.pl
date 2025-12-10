@@ -30,7 +30,6 @@ export default function MapContainer() {
       'top-right'
     );
     map.on('load', () => {
-      // Boundary
       map.addSource('boundary', {
         type: 'geojson',
         data: '/api/analytics/boundaries/',
@@ -42,7 +41,6 @@ export default function MapContainer() {
         paint: { 'line-color': '#10B981', 'line-width': 2, 'line-opacity': 0.8 },
       });
 
-      // Encounters GeoJSON source with clustering
       map.addSource('encounters', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
@@ -50,14 +48,52 @@ export default function MapContainer() {
         clusterMaxZoom: 14,
         clusterRadius: 50,
       });
-
-      // Ryjowisko GeoJSON source with clustering
       map.addSource('ryjowisko', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
         cluster: true,
         clusterMaxZoom: 14,
         clusterRadius: 50,
+      });
+
+      // Cluster circle layers
+      ['encounters', 'ryjowisko'].forEach(src => {
+        const color = src === 'encounters' ? '#10B981' : '#F59E0B';
+        map.addLayer({
+          id: `${src}-cluster`,
+          type: 'circle',
+          source: src,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': color,
+            'circle-radius': ['step', ['get', 'point_count'], 16, 10, 22, 30, 30],
+            'circle-opacity': 0.8,
+          },
+        });
+        map.addLayer({
+          id: `${src}-cluster-count`,
+          type: 'symbol',
+          source: src,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-size': 12,
+            'text-font': ['Noto Sans Regular'],
+          },
+          paint: { 'text-color': '#fff' },
+        });
+        map.addLayer({
+          id: `${src}-point`,
+          type: 'circle',
+          source: src,
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': color,
+            'circle-radius': 6,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#fff',
+          },
+        });
       });
 
       setMapReady(true);
