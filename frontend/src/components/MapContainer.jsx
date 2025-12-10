@@ -13,6 +13,7 @@ export default function MapContainer() {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
+  const { sightings } = useSightingsStore();
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -29,7 +30,7 @@ export default function MapContainer() {
       'top-right'
     );
     map.on('load', () => {
-      // Białołęka boundary outline
+      // Boundary
       map.addSource('boundary', {
         type: 'geojson',
         data: '/api/analytics/boundaries/',
@@ -40,6 +41,25 @@ export default function MapContainer() {
         source: 'boundary',
         paint: { 'line-color': '#10B981', 'line-width': 2, 'line-opacity': 0.8 },
       });
+
+      // Encounters GeoJSON source with clustering
+      map.addSource('encounters', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50,
+      });
+
+      // Ryjowisko GeoJSON source with clustering
+      map.addSource('ryjowisko', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50,
+      });
+
       setMapReady(true);
     });
     return () => { map.remove(); mapRef.current = null; };
