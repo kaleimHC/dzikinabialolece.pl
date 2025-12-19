@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.tox/
+venv/
+.venv/
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# R
+.Rdata
+.Rhistory
+.Rapp.history
+*.Rproj.user/
+*.RData
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+*.local
+frontend/.env
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# System
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project
+sightings_raw.json
+tests/visual_baselines/
