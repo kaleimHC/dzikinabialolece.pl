@@ -97,18 +97,72 @@ class GridCell(models.Model):
 
     Required by Polish Hunting Law: aggregation must be ≥1 km².
     Pre-populated, not user-generated.
+
+    spatialWarsaw alignment (v1.4):
+    - geometry_2180: EPSG:2180 (PUWG 1992) for metric calculations
+    - distance_to_water: edge-to-edge (ST_Distance), not centroid
+    - Row-standardized weights for smoothing
     """
 
     grid_id = models.CharField(max_length=20, unique=True)
     geometry = models.PolygonField(srid=4326, spatial_index=True)
+
+    # Geometry in EPSG:2180 (PUWG 1992) for metric calculations
+    # spatialWarsaw: "Użyć układu EPSG:2180 (metryczny)!"
+    # Note: MultiPolygon to handle barrier-aware grids with holes
+    geometry_2180 = models.MultiPolygonField(
+        srid=2180, spatial_index=True, null=True, blank=True
+    )
+
     centroid = models.PointField(srid=4326, null=True, blank=True)
     district = models.CharField(max_length=100, blank=True)
 
+    # Statistics (denormalized for performance)
     sighting_count = models.PositiveIntegerField(default=0)
     last_sighting_at = models.DateTimeField(null=True, blank=True)
 
     sighting_density = models.FloatField(default=0, help_text="Sightings per km²")
     ensemble_risk = models.FloatField(default=0, help_text="Final risk score 0-1")
+    area_rank_score = models.FloatField(
+        default=0, help_text="Area-based rank score (1 - percentile_rank(area))"
+    )
+    gwr_score = models.FloatField(default=0, help_text="GWR prediction score")
+    confidence = models.FloatField(default=0.2, help_text="Prediction confidence 0-1")
+
+    # Proximity factor - tłumienie ryzyka dla komórek daleko od obserwacji
+    # proximity_weight = 1 / (1 + dist_to_nearest_sighting / 200)
+    proximity_weight = models.FloatField(
+        default=1.0,
+        help_text="Proximity weight: 1/(1+d/200m), dampens risk far from sightings",
+    )
+
+    # Spatial risk from SAR/SEM models (spatialWarsaw methodology)
+    # Replaces old GWR approach; eta_local/eta_weighted removed (never computed in production)
+    spatial_risk = models.FloatField(
+        null=True, blank=True, help_text="Spatial risk from SAR/SEM model (0-1)"
+    )
+    eta_contribution = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Contribution to global entropy: -p_i*log(p_i)/H_max",
+    )
+    area_proportion = models.FloatField(
+        null=True, blank=True, help_text="Tile area proportion: tile_area/total_area"
+    )
+
+    # Spatial predictors (spatialWarsaw alignment)
+    # Distances in meters (EPSG:2180), edge-to-edge (not centroid!)
+    distance_to_water = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Edge-to-edge distance to nearest water body (m), EPSG:2180",
+    )
+    road_density = models.FloatField(
+        null=True, blank=True, help_text="Road density within cell (m/km²)"
+    )
+    building_density = models.FloatField(
+        null=True, blank=True, help_text="Building footprint ratio within cell"
+    )
 
     class Meta:
         indexes = [
