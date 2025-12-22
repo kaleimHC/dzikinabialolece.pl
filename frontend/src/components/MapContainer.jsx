@@ -39,7 +39,6 @@ export default function MapContainer() {
   } = useSightingsStore();
   const currentTheme = useSightingsStore((s) => s.currentTheme);
 
-  // Grid transition (crossfade animation FAST <-> PUB <-> RESEARCH)
   useGridTransition(
     mapRef,
     mapReady,
@@ -50,7 +49,6 @@ export default function MapContainer() {
     researchGeometry,
   );
 
-  // OSM layer transition (fade in/out animation)
   useOsmLayerTransition(mapRef, mapReady, visibleLayers);
 
   const updateCircleSizes = useCallback((map, n, zoom) => {
@@ -125,11 +123,7 @@ export default function MapContainer() {
         id: "waterways-line",
         type: "line",
         source: "waterways",
-        paint: {
-          "line-color": tk.osm.waterways,
-          "line-width": 2,
-          "line-opacity": 0.8,
-        },
+        paint: { "line-color": tk.osm.waterways, "line-width": 2, "line-opacity": 0.8 },
       });
 
       map.addSource("buildings", {
@@ -147,26 +141,185 @@ export default function MapContainer() {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
+      map.addLayer({
+        id: "roads-line",
+        type: "line",
+        source: "roads",
+        paint: { "line-color": tk.osm.roads, "line-width": 2, "line-opacity": 0.8 },
+      });
+
+      // Sightings cluster sources
+      map.addSource("encounters", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50,
+      });
+      map.addSource("ryjowisko", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50,
+      });
+
+      map.addLayer({
+        id: "encounters-clusters",
+        type: "circle",
+        source: "encounters",
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": ["step", ["get", "point_count"], tk.encounter, 5, tk.encounterCluster, 15, tk.encounterLarge],
+          "circle-radius": ["step", ["get", "point_count"], 18, 5, 25, 15, 35],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+      map.addLayer({
+        id: "encounters-cluster-count",
+        type: "symbol",
+        source: "encounters",
+        filter: ["has", "point_count"],
+        layout: { "text-field": ["to-string", ["get", "point_count"]], "text-size": 12 },
+        paint: { "text-color": "#ffffff" },
+      });
+      map.addLayer({
+        id: "encounters-point",
+        type: "circle",
+        source: "encounters",
+        filter: ["!", ["has", "point_count"]],
+        paint: { "circle-color": tk.encounter, "circle-radius": 6, "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+      });
+      map.addLayer({
+        id: "encounters-hover-ring",
+        type: "circle",
+        source: "encounters",
+        filter: ["==", ["get", "id"], ""],
+        paint: { "circle-radius": 16, "circle-color": "transparent", "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+      });
+
+      map.addLayer({
+        id: "ryjowisko-clusters",
+        type: "circle",
+        source: "ryjowisko",
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": ["step", ["get", "point_count"], tk.ryjowisko, 5, tk.ryjowiskoCluster, 15, tk.ryjowiskoLarge],
+          "circle-radius": ["step", ["get", "point_count"], 18, 5, 25, 15, 35],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+      map.addLayer({
+        id: "ryjowisko-cluster-count",
+        type: "symbol",
+        source: "ryjowisko",
+        filter: ["has", "point_count"],
+        layout: { "text-field": ["to-string", ["get", "point_count"]], "text-size": 12 },
+        paint: { "text-color": "#ffffff" },
+      });
+      map.addLayer({
+        id: "ryjowisko-point",
+        type: "circle",
+        source: "ryjowisko",
+        filter: ["!", ["has", "point_count"]],
+        paint: { "circle-color": tk.ryjowisko, "circle-radius": 6, "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+      });
+      map.addLayer({
+        id: "ryjowisko-hover-ring",
+        type: "circle",
+        source: "ryjowisko",
+        filter: ["==", ["get", "id"], ""],
+        paint: { "circle-radius": 16, "circle-color": "transparent", "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+      });
+
+      map.addLayer({
+        id: "bialoleka-outline",
+        type: "line",
+        source: "boundaries",
+        filter: ["==", ["get", "name"], "bialoleka"],
+        paint: { "line-color": "#60a5fa", "line-width": 3, "line-dasharray": [4, 2], "line-opacity": 0.9 },
+      });
+      map.addLayer({
+        id: "wisla-line",
+        type: "line",
+        source: "boundaries",
+        filter: ["==", ["get", "name"], "wisla"],
+        paint: { "line-color": "#3b82f6", "line-width": 5, "line-opacity": 0.8 },
+      });
+
+      if (map.getLayer("building"))
+        map.setLayoutProperty("building", "visibility", "none");
 
       setMapReady(true);
     });
 
-    map.on("zoom", () => {
-      setCurrentZoom(map.getZoom());
+    const clusterClick = (src) => (e) => {
+      const f = map.queryRenderedFeatures(e.point, { layers: [src + "-clusters"] });
+      if (f.length) {
+        map.getSource(src).getClusterExpansionZoom(f[0].properties.cluster_id, (err, z) => {
+          if (!err) map.flyTo({ center: f[0].geometry.coordinates, zoom: z, speed: 0.8 });
+        });
+      }
+    };
+    map.on("click", "encounters-clusters", clusterClick("encounters"));
+    map.on("click", "ryjowisko-clusters", clusterClick("ryjowisko"));
+
+    const pointClick = (e) => {
+      if (e.features && e.features.length) setSelectedSighting(e.features[0].properties);
+    };
+    map.on("click", "encounters-point", pointClick);
+    map.on("click", "ryjowisko-point", pointClick);
+
+    ["encounters-clusters", "ryjowisko-clusters"].forEach((l) => {
+      map.on("mouseenter", l, () => (map.getCanvas().style.cursor = "pointer"));
+      map.on("mouseleave", l, () => (map.getCanvas().style.cursor = ""));
+    });
+    map.on("mouseenter", "encounters-point", (e) => {
+      map.getCanvas().style.cursor = "pointer";
+      if (e.features && e.features[0])
+        map.setFilter("encounters-hover-ring", ["==", ["get", "id"], e.features[0].properties.id || ""]);
+    });
+    map.on("mouseleave", "encounters-point", () => {
+      map.getCanvas().style.cursor = "";
+      map.setFilter("encounters-hover-ring", ["==", ["get", "id"], ""]);
     });
 
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      const z = map.getZoom();
+      updateMapView([c.lng, c.lat], z);
+      setCurrentZoom(z);
+    });
+    map.on("zoom", () => setCurrentZoom(map.getZoom()));
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      mapRef.current = null;
+      map.remove();
     };
   }, []);
 
-  return (
-    <div
-      ref={containerRef}
-      style={{ width: "100%", height: "100%" }}
-    />
-  );
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const enc = sightings.filter((f) => f.properties?.sighting_type === "encounter");
+    const ryk = sightings.filter((f) => f.properties?.sighting_type === "ryjowisko");
+    const encSrc = mapRef.current.getSource("encounters");
+    const rykSrc = mapRef.current.getSource("ryjowisko");
+    if (encSrc) encSrc.setData({ type: "FeatureCollection", features: enc });
+    if (rykSrc) rykSrc.setData({ type: "FeatureCollection", features: ryk });
+    updateCircleSizes(mapRef.current, sightings.length, currentZoom);
+  }, [mapReady, sightings, currentZoom, updateCircleSizes]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    fetch("/api/analytics/boundaries/")
+      .then((r) => r.json())
+      .then((data) => {
+        const src = mapRef.current?.getSource("boundaries");
+        if (src) src.setData(data);
+      })
+      .catch((err) => console.warn("Boundaries fetch failed:", err));
+  }, [mapReady]);
+
+  return <div ref={containerRef} className="absolute inset-0" />;
 }
