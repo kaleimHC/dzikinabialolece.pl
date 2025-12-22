@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="current-dark"] {
+  /* Channel triplets (R G B) — bez #hex, dla Tailwind opacity modifiers i color-mix() */
+  --color-primary:      16 185 129;   /* emerald-500 = #10B981 */
+  --color-primary-dark:  5 150 105;   /* emerald-600 = #059669 */
+  --color-bg:           15  23  42;   /* slate-900   = #0F172A */
+  --color-surface:      30  41  59;   /* slate-800   = #1E293B */
+  --color-surface-2:    51  65  85;   /* slate-700   = #334155 */
+  --color-border:       51  65  85;   /* = #334155 */
+  --color-muted:       156 163 175;   /* gray-400    = #9CA3AF */
+
+  /* Gray palette (overridable per theme — exact Tailwind defaults) */
+  --color-gray-300:    209 213 219;
+  --color-gray-400:    156 163 175;
+  --color-gray-500:    107 114 128;
+  --color-gray-600:     75  85  99;
+  --color-gray-700:     55  65  81;
+  --color-gray-800:     31  41  55;   /* Tailwind gray-800 = #1F2937 */
+  --color-gray-900:     17  24  39;   /* Tailwind gray-900 = #111827 */
+  --color-gray-950:      3   7  18;
+
+  /* Layer semantic tokens (used Phase 1B — Header.jsx refactor) */
+  --color-layer-wmatrix:      0 255 255;
+  --color-layer-population: 124  58 237;
+  --color-layer-research:   167 139 250;
+  --color-link-xor:         249 115  22;
+  --color-link-sync:        124  58 237;
+  --color-warning:          251 191  36;
+
+  /* Geometry */
+  --radius-base: 0.5rem;
+  --border-width: 1px;
+  --color-text:            209 213 219;
+}
+
+[data-theme="editorial-swiss"] {
+  --color-primary:           163  58  42;
+  --color-primary-dark:      122  42  30;
+  --color-bg:                247 245 243;
+  --color-surface:           255 255 255;
+  --color-surface-2:         235 230 228;
+  --color-border:            213 205 204;
+  --color-muted:             110 102 104;
+
+  --color-gray-300:          247 245 243;
+  --color-gray-400:          235 230 228;
+  --color-gray-500:          213 205 204;
+  --color-gray-600:          142 134 136;
+  --color-gray-700:          110 102 104;
+  --color-gray-800:           90  80  82;
+  --color-gray-900:           26  22  24;
+  --color-gray-950:           10   8  12;
+
+  --color-layer-wmatrix:        163  58  42;
+  --color-layer-population:     163  58  42;
+  --color-layer-research:       122  42  30;
+  --color-link-xor:             163  58  42;
+  --color-link-sync:            105  85  98;
+  --color-warning:              163  58  42;
+
+  --radius-base: 0;
+  --border-width: 1px;
+  --color-text:               26  22  24;
+}
+
+[data-theme="field-station"] {
+  --color-primary:           181  98  64;
+  --color-primary-dark:      138  71  44;
+  --color-bg:                 30  28  25;
+  --color-surface:            37  35  31;
+  --color-surface-2:          45  43  39;
+  --color-border:             53  51  48;
+  --color-muted:             154 150 146;
+  --color-gray-300:          240 238 232;
+  --color-gray-400:          213 209 200;
+  --color-gray-500:          154 150 146;
+  --color-gray-600:          122 118 111;
+  --color-gray-700:           88  84  78;
+  --color-gray-800:           53  51  48;
+  --color-gray-900:           30  28  25;
+  --color-gray-950:           18  16  14;
+  --color-layer-wmatrix:     201 117  84;
+  --color-layer-population:   94 161 111;
+  --color-layer-research:    216 168  81;
+  --color-link-xor:          201 117  84;
+  --color-link-sync:          94 161 111;
+  --color-warning:           216 168  81;
+  --radius-base:  2px;
+  --border-width: 1px;
+  --color-text:            240 238 232;
+}
+
+[data-theme="cyberpunk-tasteful"] {
+  --color-primary:           204  90 188;
+  --color-primary-dark:      156  60 142;
+  --color-bg:                 12   9  22;
+  --color-surface:            18  14  32;
+  --color-surface-2:          26  20  44;
+  --color-border:             42  32  64;
+  --color-muted:             122 112 142;
+  --color-gray-300:          230 226 240;
+  --color-gray-400:          198 192 218;
+  --color-gray-500:          142 132 162;
+  --color-gray-600:          100  92 122;
+  --color-gray-700:           72  64  92;
+  --color-gray-800:           42  32  64;
+  --color-gray-900:           22  16  38;
+  --color-gray-950:           12   9  22;
+  --color-layer-wmatrix:     204  90 188;
+  --color-layer-population:  142 132 162;
+  --color-layer-research:    168 142 196;
+  --color-link-xor:          204  90 188;
+  --color-link-sync:         122 152 168;
+  --color-warning:           224 132 196;
+  --radius-base:  0;
+  --border-width: 1px;
