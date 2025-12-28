@@ -102,3 +102,81 @@ gridcells <- dbGetQuery(conn, query)
 
 n_cells <- nrow(gridcells)
 cat(sprintf("Pobrano %d cells.\n", n_cells))
+
+# 3. Obliczenie GĘSTOŚCI OBSERWACJI (główny predyktor!)
+cat("Obliczanie gestosci obserwacji...\n")
+
+# KLUCZOWE: gestosc = sighting_count / area_proportion
+# area_proportion to udzial komorki w calkowitej powierzchni
+# Wieksza gestosc = wiecej obserwacji na jednostke powierzchni = wyzsze ryzyko
+
+gridcells$density <- gridcells$sighting_count / (gridcells$area_proportion + 0.0001)
+
+# PERCENTILE RANK normalizacja gestosci do 0-1 (v2.0)
+# Zmiana z min-max na percentile rank - unika problemu outliers
+n_cells <- nrow(gridcells)
+if (n_cells > 1) {
+  density_rank <- rank(gridcells$density, ties.method = "average", na.last = "keep")
+  gridcells$density_score <- (density_rank - 1) / (n_cells - 1)
+} else {
+  gridcells$density_score <- 0.5
+}
+
+cat(sprintf("  Density: min=%.2f, max=%.2f (PERCENTILE RANK)\n",
+            min(gridcells$density, na.rm=TRUE), max(gridcells$density, na.rm=TRUE)))
+cat(sprintf("  Cells with 0 sightings: %d\n", sum(gridcells$sighting_count == 0)))
+
+# ETA score: bazowany na area_proportion z teselacji Voronoi
+# Mniejsze kafelki = większe skupienie = wyższe ryzyko
+# PERCENTILE RANK (v2.0) - odwrócony: mały area = wysoki rank = wysoki score
+if (any(gridcells$area_proportion > 0, na.rm = TRUE) && n_cells > 1) {
+  # Rank area_proportion: mały area = rank 1, duży area = rank n
+  area_rank <- rank(gridcells$area_proportion, ties.method = "average", na.last = "keep")
+  # Odwróć: mały area (rank 1) -> score ~1, duży area (rank n) -> score ~0
+  gridcells$area_rank_score <- 1 - (area_rank - 1) / (n_cells - 1)
+  cat("  area_rank_score z area_proportion (PERCENTILE RANK, mniejszy kafelek = wyższe ryzyko)\n")
+} else {
+  gridcells$area_rank_score <- 0.5
+  cat("  Brak danych area_rank - default 0.5\n")
+}
+
+# Spatial score: z NEW_03 (PERCENTILE RANK) - już znormalizowane!
+# NIE re-normalizujemy - spatial_risk jest już w [0,1] z percentile rank
+gridcells$spatial_score_final <- gridcells$spatial_score
+gridcells$spatial_score_final[is.na(gridcells$spatial_score_final)] <- 0.5
+cat(sprintf("  Spatial score (z 03 percentile rank): min=%.3f, max=%.3f\n",
+            min(gridcells$spatial_score_final, na.rm=TRUE),
+            max(gridcells$spatial_score_final, na.rm=TRUE)))
+# spatial_score_final już ustawione powyżej (bez re-normalizacji)
+
+# 4. Obliczenie ensemble
+#
+# Wagi:
+# - 30% density (gęstość obserwacji per cell)
+# - 40% spatial (SAR/SEM z NEW_02_spatial_models.R)
+# - 30% ETA (clustering z area_proportion)
+cat("Obliczanie ensemble prediction...\n")
+
+W_DENSITY <- 0.30   # 30% - gęstość obserwacji
+W_SPATIAL <- 0.40   # 40% - SAR/SEM spatial trend
+W_ETA <- 0.30       # 30% - clustering pattern
+
+cat(sprintf("Wagi: %.0f%% density + %.0f%% spatial + %.0f%% ETA\n",
+            W_DENSITY*100, W_SPATIAL*100, W_ETA*100))
+
+# Ensemble prediction
+gridcells$ensemble_risk <- W_DENSITY * gridcells$density_score +
+                           W_SPATIAL * gridcells$spatial_score_final +
+                           W_ETA * gridcells$area_rank_score
+
+# Confidence: bazowane na liczbie obserwacji w komorce
+# Wiecej obserwacji = wyzsza pewnosc predykcji
+max_sightings <- max(gridcells$sighting_count, na.rm = TRUE)
+if (max_sightings > 0) {
+  gridcells$confidence <- gridcells$sighting_count / max_sightings
+} else {
+  gridcells$confidence <- 0
+}
+# Minimum confidence 0.1 dla komórek z obserwacjami
+gridcells$confidence[gridcells$sighting_count > 0] <-
+  pmax(gridcells$confidence[gridcells$sighting_count > 0], 0.1)
