@@ -180,3 +180,92 @@ if (max_sightings > 0) {
 # Minimum confidence 0.1 dla komórek z obserwacjami
 gridcells$confidence[gridcells$sighting_count > 0] <-
   pmax(gridcells$confidence[gridcells$sighting_count > 0], 0.1)
+
+# 4a. PROXIMITY FACTOR - tłumienie ryzyka dla komórek daleko od obserwacji
+#
+# Problem: GWR predykuje wysokie ryzyko na podstawie środowiska,
+# nawet gdy nie ma żadnych obserwacji w pobliżu.
+#
+# Rozwiązanie: Waga odwrotnie proporcjonalna do odległości od obserwacji
+# proximity_weight = 1 / (1 + dist_to_nearest_sighting / DECAY_DISTANCE)
+#
+# DECAY_DISTANCE = 200m - ryzyko spada o połowę co 200m od obserwacji
+cat("\nObliczanie proximity factor...\n")
+
+DECAY_DISTANCE <- 200  # metry - parametr tłumienia
+
+# Komórki z obserwacjami (źródła)
+cells_with_sightings <- gridcells[gridcells$sighting_count > 0, ]
+n_sources <- nrow(cells_with_sightings)
+cat(sprintf("  Źródła (cells with sightings): %d\n", n_sources))
+
+if (n_sources > 0) {
+  # Współrzędne źródeł (EPSG:4326, stopnie)
+  source_coords <- as.matrix(cells_with_sightings[, c("centroid_x", "centroid_y")])
+
+  # Dla każdej komórki oblicz odległość do najbliższej obserwacji
+  # Używamy przybliżenia: 1 stopień ≈ 111km (dla szerokości geograficznej Polski)
+  DEG_TO_M <- 111000  # przybliżenie dla lat ~52°
+
+  gridcells$dist_to_nearest_sighting <- sapply(seq_len(nrow(gridcells)), function(i) {
+    cell_x <- gridcells$centroid_x[i]
+    cell_y <- gridcells$centroid_y[i]
+
+    # Odległości do wszystkich źródeł (w metrach, przybliżone)
+    dx <- (source_coords[, 1] - cell_x) * DEG_TO_M * cos(cell_y * pi / 180)
+    dy <- (source_coords[, 2] - cell_y) * DEG_TO_M
+    dists <- sqrt(dx^2 + dy^2)
+
+    min(dists)
+  })
+
+  # Proximity weight: 1/(1 + d/DECAY_DISTANCE)
+  # d=0 → weight=1.0 (pełne ryzyko)
+  # d=200 → weight=0.5 (połowa ryzyka)
+  # d=400 → weight=0.33
+  # d=1000 → weight=0.17
+  gridcells$proximity_weight <- 1 / (1 + gridcells$dist_to_nearest_sighting / DECAY_DISTANCE)
+
+  # Zastosuj proximity weight do ensemble_risk
+  gridcells$ensemble_risk_raw <- gridcells$ensemble_risk  # zachowaj oryginał
+  gridcells$ensemble_risk <- gridcells$ensemble_risk * gridcells$proximity_weight
+
+  cat(sprintf("  Dist to nearest sighting: min=%.0fm, max=%.0fm, mean=%.0fm\n",
+              min(gridcells$dist_to_nearest_sighting),
+              max(gridcells$dist_to_nearest_sighting),
+              mean(gridcells$dist_to_nearest_sighting)))
+  cat(sprintf("  Proximity weight: min=%.3f, max=%.3f, mean=%.3f\n",
+              min(gridcells$proximity_weight),
+              max(gridcells$proximity_weight),
+              mean(gridcells$proximity_weight)))
+  cat(sprintf("  Risk reduction: %.1f%% średnio\n",
+              100 * (1 - mean(gridcells$ensemble_risk) / mean(gridcells$ensemble_risk_raw))))
+} else {
+  cat("  UWAGA: Brak obserwacji - proximity factor nie zastosowany.\n")
+  gridcells$dist_to_nearest_sighting <- NA
+  gridcells$proximity_weight <- 1.0
+  gridcells$ensemble_risk_raw <- gridcells$ensemble_risk
+}
+
+# Statystyki
+cat(sprintf("\nStatystyki ensemble (po proximity factor):\n"))
+cat(sprintf("  Density score: min=%.3f, max=%.3f, mean=%.3f\n",
+            min(gridcells$density_score, na.rm = TRUE),
+            max(gridcells$density_score, na.rm = TRUE),
+            mean(gridcells$density_score, na.rm = TRUE)))
+cat(sprintf("  area_rank_score: min=%.3f, max=%.3f, mean=%.3f\n",
+            min(gridcells$area_rank_score, na.rm = TRUE),
+            max(gridcells$area_rank_score, na.rm = TRUE),
+            mean(gridcells$area_rank_score, na.rm = TRUE)))
+cat(sprintf("  Spatial score: min=%.3f, max=%.3f, mean=%.3f\n",
+            min(gridcells$spatial_score_final, na.rm = TRUE),
+            max(gridcells$spatial_score_final, na.rm = TRUE),
+            mean(gridcells$spatial_score_final, na.rm = TRUE)))
+cat(sprintf("  Ensemble:  min=%.3f, max=%.3f, mean=%.3f\n",
+            min(gridcells$ensemble_risk, na.rm = TRUE),
+            max(gridcells$ensemble_risk, na.rm = TRUE),
+            mean(gridcells$ensemble_risk, na.rm = TRUE)))
+cat(sprintf("  Confidence: min=%.3f, max=%.3f, mean=%.3f\n",
+            min(gridcells$confidence, na.rm = TRUE),
+            max(gridcells$confidence, na.rm = TRUE),
+            mean(gridcells$confidence, na.rm = TRUE)))
