@@ -269,3 +269,131 @@ cat(sprintf("  Confidence: min=%.3f, max=%.3f, mean=%.3f\n",
             min(gridcells$confidence, na.rm = TRUE),
             max(gridcells$confidence, na.rm = TRUE),
             mean(gridcells$confidence, na.rm = TRUE)))
+
+# 5. Zapis do bazy
+cat("\nZapisywanie do bazy...\n")
+
+# Dodaj kolumny jesli nie istnieja
+# PUB (voronoi): proximity_weight usunięta przez migrację — nie dodajemy
+alter_sql <- if (is_pub_voronoi) {
+  sprintf("
+  ALTER TABLE %s
+  ADD COLUMN IF NOT EXISTS area_rank_score DOUBLE PRECISION DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS gwr_score DOUBLE PRECISION DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS ensemble_risk DOUBLE PRECISION DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION DEFAULT 0.5
+", TARGET_TABLE)
+} else {
+  sprintf("
+  ALTER TABLE %s
+  ADD COLUMN IF NOT EXISTS area_rank_score DOUBLE PRECISION DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS gwr_score DOUBLE PRECISION DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS ensemble_risk DOUBLE PRECISION DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION DEFAULT 0.5,
+  ADD COLUMN IF NOT EXISTS proximity_weight DOUBLE PRECISION DEFAULT 1.0
+", TARGET_TABLE)
+}
+dbExecute(conn, alter_sql)
+
+# Aktualizacja przez temp table i batch update
+# gwr_score: backwards compat alias dla spatial_score_final (API i views_pub używają tej kolumny)
+dbExecute(conn, "DROP TABLE IF EXISTS temp_ensemble_scores")
+
+if (is_pub_voronoi) {
+  dbExecute(conn, "
+    CREATE TEMP TABLE temp_ensemble_scores (
+      grid_id TEXT PRIMARY KEY,
+      area_rank_score DOUBLE PRECISION,
+      gwr_score DOUBLE PRECISION,
+      ensemble_risk DOUBLE PRECISION,
+      confidence DOUBLE PRECISION
+    )
+  ")
+  scores_df <- data.frame(
+    grid_id = gridcells$grid_id,
+    area_rank_score = gridcells$area_rank_score,
+    gwr_score = gridcells$spatial_score_final,
+    ensemble_risk = gridcells$ensemble_risk,
+    confidence = gridcells$confidence
+  )
+  dbWriteTable(conn, "temp_ensemble_scores", scores_df, append = TRUE, row.names = FALSE)
+  dbExecute(conn, sprintf("
+    UPDATE %s g
+    SET
+      area_rank_score = t.area_rank_score,
+      gwr_score = t.gwr_score,
+      ensemble_risk = t.ensemble_risk,
+      confidence = t.confidence
+    FROM temp_ensemble_scores t
+    WHERE g.grid_id = t.grid_id
+  ", TARGET_TABLE))
+} else {
+  dbExecute(conn, "
+    CREATE TEMP TABLE temp_ensemble_scores (
+      grid_id TEXT PRIMARY KEY,
+      area_rank_score DOUBLE PRECISION,
+      gwr_score DOUBLE PRECISION,
+      ensemble_risk DOUBLE PRECISION,
+      confidence DOUBLE PRECISION,
+      proximity_weight DOUBLE PRECISION
+    )
+  ")
+  scores_df <- data.frame(
+    grid_id = gridcells$grid_id,
+    area_rank_score = gridcells$area_rank_score,
+    gwr_score = gridcells$spatial_score_final,
+    ensemble_risk = gridcells$ensemble_risk,
+    confidence = gridcells$confidence,
+    proximity_weight = gridcells$proximity_weight
+  )
+  dbWriteTable(conn, "temp_ensemble_scores", scores_df, append = TRUE, row.names = FALSE)
+  dbExecute(conn, sprintf("
+    UPDATE %s g
+    SET
+      area_rank_score = t.area_rank_score,
+      gwr_score = t.gwr_score,
+      ensemble_risk = t.ensemble_risk,
+      confidence = t.confidence,
+      proximity_weight = t.proximity_weight
+    FROM temp_ensemble_scores t
+    WHERE g.grid_id = t.grid_id
+  ", TARGET_TABLE))
+}
+
+dbExecute(conn, "DROP TABLE IF EXISTS temp_ensemble_scores")
+
+cat(sprintf("Zaktualizowano %d cells.\n", nrow(gridcells)))
+
+# Zapis podsumowania
+dbExecute(conn, "
+  CREATE TABLE IF NOT EXISTS analytics_ensemble_result (
+    id SERIAL PRIMARY KEY,
+    computed_at TIMESTAMP DEFAULT NOW(),
+    n_cells INTEGER,
+    w_density DOUBLE PRECISION,
+    w_eta DOUBLE PRECISION,
+    w_gwr DOUBLE PRECISION,
+    mean_ensemble DOUBLE PRECISION,
+    mean_confidence DOUBLE PRECISION
+  )
+")
+
+dbExecute(conn, sprintf("
+  INSERT INTO analytics_ensemble_result
+    (n_cells, w_density, w_eta, w_gwr, mean_ensemble, mean_confidence)
+  VALUES (%d, %.2f, %.2f, %.2f, %.6f, %.6f)
+", n_cells, W_DENSITY, W_ETA, W_SPATIAL,  # w_gwr column zachowane dla kompatybilności
+   mean(gridcells$ensemble_risk, na.rm = TRUE),
+   mean(gridcells$confidence, na.rm = TRUE)))
+
+cat(sprintf("Ensemble weights: density=%.0f%%, spatial=%.0f%%, ETA=%.0f%%\n",
+            W_DENSITY*100, W_SPATIAL*100, W_ETA*100))
+
+# 6. Cleanup
+dbDisconnect(conn)
+
+cat("\n=== ETAP 6 ZAKONCZONY ===\n")
+cat(sprintf("Ensemble: %d cells, mean risk=%.3f, mean confidence=%.3f\n",
+            n_cells,
+            mean(gridcells$ensemble_risk, na.rm = TRUE),
+            mean(gridcells$confidence, na.rm = TRUE)))
