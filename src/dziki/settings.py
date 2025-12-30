@@ -32,6 +32,12 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 # =============================================================================
 # NotebookLM Q10: Verified required apps
 INSTALLED_APPS = [
+    # Daphne ASGI server (must be first for runserver ASGI support)
+    'daphne',
+
+    # Django Channels
+    'channels',
+
     # Django core
     'django.contrib.admin',
     'django.contrib.auth',
@@ -46,10 +52,6 @@ INSTALLED_APPS = [
     # Django REST Framework (NotebookLM Q10)
     'rest_framework',
     'rest_framework_gis',  # drf-gis for GeoJSON
-
-    # Project apps
-    'sightings',
-    'analytics',
     
     # Celery (NotebookLM Q10)
     'django_celery_beat',    # Scheduled tasks (ADR-009)
@@ -61,6 +63,9 @@ INSTALLED_APPS = [
     # Monitoring (NotebookLM Q10 - recommended)
     # 'django_prometheus',
     
+    # Project apps
+    'sightings',
+    'analytics',
 ]
 
 MIDDLEWARE = [
@@ -99,7 +104,23 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'dziki.wsgi.application'
+ASGI_APPLICATION = 'dziki.asgi.application'
 
+# =============================================================================
+# DJANGO CHANNELS (WebSocket support)
+# =============================================================================
+# Uses Redis for channel layer (same broker, different DB)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.environ.get(
+                'REDIS_CHANNELS_URL',
+                'redis://:redis_dev_password@redis-broker:6379/1'
+            )],
+        },
+    },
+}
 
 # =============================================================================
 # DATABASE - PostgreSQL + PostGIS via PgBouncer
