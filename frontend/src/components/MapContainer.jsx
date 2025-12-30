@@ -148,6 +148,132 @@ export default function MapContainer() {
         paint: { "line-color": tk.osm.roads, "line-width": 2, "line-opacity": 0.8 },
       });
 
+      map.addSource("railway", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "railway-line",
+        type: "line",
+        source: "railway",
+        paint: {
+          "line-color": tk.osm.railway,
+          "line-width": 3,
+          "line-opacity": 0.8,
+        },
+      });
+
+      // GUS Population grid (subtle violet choropleth)
+      map.addSource("population", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "population-fill",
+        type: "fill",
+        source: "population",
+        paint: {
+          "fill-color": [
+            "interpolate", ["linear"], ["get", "tot"],
+            0,    tk.heatmap.population.s0,
+            10,   tk.heatmap.population.s1,
+            100,  tk.heatmap.population.s2,
+            300,  tk.heatmap.population.s3,
+            700,  tk.heatmap.population.s4,
+            1500, tk.heatmap.population.s5,
+            3000, tk.heatmap.population.s6,
+          ],
+          "fill-opacity": [
+            "interpolate", ["linear"], ["get", "tot"],
+            0, 0.3, 10, 0.4, 100, 0.5, 300, 0.55, 700, 0.6, 1500, 0.65, 3000, 0.7,
+          ],
+        },
+      });
+      map.addLayer({
+        id: "population-outline",
+        type: "line",
+        source: "population",
+        paint: {
+          "line-color": "rgba(124, 58, 237, 0.2)",
+          "line-width": 0.5,
+          "line-opacity": 1,
+        },
+      });
+
+      // W Matrix edges (spatial neighbor connections)
+      map.addSource("w-matrix", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "w-matrix-lines",
+        type: "line",
+        source: "w-matrix",
+        paint: {
+          "line-color": tk.wmatrix,
+          "line-width": 1,
+          "line-opacity": 0.6,
+        },
+      });
+
+      // Risk heatmap (ON TOP)
+      map.addSource("risk", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "risk-fill",
+        type: "fill",
+        source: "risk",
+        paint: {
+          "fill-color": [
+            "interpolate", ["linear"], ["get", "risk"],
+            0.0,  tk.heatmap.risk.s0,
+            0.1,  tk.heatmap.risk.s1,
+            0.25, tk.heatmap.risk.s2,
+            0.4,  tk.heatmap.risk.s3,
+            0.55, tk.heatmap.risk.s4,
+            0.7,  tk.heatmap.risk.s5,
+            0.85, tk.heatmap.risk.s6,
+            1.0,  tk.heatmap.risk.s7,
+          ],
+          "fill-opacity": riskOpacity(tk.riskLowTransparent),
+        },
+      });
+      map.addLayer({
+        id: "risk-outline",
+        type: "line",
+        source: "risk",
+        paint: {
+          "line-color": "#ffffff",
+          "line-width": 0.5,
+          "line-opacity": 0.3,
+        },
+      });
+
+      // TRAJECTORY LAYER (migration corridors)
+      map.addSource("trajectories", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "trajectory-lines",
+        type: "line",
+        source: "trajectories",
+        layout: { visibility: "none" },
+        paint: {
+          "line-color": [
+            "match", ["get", "trajectory_type"],
+            "riparian",    "#0066ff",
+            "forest_edge", "#00aa00",
+            "urban_green", "#ff9900",
+            "#E879F9",
+          ],
+          "line-width": 3,
+          "line-opacity": 0.8,
+        },
+      });
+
       // Sightings cluster sources
       map.addSource("encounters", {
         type: "geojson",
