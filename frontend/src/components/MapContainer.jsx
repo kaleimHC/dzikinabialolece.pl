@@ -307,8 +307,16 @@ export default function MapContainer() {
         type: "symbol",
         source: "encounters",
         filter: ["has", "point_count"],
-        layout: { "text-field": ["to-string", ["get", "point_count"]], "text-size": 12 },
-        paint: { "text-color": "#ffffff" },
+        layout: {
+          "text-field": ["to-string", ["get", "point_count"]],
+          "text-size": 12,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-opacity-transition": { duration: 0, delay: 0 },
+        },
       });
       map.addLayer({
         id: "encounters-point",
@@ -342,8 +350,16 @@ export default function MapContainer() {
         type: "symbol",
         source: "ryjowisko",
         filter: ["has", "point_count"],
-        layout: { "text-field": ["to-string", ["get", "point_count"]], "text-size": 12 },
-        paint: { "text-color": "#ffffff" },
+        layout: {
+          "text-field": ["to-string", ["get", "point_count"]],
+          "text-size": 12,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-opacity-transition": { duration: 0, delay: 0 },
+        },
       });
       map.addLayer({
         id: "ryjowisko-point",
@@ -365,7 +381,12 @@ export default function MapContainer() {
         type: "line",
         source: "boundaries",
         filter: ["==", ["get", "name"], "bialoleka"],
-        paint: { "line-color": "#60a5fa", "line-width": 3, "line-dasharray": [4, 2], "line-opacity": 0.9 },
+        paint: {
+          "line-color": "#60a5fa",
+          "line-width": 3,
+          "line-dasharray": [4, 2],
+          "line-opacity": 0.9,
+        },
       });
       map.addLayer({
         id: "wisla-line",
@@ -375,6 +396,7 @@ export default function MapContainer() {
         paint: { "line-color": "#3b82f6", "line-width": 5, "line-opacity": 0.8 },
       });
 
+      // Hide base map buildings (overlap with grid)
       if (map.getLayer("building"))
         map.setLayoutProperty("building", "visibility", "none");
 
@@ -382,18 +404,25 @@ export default function MapContainer() {
     });
 
     const clusterClick = (src) => (e) => {
-      const f = map.queryRenderedFeatures(e.point, { layers: [src + "-clusters"] });
+      const f = map.queryRenderedFeatures(e.point, {
+        layers: [src + "-clusters"],
+      });
       if (f.length) {
-        map.getSource(src).getClusterExpansionZoom(f[0].properties.cluster_id, (err, z) => {
-          if (!err) map.flyTo({ center: f[0].geometry.coordinates, zoom: z, speed: 0.8 });
-        });
+        map
+          .getSource(src)
+          .getClusterExpansionZoom(f[0].properties.cluster_id, (err, z) => {
+            if (!err)
+              map.flyTo({ center: f[0].geometry.coordinates, zoom: z, speed: 0.8 });
+          });
       }
     };
     map.on("click", "encounters-clusters", clusterClick("encounters"));
     map.on("click", "ryjowisko-clusters", clusterClick("ryjowisko"));
 
     const pointClick = (e) => {
-      if (e.features && e.features.length) setSelectedSighting(e.features[0].properties);
+      if (e.features && e.features.length) {
+        setSelectedSighting(e.features[0].properties);
+      }
     };
     map.on("click", "encounters-point", pointClick);
     map.on("click", "ryjowisko-point", pointClick);
@@ -411,6 +440,15 @@ export default function MapContainer() {
       map.getCanvas().style.cursor = "";
       map.setFilter("encounters-hover-ring", ["==", ["get", "id"], ""]);
     });
+    map.on("mouseenter", "ryjowisko-point", (e) => {
+      map.getCanvas().style.cursor = "pointer";
+      if (e.features && e.features[0])
+        map.setFilter("ryjowisko-hover-ring", ["==", ["get", "id"], e.features[0].properties.id || ""]);
+    });
+    map.on("mouseleave", "ryjowisko-point", () => {
+      map.getCanvas().style.cursor = "";
+      map.setFilter("ryjowisko-hover-ring", ["==", ["get", "id"], ""]);
+    });
 
     map.on("moveend", () => {
       const c = map.getCenter();
@@ -427,8 +465,12 @@ export default function MapContainer() {
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
-    const enc = sightings.filter((f) => f.properties?.sighting_type === "encounter");
-    const ryk = sightings.filter((f) => f.properties?.sighting_type === "ryjowisko");
+    const enc = sightings.filter(
+      (f) => f.properties && f.properties.sighting_type === "encounter",
+    );
+    const ryk = sightings.filter(
+      (f) => f.properties && f.properties.sighting_type === "ryjowisko",
+    );
     const encSrc = mapRef.current.getSource("encounters");
     const rykSrc = mapRef.current.getSource("ryjowisko");
     if (encSrc) encSrc.setData({ type: "FeatureCollection", features: enc });
@@ -436,6 +478,7 @@ export default function MapContainer() {
     updateCircleSizes(mapRef.current, sightings.length, currentZoom);
   }, [mapReady, sightings, currentZoom, updateCircleSizes]);
 
+  // Fetch boundaries (Białołęka + Wisła)
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     fetch("/api/analytics/boundaries/")
@@ -446,6 +489,63 @@ export default function MapContainer() {
       })
       .catch((err) => console.warn("Boundaries fetch failed:", err));
   }, [mapReady]);
+
+  // Theme change: update sightings + risk layer paint properties
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const m = mapRef.current;
+    const tk = getTokens(currentTheme);
+
+    if (m.getLayer("encounters-point"))
+      m.setPaintProperty("encounters-point", "circle-color", tk.encounter);
+    if (m.getLayer("encounters-clusters"))
+      m.setPaintProperty("encounters-clusters", "circle-color", [
+        "step", ["get", "point_count"], tk.encounter, 5, tk.encounterCluster, 15, tk.encounterLarge,
+      ]);
+    if (m.getLayer("ryjowisko-point"))
+      m.setPaintProperty("ryjowisko-point", "circle-color", tk.ryjowisko);
+    if (m.getLayer("ryjowisko-clusters"))
+      m.setPaintProperty("ryjowisko-clusters", "circle-color", [
+        "step", ["get", "point_count"], tk.ryjowisko, 5, tk.ryjowiskoCluster, 15, tk.ryjowiskoLarge,
+      ]);
+
+    if (m.getLayer("risk-fill")) {
+      m.setPaintProperty("risk-fill", "fill-color", [
+        "interpolate", ["linear"], ["get", "risk"],
+        0.0, tk.heatmap.risk.s0, 0.1, tk.heatmap.risk.s1,
+        0.25, tk.heatmap.risk.s2, 0.4, tk.heatmap.risk.s3,
+        0.55, tk.heatmap.risk.s4, 0.7, tk.heatmap.risk.s5,
+        0.85, tk.heatmap.risk.s6, 1.0, tk.heatmap.risk.s7,
+      ]);
+      if (m.getPaintProperty("risk-fill", "fill-opacity") !== 0) {
+        m.setPaintProperty("risk-fill", "fill-opacity", riskOpacity(tk.riskLowTransparent));
+      }
+    }
+  }, [currentTheme, mapReady]);
+
+  // Toggle base map buildings based on displayMode
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const isPubMode = displayMode === "publication";
+    const buildingVis = isPubMode && showHeatmap ? "none" : "visible";
+    if (map.getLayer("building"))
+      map.setLayoutProperty("building", "visibility", buildingVis);
+  }, [mapReady, showHeatmap, displayMode]);
+
+  // Track cursor position in add mode
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !isAddMode) return;
+    const update = () => {
+      const c = mapRef.current.getCenter();
+      setPendingLocation(c.lat, c.lng);
+    };
+    update();
+    mapRef.current.on("moveend", update);
+    return () => {
+      if (mapRef.current) mapRef.current.off("moveend", update);
+    };
+  }, [mapReady, isAddMode]);
 
   return <div ref={containerRef} className="absolute inset-0" />;
 }
