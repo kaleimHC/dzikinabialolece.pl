@@ -398,3 +398,201 @@ corrSpatialLags<-function(points_sf, var_name, sample_size, knn){
   sample_size <- as.integer(sample_size)
   if (sample_size > nrow(points_sf) || sample_size<1) {
     sample_size<-nrow(points_sf)
+    cat("Wrong sample size. Sample_size set to:",sample_size,"\n",sep="")
+  }
+
+  # knn - warunek
+  if(!(is.numeric(knn))) {
+    stop("knn is to be a numerical vector.")
+  } else if (length(knn)<=1) {
+    stop("knn should be a vector with a length greater than 1.")
+  } else {
+    knn<-sort(round(knn))
+  }
+
+  # zbadać var_name - jeśli nie ma lub nie istnieje w danych, to pominąć, jeśli istnieje to wyciągnąć kolumnę
+  if (length(var_name)>1) {
+    var_name<-var_name[1]
+    cat("Parameter var_name longer than 1. The first element has been selected: ",var_name,"\n",sep="")
+  }
+
+  m <- match(gsub(" ", ".", var_name), colnames(points_sf))
+
+  if (is.na(m) || is.null(var_name)) {
+    stop("Unknown variable name or variable name not specified.")
+  }
+
+  # sample do testowania
+  selector<-sample(nrow(points_sf), sample_size, replace=FALSE)
+  points_sf_s<-points_sf[selector,]
+  crds_s<-crds[selector, ]
+  crds_s[,1]<-crds_s[,1]+rnorm(sample_size, 0, sd(crds_s[,1])/1000)
+  crds_s[,2]<-crds_s[,2]+rnorm(sample_size, 0, sd(crds_s[,2])/1000)
+
+  # macierze rezultatów - może zrobić dodatkową kolumnę ze zmienną i potem opóźnienia
+  lags.result<-matrix(NA, nrow=nrow(points_sf_s), ncol=length(knn))
+  colnames(lags.result)<-knn
+  cor.result<-matrix(0, nrow=length(knn), ncol=length(knn))
+  colnames(cor.result)<-knn
+  rownames(cor.result)<-knn
+
+  cat(length(knn), " spatial lags will be computed. ", "It can take a while.","\n",sep="")
+  for(i in 1:length(knn)){
+    knnW_temp<-nb2listw(make.sym.nb(knn2nb(knearneigh(as.matrix(crds_s), k=knn[i]))))
+    lags.result[,i]<-lag.listw(knnW_temp, as.data.frame(points_sf_s[,m])[,1])
+  }
+
+  cor.result<-matrix(0, nrow=length(knn), ncol=length(knn))
+  for(i in 1:length(knn)){
+    for(j in 1:length(knn)){
+      cor.result[i,j]<-ifelse(i<j, cor(lags.result[,i], lags.result[,j]), NA)
+    }
+  }
+
+  # theoretical (expected) correlation from general formula
+  t_cor.result<-matrix(0, nrow=length(knn), ncol=length(knn))
+  for(i in 1:length(knn)){
+    for(j in 1:length(knn)){
+      t_cor.result[i,j]<-ifelse(i<j,(i/j)^0.5, NA)
+    }
+  }
+
+  par(mar=c(5,5,5,5), mfrow=c(1,2))
+  plot(cor.result, xlab="knn", ylab="knn", cex.main=0.9,
+       main="Empirical correlation between spatial lags of selected variable", )
+  plot(t_cor.result, xlab="knn in W1", ylab="knn in W2",cex.main=0.9,
+       main="Expected (theoretical) correlation between spatial lags for different knn", )
+
+  par(mar=c(5.1,4.1,4.1,2.1), mfrow=c(1,1))
+
+  list(
+    cor_result = cor.result,
+    t_cor_result = t_cor.result
+  )
+
+}
+
+#########################
+### semiVarKnn() ###
+#########################
+#
+#' @title Semi-variance that expands by k nearest neighbours
+#'
+#' @description
+#' Semi-variance for spatial point data that does not expand in radius, but uses consecutive nearest neighbours
+#'
+#' @details
+#' Typically, semi-variance is calculated by expanding radii. This function provides semi-variance by consecutive nearest neighbours expansion.
+#' It can be used to select the optimal number of k nearest neighbours to construct a spatial weight matrix for a spatial econometric model
+#' running on point data.
+#'
+#' The function may run into computational problems on large data, which is typical of all spatial functions. The `sample_size` option allows
+#' to set a smaller number of observations than in the original dataset to speed up the computation. If `sample_size` is equal to (or greater than)
+#' the size of the dataset, all observations will be used.
+#'
+#' @name semiVarKnn
+#' @param points_sf Geo-located points in `sf` or the `data.frame` class - in the case of a `data.frame` object, the first and second columns must contain X and Y coordinates.
+#' @param var_name Name of the column (as text) in `points_sf` dataset with the variable to be analysed, e.g. "variable".
+#' @param sample_size The sample size, must be less than or equal to the number of points in the dataset (`points_sf` parameter). If `sample_size` is greater, it is automatically set
+#' to the number of points in the dataset.
+#' @param max_knn Maximum number of knn used. Calculations will be done on vector 2:max_knn, with step equal to 1.
+#'
+#' @return `semiVarKnn()` returns the vector of semi-variances for 2:max_knn observations. It also returns the line plot of this numerical output.
+#'
+#' ***Will be available soon***: In addition, if the value of sample_size is less than the number of observations in the dataset, the function will return which observations were used in the modelling.
+#'
+#' @references
+#' Kubara, M., & Kopczewska, K. (2023). Akaike information criterion in choosing the optimal k-nearest neighbours of the spatial weight matrix.
+#' Spatial Economic Analysis, 1-19.
+#'
+#' @examples
+#' # Running the example takes a while.
+#' svk<-semiVarKnn(firms_sf, "roa", 500, max_knn=20)
+#' svk
+#'
+#' @export
+semiVarKnn<-function(points_sf, var_name, sample_size, max_knn){
+  #Ew. do sprawdzenia czy warunek st_geometry_type(data_sf,FALSE)=="POINT") nie jest zbyt restrykcyjny
+  if((inherits(points_sf,"sf") && st_geometry_type(points_sf,FALSE)=="POINT")) {
+    crds<-as.data.frame(st_coordinates(points_sf))
+    colnames(crds)<-c("X_coord","Y_coord")
+    cat("Points_sf was detected as an object of class sf.\n", sep = "")
+  }  else if(inherits(points_sf,"data.frame",TRUE)==1){
+    crds<-points_sf[,c(1,2)]
+    colnames(crds)<-c("X_coord","Y_coord")
+    cat("Points_sf was detected as an object of class data.frame.\n", sep = "")
+  }  else {
+    stop("The class of data_sf must only be 'sf' of geometry type 'POINTS' or 'data.frame'.")
+  }
+
+  # zbadać sample_size i ustawić ew. na wielkość zbioru danych (może potem zmienić, żeby )
+  sample_size <- as.integer(sample_size)
+  if (sample_size > nrow(points_sf) || sample_size<1) {
+    sample_size<-nrow(points_sf)
+    cat("Wrong sample size. Sample_size set to:",sample_size,"\n",sep="")
+  }
+
+  # max_knn - warunek
+  if (length(max_knn)>1) {
+    max_knn<-max_knn[1]
+    cat("Parameter max_knn longer than 1. The first element has been selected: ",max_knn,"\n",sep="")
+  }
+
+  if(!(is.numeric(max_knn)) || (max_knn<2)) {
+    stop("knn has to be a numerical value and greater than 1.")
+  } else {
+    max_knn<-round(max_knn)
+  }
+
+  # zbadać var_name - jeśli nie ma lub nie istnieje w danych, to pominąć, jeśli istnieje to wyciągnąć kolumnę
+  if (length(var_name)>1) {
+    var_name<-var_name[1]
+    cat("Parameter var_name longer than 1. The first element has been selected: ",var_name,"\n",sep="")
+  }
+
+  m <- match(gsub(" ", ".", var_name), colnames(points_sf))
+
+  if (is.na(m) || is.null(var_name)) {
+    stop("Unknown variable name or variable name not specified.")
+  }
+
+  # sample do testowania
+  selector<-sample(nrow(points_sf), sample_size, replace=FALSE)
+  points_sf_s<-points_sf[selector,]
+  crds_s<-crds[selector, ]
+  var_s<-as.data.frame(points_sf_s[,m])[1]
+  crds_s[,1]<-crds_s[,1]+rnorm(sample_size, 0, sd(crds_s[,1])/1000)
+  crds_s[,2]<-crds_s[,2]+rnorm(sample_size, 0, sd(crds_s[,2])/1000)
+
+  gammaMat<-matrix(0,nrow=nrow(points_sf_s), ncol=nrow(points_sf_s))
+
+  # sporo to trwa - może jakoś zoptymalizować (sapply?)
+  for(i in 2:nrow(points_sf_s)) {
+    for(j in 1:(i-1)){
+      gamma_temp <- 0.5 * (var_s[j,]-var_s[i,])*(var_s[j,]-var_s[i,])
+      gammaMat[i,j] <- gamma_temp
+      gammaMat[j,i] <- gamma_temp
+    }
+  }
+
+  semiKnn <- rep(0,max_knn)
+
+  #iterate through knn
+  for (i in 2:max_knn) {
+    knn.mat.binary <- nb2mat(knn2nb(knearneigh(crds_s, k=i)))*i
+    gammaMatrix <- gammaMat * knn.mat.binary
+    semiKnn[i]<-sum(colSums(gammaMatrix))/(sum(colSums(gammaMatrix != 0))/2)
+  }
+
+  # Plot - ver I (czy od knn=1 czy od knn=2?)
+  par(mar=c(4.5,4.5,3,3))
+  plot(2:max_knn, semiKnn[2:max_knn], type="l", xlab="knn", ylab="Variogram-like statistic", lwd=2, cex.lab=0.9, cex.main=1,
+       main="semiVariance results for incremental knn", ylim=c(floor(min(semiKnn[2:max_knn])),ceiling(max(semiKnn[2:max_knn]))))
+  points(2:max_knn, semiKnn[2:max_knn], pch=21, bg="lightblue", cex=1.5)
+  # abline(h=(floor(min(semiKnn[2:max_knn])):ceiling(max(semiKnn[2:max_knn]))), lty=3)
+  abline(v=(2:max_knn), lty=3)
+
+  par(mar=c(5.1,4.1,4.1,2.1))
+
+  return(semiKnn)
+}
