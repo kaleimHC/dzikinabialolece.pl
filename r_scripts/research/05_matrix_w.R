@@ -288,3 +288,202 @@ if (w_method == "contiguity") {
     SELECT
       a.id as id_a,
       b.id as id_b,
+      ST_Length(
+        ST_CollectionExtract(ST_Intersection(a.geometry, b.geometry), 2)::geography
+      ) as shared_length
+    FROM %s a
+    JOIN %s b
+      ON ST_Intersects(a.geometry, b.geometry)
+         AND a.id < b.id
+    WHERE a.geometry IS NOT NULL
+      AND b.geometry IS NOT NULL
+  ", TARGET_TABLE, TARGET_TABLE))
+
+  cat(sprintf("  Par sasiadow: %d\n", nrow(shared_lengths)))
+
+  if (nrow(shared_lengths) > 0) {
+    cat(sprintf("  Dl. granic: min=%.1f m, max=%.1f m, avg=%.1f m\n",
+                min(shared_lengths$shared_length),
+                max(shared_lengths$shared_length),
+                mean(shared_lengths$shared_length)))
+  }
+
+  # Buduj lookup: id -> pozycja w wektorze (order by id)
+  id_to_idx <- setNames(seq_len(n), voronoi_raw$id)
+
+  # Buduj glist z dlugosciami wspolnych granic
+  # Symetryczna: jesli (a,b) ma length L, to (b,a) tez
+  shared_sym <- rbind(
+    shared_lengths,
+    data.frame(
+      id_a = shared_lengths$id_b,
+      id_b = shared_lengths$id_a,
+      shared_length = shared_lengths$shared_length
+    )
+  )
+
+  glist <- vector("list", length(nb))
+
+  for (i in seq_along(nb)) {
+    neighbors <- nb[[i]]
+    if (length(neighbors) == 1 && neighbors[1] == 0) {
+      glist[[i]] <- numeric(0)
+      next
+    }
+
+    my_id <- voronoi_raw$id[i]
+    weights <- numeric(length(neighbors))
+
+    for (j in seq_along(neighbors)) {
+      neighbor_id <- voronoi_raw$id[neighbors[j]]
+
+      # Znajdz dlugosc wspolnej granicy
+      match_row <- shared_sym[
+        shared_sym$id_a == my_id & shared_sym$id_b == neighbor_id, ]
+
+      if (nrow(match_row) > 0 && !is.na(match_row$shared_length[1])) {
+        weights[j] <- max(match_row$shared_length[1], 0.001)
+      } else {
+        # Fallback: minimalny weight (sasiad wg poly2nb ale brak w SQL)
+        weights[j] <- 0.001
+      }
+    }
+
+    glist[[i]] <- weights
+  }
+
+  W <- nb2listw(nb, glist = glist, style = "W", zero.policy = TRUE)
+
+  build_result <- list(
+    listw     = W,
+    nb        = nb,
+    method    = "tessw",
+    k_optimal = NA_integer_,
+    aic       = NA_real_
+  )
+}
+
+elapsed <- (proc.time() - t0)["elapsed"]
+cat(sprintf("  Czas budowy W: %.1f s\n", elapsed))
+
+# 5. Statystyki macierzy W
+
+cat(sprintf("\n[4] Statystyki macierzy W (%s):\n", build_result$method))
+
+card_nb <- card(build_result$nb)
+
+cat(sprintf("  Regionow: %d\n", length(build_result$nb)))
+cat(sprintf("  Srednia sasiadow: %.1f\n", mean(card_nb)))
+cat(sprintf("  Min sasiadow: %d\n", min(card_nb)))
+cat(sprintf("  Max sasiadow: %d\n", max(card_nb)))
+cat(sprintf("  Mediana sasiadow: %.0f\n", median(card_nb)))
+
+n_islands <- sum(card_nb == 0)
+cat(sprintf("  Wysp (0 sasiadow): %d\n", n_islands))
+
+if (n_islands > 0) {
+  island_ids <- voronoi_raw$id[card_nb == 0]
+  cat(sprintf("  ID wysp: %s\n", paste(island_ids, collapse = ", ")))
+}
+
+if (!is.na(build_result$k_optimal)) {
+  cat(sprintf("  Optymalny k: %d\n", build_result$k_optimal))
+  cat(sprintf("  AIC (Y~1): %.2f\n", build_result$aic))
+}
+
+# Histogram sasiadow
+cat("\n  Rozklad liczby sasiadow:\n")
+nb_table <- table(card_nb)
+for (val in names(nb_table)) {
+  cat(sprintf("    %2s sasiadow: %d kafli\n", val, nb_table[val]))
+}
+
+# 6. Zapis do RDS
+
+rds_path <- "/app/data/research_W.rds"
+cat(sprintf("\n[5] Zapis do %s...\n", rds_path))
+
+# Ensure directory exists
+dir.create(dirname(rds_path), showWarnings = FALSE, recursive = TRUE)
+
+saveRDS(build_result, file = rds_path)
+
+file_kb <- file.size(rds_path) / 1024
+cat(sprintf("Zapisano (%.0f KB).\n", file_kb))
+
+# Weryfikacja odczytu
+cat("Weryfikacja odczytu RDS...\n")
+verify <- readRDS(rds_path)
+if (!is.null(verify$listw) && inherits(verify$listw, "listw")) {
+  cat("  OK: listw poprawnie odczytany.\n")
+} else {
+  cat("  BLAD: listw nie jest poprawny!\n")
+  quit(status = 1)
+}
+
+# 6b. Eksport krawedzi W do GeoJSON (dla wizualizacji)
+
+cat("\n[6] Eksport krawedzi macierzy W do GeoJSON...\n")
+
+tryCatch({
+  # Pobierz centroidy z voronoi_sf
+  centroids <- st_centroid(voronoi_sf)
+  coords <- st_coordinates(centroids)
+
+  nb <- build_result$nb
+  n_regions <- length(nb)
+
+  # Buduj krawedzie (unikaj duplikatow i->j oraz j->i)
+  edges <- list()
+  edge_id <- 0
+
+  for (i in 1:n_regions) {
+    neighbors <- nb[[i]]
+    for (j in neighbors) {
+      if (j > i && j <= n_regions) {
+        edge_id <- edge_id + 1
+        x1 <- coords[i, 1]
+        y1 <- coords[i, 2]
+        x2 <- coords[j, 1]
+        y2 <- coords[j, 2]
+        line <- st_linestring(matrix(c(x1, x2, y1, y2), ncol = 2))
+        edges[[edge_id]] <- line
+      }
+    }
+  }
+
+  cat(sprintf("  Utworzono %d krawedzi\n", length(edges)))
+
+  if (length(edges) > 0) {
+    edges_sfc <- st_sfc(edges, crs = 4326)
+    edges_sf <- st_sf(id = 1:length(edges), geometry = edges_sfc)
+
+    geojson_path <- "/app/data/w_matrix_edges.geojson"
+    st_write(edges_sf, geojson_path, driver = "GeoJSON", delete_dsn = TRUE, quiet = TRUE)
+
+    file_kb <- file.size(geojson_path) / 1024
+    cat(sprintf("  Zapisano: %s (%.1f KB)\n", geojson_path, file_kb))
+  } else {
+    cat("  UWAGA: Brak krawedzi do eksportu.\n")
+  }
+}, error = function(e) {
+  cat(sprintf("  UWAGA: Nie udalo sie wyeksportowac krawedzi: %s\n", e$message))
+  # Non-fatal - kontynuuj pipeline
+})
+
+# 7. Podsumowanie
+
+cat("\n============================================================\n")
+cat("05_matrix_w ZAKONCZONY POMYSLNIE\n")
+cat("============================================================\n")
+cat(sprintf("Metoda: %s\n", build_result$method))
+cat(sprintf("Regionow: %d\n", length(build_result$nb)))
+cat(sprintf("Srednia sasiadow: %.1f\n", mean(card_nb)))
+cat(sprintf("Wysp: %d\n", n_islands))
+if (!is.na(build_result$k_optimal)) {
+  cat(sprintf("Optymalny k: %d (AIC=%.2f)\n",
+              build_result$k_optimal, build_result$aic))
+}
+cat(sprintf("RDS: %s (%.0f KB)\n", rds_path, file_kb))
+cat(sprintf("Czas: %.1f s\n", elapsed))
+cat("============================================================\n")
