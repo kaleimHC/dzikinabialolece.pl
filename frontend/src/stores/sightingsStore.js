@@ -175,6 +175,28 @@ export const useSightingsStore = create(
       if (current === geom) return; // Guard: no-op if same value
       set({ researchGeometry: geom });
     },
+
+    // Research panel visibility
+    showResearchPanel: false,
+    toggleResearchPanel: () => set({ showResearchPanel: !get().showResearchPanel }),
+
+    // Actions
+    setSightings: (sightings) => set({ sightings }),
+
+    setSelectedSighting: (sighting) => set({ selectedSighting: sighting }),
+
+    setLoading: (isLoading) => set({ isLoading }),
+
+    setError: (error) => set({ error }),
+
+    // Add mode actions
+    enterAddMode: () => {
+      const state = get();
+      set({
+        isAddMode: true,
+        pendingLocation: { lat: state.mapCenter[1], lng: state.mapCenter[0] }
+      });
+    },
       if (!db.objectStoreNames.contains('store')) {
         db.createObjectStore('store', { keyPath: 'key' });
       }
