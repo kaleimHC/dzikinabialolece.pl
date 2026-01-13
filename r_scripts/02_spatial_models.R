@@ -398,3 +398,151 @@ if (!is_binary) {
     cat("\n[6] Pominieto SEM (model_type != auto/sem).\n")
   }
 
+  # ==========================================================
+  # 4d. SDM (Spatial Durbin Model = SAR with WX)
+  # ==========================================================
+  # Wzor: y = rhoWy + Xbeta + WXgamma + epsilon
+
+  if (fit_sdm) {
+    cat("\n[5-6] Estymacja modelu SDM (lagsarlm type='mixed')...\n")
+
+    sdm_result <- tryCatch({
+      model <- lagsarlm(eq, data = gridcells_raw, listw = listw,
+                        method = "LU", type = "mixed")
+
+      cat("SDM zakonczony.\n")
+      cat(sprintf("  rho: %.4f\n", model$rho))
+      cat(sprintf("  AIC: %.2f\n", AIC(model)))
+      cat("  Wspolczynniki:\n")
+      print(round(coef(model), 4))
+
+      list(
+        model = model,
+        type = "SDM",
+        rho = model$rho,
+        lambda = NA,
+        AIC = AIC(model),
+        fitted = fitted(model),
+        success = TRUE
+      )
+    }, error = function(e) {
+      cat(sprintf("SDM BLAD: %s\n", e$message))
+      list(success = FALSE, error = e$message)
+    })
+  }
+
+} else {
+  # ==========================================================
+  # 4c. BINARY Y -> GLM (logit) — brak modelu przestrzennego
+  # ==========================================================
+  cat("\n[5-6] Binary Y -> GLM (logit) zamiast SAR/SEM...\n")
+  cat("  UWAGA: GLM nie modeluje autokorelacji przestrzennej.\n")
+}
+
+# 5. MODEL SELECTION (by AIC)
+
+cat("\n[7] Selekcja modelu (AIC)...\n")
+
+if (is_binary) {
+  # Binary: use GLM with binomial family
+  glm_result <- tryCatch({
+    model <- glm(eq, data = gridcells_raw, family = binomial(link = "logit"))
+
+    cat("GLM (logit) zakonczony.\n")
+    cat(sprintf("  AIC: %.2f\n", AIC(model)))
+    cat("  Wspolczynniki:\n")
+    print(round(coef(model), 4))
+
+    list(
+      model = model,
+      type = "GLM_logit",
+      rho = NA,
+      lambda = NA,
+      AIC = AIC(model),
+      fitted = fitted(model, type = "response"),
+      success = TRUE
+    )
+  }, error = function(e) {
+    cat(sprintf("GLM BLAD: %s\n", e$message))
+    list(success = FALSE, error = e$message)
+  })
+
+  if (glm_result$success) {
+    best_result <- glm_result
+  } else {
+    cat("GLM zawiodl — fallback do OLS.\n")
+    ols_model <- lm(eq, data = gridcells_raw)
+    best_result <- list(
+      model = ols_model, type = "OLS", rho = NA, lambda = NA,
+      AIC = AIC(ols_model), fitted = fitted(ols_model)
+    )
+  }
+
+} else if (model_type == "sar") {
+  # --- Wymuszony SAR ---
+  if (sar_result$success) {
+    cat(sprintf("SAR AIC: %.2f\n", sar_result$AIC))
+    cat("WYMUSZONO: SAR (model_type=sar)\n")
+    best_result <- sar_result
+  } else {
+    cat("BLAD: Wymuszony SAR nie zbiegl! Fallback do OLS.\n")
+    ols_model <- lm(eq, data = gridcells_raw)
+    best_result <- list(
+      model = ols_model, type = "OLS", rho = NA, lambda = NA,
+      AIC = AIC(ols_model), fitted = fitted(ols_model), success = TRUE
+    )
+    cat(sprintf("OLS AIC: %.2f\n", best_result$AIC))
+  }
+
+} else if (model_type == "sem") {
+  # --- Wymuszony SEM ---
+  if (sem_result$success) {
+    cat(sprintf("SEM AIC: %.2f\n", sem_result$AIC))
+    cat("WYMUSZONO: SEM (model_type=sem)\n")
+    best_result <- sem_result
+  } else {
+    cat("BLAD: Wymuszony SEM nie zbiegl! Fallback do OLS.\n")
+    ols_model <- lm(eq, data = gridcells_raw)
+    best_result <- list(
+      model = ols_model, type = "OLS", rho = NA, lambda = NA,
+      AIC = AIC(ols_model), fitted = fitted(ols_model), success = TRUE
+    )
+    cat(sprintf("OLS AIC: %.2f\n", best_result$AIC))
+  }
+
+} else if (model_type == "sdm") {
+  # --- Wymuszony SDM ---
+  if (sdm_result$success) {
+    cat(sprintf("SDM AIC: %.2f\n", sdm_result$AIC))
+    cat("WYMUSZONO: SDM (model_type=sdm)\n")
+    best_result <- sdm_result
+  } else {
+    cat("BLAD: Wymuszony SDM nie zbiegl! Fallback do OLS.\n")
+    ols_model <- lm(eq, data = gridcells_raw)
+    best_result <- list(
+      model = ols_model, type = "OLS", rho = NA, lambda = NA,
+      AIC = AIC(ols_model), fitted = fitted(ols_model), success = TRUE
+    )
+    cat(sprintf("OLS AIC: %.2f\n", best_result$AIC))
+  }
+
+} else {
+  # --- auto: wybor przez AIC ---
+  if (!sar_result$success && !sem_result$success) {
+    cat("BLAD: Oba modele przestrzenne zawiodly!\n")
+    cat("Fallback do prostego OLS...\n")
+    ols_model <- lm(eq, data = gridcells_raw)
+    best_result <- list(
+      model = ols_model, type = "OLS", rho = NA, lambda = NA,
+      AIC = AIC(ols_model), fitted = fitted(ols_model), success = TRUE
+    )
+    cat(sprintf("OLS AIC: %.2f\n", AIC(ols_model)))
+  } else if (!sar_result$success) {
+    cat("SAR nieudany, uzywam SEM.\n")
+    best_result <- sem_result
+  } else if (!sem_result$success) {
+    cat("SEM nieudany, uzywam SAR.\n")
+    best_result <- sar_result
+  } else {
+    cat(sprintf("SAR AIC: %.2f\n", sar_result$AIC))
+    cat(sprintf("SEM AIC: %.2f\n", sem_result$AIC))
