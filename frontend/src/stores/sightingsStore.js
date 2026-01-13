@@ -159,7 +159,22 @@ export const useSightingsStore = create(
 
     // Display mode: 'fast' (heuristic), 'publication' (voronoi), or 'research' (spatialWarsaw)
     displayMode: 'fast',
-    setDisplayMode: (mode) => set({ displayMode: mode }),
+    setDisplayMode: (mode) => set((state) => {
+      const updates = { displayMode: mode };
+      // Wyłącz macierz W gdy opuszczamy tryb research
+      if (state.displayMode === 'research' && mode !== 'research') {
+        updates.visibleLayers = { ...state.visibleLayers, wMatrix: false };
+      }
+      return updates;
+    }),
+
+    // Research geometry type: 'voronoi' or 'grid_500'
+    researchGeometry: 'voronoi',
+    setResearchGeometry: (geom) => {
+      const current = get().researchGeometry;
+      if (current === geom) return; // Guard: no-op if same value
+      set({ researchGeometry: geom });
+    },
       if (!db.objectStoreNames.contains('store')) {
         db.createObjectStore('store', { keyPath: 'key' });
       }
