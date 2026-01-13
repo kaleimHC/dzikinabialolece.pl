@@ -248,3 +248,153 @@ if (is.na(y_sd) || y_sd == 0) {
   cat("  Sprawdz y_formula i dane wejsciowe.\n")
   dbDisconnect(conn)
   quit(status = 3)
+}
+
+# Standaryzacja z-score predyktorow
+zscore <- function(x) {
+  m <- mean(x, na.rm = TRUE)
+  s <- sd(x, na.rm = TRUE)
+  if (s == 0 || is.na(s)) return(rep(0, length(x)))
+  return((x - m) / s)
+}
+
+# Dynamiczna standaryzacja aktywnych predyktorow
+z_names <- character(0)
+for (col in active_columns) {
+  z_col <- paste0(gsub("_", "", col), "_z")  # forest_cover -> forestcover_z
+  # Uzyj krotszych nazw z-score
+  z_col <- sub("cover_z$", "_z", z_col)
+  z_col <- sub("density_z$", "_z", z_col)
+  z_col <- sub("distance_to_", "", z_col)
+  z_col <- sub("resistance_z$", "_z", z_col)
+  # Prostsza logika: config_name + "_z"
+  cfg_name <- names(pred_map)[sapply(pred_map, function(x) x == col)]
+  z_col <- paste0(cfg_name, "_z")
+
+  gridcells_raw[[z_col]] <- zscore(gridcells_raw[[col]])
+  z_names <- c(z_names, z_col)
+  cat(sprintf("  %s -> %s (sd=%.4f)\n", col, z_col, sd(gridcells_raw[[col]], na.rm = TRUE)))
+}
+
+cat(sprintf("  Standaryzacja z-score zakonczona: %d predyktorow.\n", length(z_names)))
+
+# 4. FIT MODELS
+
+# Dynamiczna formula z aktywnych predyktorow
+# Check for binary/trinary regime model (both use same 3-way classification)
+if (use_regime && regime_type %in% c("binary", "trinary")) {
+  cat("\n>>> Building TRINARY REGIME formula (forest/urban/mixed)\n")
+
+  # Konwertuj regime na factor
+  gridcells_raw$regime <- factor(gridcells_raw$regime,
+                                  levels = c("urban", "mixed", "forest"))
+
+  # Sprawdz czy mamy wiecej niz jeden regime
+  n_regimes <- length(unique(gridcells_raw$regime))
+  cat(sprintf("  Liczba regimes: %d (%s)\n", n_regimes,
+              paste(unique(gridcells_raw$regime), collapse = ", ")))
+
+  if (n_regimes > 1) {
+    # Formuła z interakcjami: Y ~ 0 + regime + regime:(predictors)
+    # "0 +" usuwa intercept globalny — każdy regime ma swój
+    predictors_str <- paste(z_names, collapse = " + ")
+    eq_str <- sprintf("Y ~ 0 + regime + regime:(%s)", predictors_str)
+    cat("  Model regime: TAK\n")
+  } else {
+    # Jeden regime — standardowa formula
+    eq_str <- paste("Y ~", paste(z_names, collapse = " + "))
+    cat("  UWAGA: Tylko jeden regime — fallback do modelu globalnego\n")
+  }
+} else {
+  # Standard (bez regime)
+  eq_str <- paste("Y ~", paste(z_names, collapse = " + "))
+}
+
+eq <- as.formula(eq_str)
+cat(sprintf("  Formula: %s\n", eq_str))
+
+# Initialize results
+sar_result <- list(success = FALSE)
+sem_result <- list(success = FALSE)
+sdm_result <- list(success = FALSE)
+
+# Determine which models to fit based on model_type config
+fit_sar <- model_type %in% c("auto", "sar")
+fit_sem <- model_type %in% c("auto", "sem")
+fit_sdm <- (model_type == "sdm")
+
+if (model_type != "auto") {
+  cat(sprintf("\n  Wymuszony model: %s\n", toupper(model_type)))
+}
+
+if (!is_binary) {
+
+  # ==========================================================
+  # 4a. SAR (Spatial Autoregressive / Lag Model)
+  # ==========================================================
+  # Wzor: y = rhoWy + Xbeta + epsilon
+
+  if (fit_sar) {
+    cat("\n[5] Estymacja modelu SAR (lagsarlm)...\n")
+
+    sar_result <- tryCatch({
+      model <- lagsarlm(eq, data = gridcells_raw, listw = listw, method = "LU")
+
+      cat("SAR zakonczony.\n")
+      cat(sprintf("  rho: %.4f\n", model$rho))
+      cat(sprintf("  AIC: %.2f\n", AIC(model)))
+      cat("  Wspolczynniki:\n")
+      print(round(coef(model), 4))
+
+      list(
+        model = model,
+        type = "SAR",
+        rho = model$rho,
+        lambda = NA,
+        AIC = AIC(model),
+        fitted = fitted(model),
+        success = TRUE
+      )
+    }, error = function(e) {
+      cat(sprintf("SAR BLAD: %s\n", e$message))
+      list(success = FALSE, error = e$message)
+    })
+  } else {
+    cat("\n[5] Pominieto SAR (model_type != auto/sar).\n")
+  }
+
+  # ==========================================================
+  # 4b. SEM (Spatial Error Model)
+  # ==========================================================
+  # Wzor: y = Xbeta + u, gdzie u = lambdaWu + epsilon
+
+  if (fit_sem) {
+    cat("\n[6] Estymacja modelu SEM (errorsarlm)...\n")
+
+    sem_result <- tryCatch({
+      model <- errorsarlm(eq, data = gridcells_raw, listw = listw,
+                          method = "LU", Durbin = FALSE)
+
+      cat("SEM zakonczony.\n")
+      cat(sprintf("  lambda: %.4f\n", model$lambda))
+      cat(sprintf("  AIC: %.2f\n", AIC(model)))
+      cat("  Wspolczynniki:\n")
+      print(round(coef(model), 4))
+
+      list(
+        model = model,
+        type = "SEM",
+        rho = NA,
+        lambda = model$lambda,
+        AIC = AIC(model),
+        fitted = fitted(model),
+        success = TRUE
+      )
+    }, error = function(e) {
+      cat(sprintf("SEM BLAD: %s\n", e$message))
+      list(success = FALSE, error = e$message)
+    })
+  } else {
+    cat("\n[6] Pominieto SEM (model_type != auto/sem).\n")
+  }
+
