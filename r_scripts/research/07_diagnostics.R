@@ -138,3 +138,153 @@ diag <- list(
   # VIF
   vif_results = "null",       # JSON string
   predictors_dropped = "[]",  # JSON string
+  # W matrix metrics
+  k_selected = k_selected,
+  mean_neighbors = mean_neighbors,
+  # Impacts (SAR/SDM only)
+  impacts = "null"            # JSON string
+)
+
+# Spatial parameters
+if (!is.na(best_result$rho))    diag$rho <- best_result$rho
+if (!is.na(best_result$lambda)) diag$lambda_param <- best_result$lambda
+
+# Log-likelihood
+diag$log_likelihood <- tryCatch({
+  as.numeric(logLik(best_result$model))
+}, error = function(e) NA_real_)
+
+# 3. Coefficients & Pseudo-R²
+
+cat("\n[2] Wspolczynniki modelu...\n")
+
+coef_table <- tryCatch({
+  s <- summary(best_result$model)
+  if (best_result$type == "OLS") {
+    s$coefficients
+  } else {
+    # spatialreg: summary has $Coef or $coefficients
+    if (!is.null(s$Coef)) s$Coef else s$coefficients
+  }
+}, error = function(e) {
+  cat(sprintf("  Nie mozna wyciagnac wspolczynnikow: %s\n", e$message))
+  NULL
+})
+
+if (!is.null(coef_table) && is.matrix(coef_table)) {
+  cat("  Wspolczynniki:\n")
+  print(round(coef_table, 4))
+
+  # Build JSON: {name: {estimate, std_error, z, p}}
+  coef_names <- rownames(coef_table)
+  coef_list <- list()
+  for (i in seq_along(coef_names)) {
+    nm <- coef_names[i]
+    coef_list[[nm]] <- list(
+      estimate  = round(coef_table[i, 1], 6),
+      std_error = round(coef_table[i, 2], 6),
+      z         = round(coef_table[i, 3], 4),
+      p         = round(coef_table[i, 4], 6)
+    )
+  }
+
+  # Manual JSON construction (avoid jsonlite dependency)
+  json_parts <- sapply(names(coef_list), function(nm) {
+    cl <- coef_list[[nm]]
+    sprintf('"%s": {"estimate": %s, "std_error": %s, "z": %s, "p": %s}',
+            nm,
+            ifelse(is.na(cl$estimate), "null", as.character(cl$estimate)),
+            ifelse(is.na(cl$std_error), "null", as.character(cl$std_error)),
+            ifelse(is.na(cl$z), "null", as.character(cl$z)),
+            ifelse(is.na(cl$p), "null", as.character(cl$p)))
+  })
+  diag$coefficients <- paste0("{", paste(json_parts, collapse = ", "), "}")
+}
+
+# Pseudo R²: 1 - RSS/TSS
+# Y column: "Y" (from step 06 fix) or legacy "log_density"
+if ("Y" %in% names(model_df)) {
+  Y <- model_df$Y
+} else if ("log_density" %in% names(model_df)) {
+  Y <- model_df$log_density
+} else {
+  Y <- NULL
+  cat("  Brak kolumny Y/log_density w danych modelu.\n")
+}
+resids <- tryCatch(residuals(best_result$model), error = function(e) NULL)
+
+if (!is.null(resids) && length(resids) == length(Y)) {
+  rss <- sum(resids^2)
+  tss <- sum((Y - mean(Y))^2)
+  if (tss > 0) {
+    diag$r_squared <- round(1 - rss / tss, 6)
+    cat(sprintf("  Pseudo R²: %.4f\n", diag$r_squared))
+  }
+} else {
+  cat("  Brak residuow — nie mozna obliczyc R².\n")
+}
+
+# 4. VIF (Variance Inflation Factor)
+
+cat("\n[3] VIF (multicollinearity)...\n")
+
+ols_model <- tryCatch(lm(eq, data = model_df), error = function(e) NULL)
+
+if (!is.null(ols_model)) {
+  X <- model.matrix(ols_model)[, -1, drop = FALSE]  # exclude intercept
+
+  if (ncol(X) >= 2) {
+    vif_vals <- numeric(ncol(X))
+    names(vif_vals) <- colnames(X)
+
+    for (j in seq_len(ncol(X))) {
+      r2 <- summary(lm(X[, j] ~ X[, -j]))$r.squared
+      vif_vals[j] <- 1 / (1 - r2)
+    }
+
+    cat("  VIF:\n")
+    for (nm in names(vif_vals)) {
+      v <- vif_vals[nm]
+      if (is.na(v) || !is.finite(v)) {
+        cat(sprintf("    %-15s NA (aliased/zero-variance)\n", nm))
+      } else {
+        flag <- if (v > vif_threshold) " *** WYSOKI!" else ""
+        cat(sprintf("    %-15s %.2f%s\n", nm, v, flag))
+      }
+    }
+
+    # JSON for VIF results (handle NA/Inf)
+    vif_parts <- sapply(names(vif_vals), function(nm) {
+      v <- vif_vals[nm]
+      if (is.na(v) || !is.finite(v)) {
+        sprintf('"%s": null', nm)
+      } else {
+        sprintf('"%s": %.4f', nm, v)
+      }
+    })
+    diag$vif_results <- paste0("{", paste(vif_parts, collapse = ", "), "}")
+
+    # Predictors dropped (guard against NA)
+    dropped <- names(vif_vals[!is.na(vif_vals) & is.finite(vif_vals) & vif_vals > vif_threshold])
+    if (length(dropped) > 0) {
+      cat(sprintf("  Predyktory z VIF > %.1f: %s\n",
+                  vif_threshold, paste(dropped, collapse = ", ")))
+      diag$predictors_dropped <- paste0(
+        "[", paste(sprintf('"%s"', dropped), collapse = ", "), "]")
+    }
+  } else {
+    cat("  Za malo predyktorow (<2) do obliczenia VIF.\n")
+  }
+} else {
+  cat("  OLS nie zbiegnal — brak VIF.\n")
+}
+
+# 5. Moran's I (residuals)
+
+if (run_moran) {
+  cat("\n[4] Moran's I na resztach modelu...\n")
+
+  moran_input <- if (!is.null(resids)) resids else Y
+
+  moran_result <- tryCatch({
+    moran.test(moran_input, listw = listw, zero.policy = TRUE)
