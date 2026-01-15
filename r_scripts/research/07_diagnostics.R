@@ -288,3 +288,123 @@ if (run_moran) {
 
   moran_result <- tryCatch({
     moran.test(moran_input, listw = listw, zero.policy = TRUE)
+  }, error = function(e) {
+    cat(sprintf("  BLAD Moran: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(moran_result)) {
+    diag$moran_i        <- round(moran_result$estimate["Moran I statistic"], 6)
+    diag$moran_expected <- round(moran_result$estimate["Expectation"], 6)
+    diag$moran_variance <- round(moran_result$estimate["Variance"], 6)
+    diag$moran_z        <- round(moran_result$statistic, 4)
+    diag$moran_p        <- round(moran_result$p.value, 6)
+
+    sig <- if (diag$moran_p < alpha) "ISTOTNY" else "nieistotny"
+    cat(sprintf("  Moran's I: %.4f (z=%.2f, p=%.4f) — %s\n",
+                diag$moran_i, diag$moran_z, diag$moran_p, sig))
+
+    if (diag$moran_p < alpha) {
+      cat("  UWAGA: Istotna autokorelacja reszt — model nie wyczyścił zależności przestrzennej.\n")
+    } else {
+      cat("  OK: Brak istotnej autokorelacji reszt.\n")
+    }
+  }
+} else {
+  cat("\n[4] Moran's I: POMINIETY\n")
+}
+
+# 6. LM Tests (Lagrange Multiplier)
+
+if (run_lm_tests && !is.null(ols_model)) {
+  cat("\n[5] LM tests (lag vs error)...\n")
+
+  # Use lm.RStests (successor to deprecated lm.LMtests)
+  lm_result <- tryCatch({
+    lm.RStests(ols_model, listw = listw, zero.policy = TRUE,
+               test = "all")
+  }, error = function(e) {
+    cat(sprintf("  BLAD LM: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(lm_result)) {
+    # Extract safely — lm.RStests returns named list of htest objects
+    safe_extract <- function(obj, test_name) {
+      t <- tryCatch(obj[[test_name]], error = function(e) NULL)
+      if (is.null(t)) return(list(stat = NA_real_, p = NA_real_))
+      list(
+        stat = as.numeric(t$statistic[1]),
+        p    = as.numeric(t$p.value[1])
+      )
+    }
+
+    # lm.RStests returns: RSerr, RSlag, adjRSerr, adjRSlag, SARMA
+    lm_lag   <- safe_extract(lm_result, "RSlag")
+    lm_err   <- safe_extract(lm_result, "RSerr")
+    rlm_lag  <- safe_extract(lm_result, "adjRSlag")
+    rlm_err  <- safe_extract(lm_result, "adjRSerr")
+
+    diag$lm_lag_stat    <- round(lm_lag$stat, 4)
+    diag$lm_lag_p       <- round(lm_lag$p, 6)
+    diag$lm_error_stat  <- round(lm_err$stat, 4)
+    diag$lm_error_p     <- round(lm_err$p, 6)
+    diag$rlm_lag_stat   <- round(rlm_lag$stat, 4)
+    diag$rlm_lag_p      <- round(rlm_lag$p, 6)
+    diag$rlm_error_stat <- round(rlm_err$stat, 4)
+    diag$rlm_error_p    <- round(rlm_err$p, 6)
+
+    fmt_sig <- function(p) if (is.na(p)) "" else if (p < alpha) " *" else ""
+
+    cat(sprintf("  LM-lag:    stat=%.4f  p=%.4f%s\n",
+                lm_lag$stat, lm_lag$p, fmt_sig(lm_lag$p)))
+    cat(sprintf("  LM-error:  stat=%.4f  p=%.4f%s\n",
+                lm_err$stat, lm_err$p, fmt_sig(lm_err$p)))
+    cat(sprintf("  RLM-lag:   stat=%.4f  p=%.4f%s\n",
+                rlm_lag$stat, rlm_lag$p, fmt_sig(rlm_lag$p)))
+    cat(sprintf("  RLM-error: stat=%.4f  p=%.4f%s\n",
+                rlm_err$stat, rlm_err$p, fmt_sig(rlm_err$p)))
+
+    # Decision logic (only if values available)
+    if (!is.na(lm_lag$p) && !is.na(lm_err$p)) {
+      cat("\n  Rekomendacja: ")
+      if (lm_lag$p < alpha && lm_err$p < alpha) {
+        if (!is.na(rlm_lag$p) && !is.na(rlm_err$p)) {
+          if (rlm_lag$p < alpha && rlm_err$p >= alpha) {
+            cat("SAR (RLM-lag istotny, RLM-error nie)\n")
+          } else if (rlm_err$p < alpha && rlm_lag$p >= alpha) {
+            cat("SEM (RLM-error istotny, RLM-lag nie)\n")
+          } else {
+            cat("SDM lub SARAR (oba RLM istotne)\n")
+          }
+        } else {
+          cat("Oba LM istotne, brak Robust LM\n")
+        }
+      } else if (lm_lag$p < alpha) {
+        cat("SAR (LM-lag istotny)\n")
+      } else if (lm_err$p < alpha) {
+        cat("SEM (LM-error istotny)\n")
+      } else {
+        cat("OLS wystarczajacy (brak istotnych LM)\n")
+      }
+    }
+  }
+} else if (run_lm_tests) {
+  cat("\n[5] LM tests: POMINIETY (brak OLS)\n")
+} else {
+  cat("\n[5] LM tests: POMINIETY\n")
+}
+
+# 7. LISA (Local Indicators of Spatial Association)
+
+if (run_lisa) {
+  cat("\n[6] LISA (Local Moran)...\n")
+
+  lisa_result <- tryCatch({
+    localmoran(Y, listw = listw, zero.policy = TRUE)
+  }, error = function(e) {
+    cat(sprintf("  BLAD LISA: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(lisa_result)) {
