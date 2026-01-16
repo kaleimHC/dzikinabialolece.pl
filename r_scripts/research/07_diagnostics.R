@@ -558,3 +558,149 @@ if (has_impacts) {
   cat(sprintf("  Model %s nie wymaga impacts (β jak w OLS).\n", best_result$type))
 }
 
+# 9. Zapis do bazy
+
+cat("\n[8] Zapis do bazy (analytics_researchdiagnostics)...\n")
+
+if (nchar(run_id) == 0) {
+  cat("  POMINIETY — brak RESEARCH_RUN_ID.\n")
+} else {
+  conn <- dbConnect(
+    RPostgres::Postgres(),
+    dbname = Sys.getenv("DB_NAME", "dziki_db"),
+    host   = Sys.getenv("DB_HOST", "db"),
+    port   = as.integer(Sys.getenv("DB_PORT", "5432")),
+    user   = Sys.getenv("DB_USER", "dziki"),
+    password = Sys.getenv("DB_PASSWORD", "dziki_dev_password")
+  )
+  on.exit({
+    if (exists("conn") && dbIsValid(conn)) dbDisconnect(conn)
+  }, add = TRUE)
+
+  # Helper: NA -> "NULL", number -> number string
+  sql_val <- function(x) {
+    if (is.null(x) || is.na(x)) return("NULL")
+    return(as.character(x))
+  }
+
+  sql_str <- function(x) {
+    if (is.null(x) || is.na(x) || x == "") return("''")
+    return(sprintf("'%s'", gsub("'", "''", x)))
+  }
+
+  sql_json <- function(x) {
+    if (is.null(x) || x == "null") return("NULL")
+    return(sprintf("'%s'::jsonb", gsub("'", "''", x)))
+  }
+
+  # Delete existing diagnostics for this run (idempotent)
+  dbExecute(conn, sprintf(
+    "DELETE FROM analytics_researchdiagnostics WHERE run_id = '%s'", run_id))
+
+  # ETA values (may be NULL if run_eta=FALSE or error)
+  eta_h_emp <- if (!is.null(eta_result)) eta_result$H_emp else NA
+  eta_h_max <- if (!is.null(eta_result)) eta_result$H_max else NA
+  eta_h_rel <- if (!is.null(eta_result)) eta_result$H_rel else NA
+
+  insert_sql <- sprintf("
+    INSERT INTO analytics_researchdiagnostics (
+      run_id,
+      moran_i, moran_expected, moran_variance, moran_z, moran_p,
+      lm_lag_stat, lm_lag_p, lm_error_stat, lm_error_p,
+      rlm_lag_stat, rlm_lag_p, rlm_error_stat, rlm_error_p,
+      model_selected, aic, log_likelihood,
+      coefficients, r_squared,
+      rho, lambda_param,
+      lisa_hh_count, lisa_ll_count, lisa_hl_count, lisa_lh_count, lisa_ns_count,
+      vif_results, predictors_dropped,
+      eta_h_emp, eta_h_max, eta_h_rel,
+      k_selected, mean_neighbors,
+      impacts
+    ) VALUES (
+      '%s',
+      %s, %s, %s, %s, %s,
+      %s, %s, %s, %s,
+      %s, %s, %s, %s,
+      %s, %s, %s,
+      %s, %s,
+      %s, %s,
+      %s, %s, %s, %s, %s,
+      %s, %s,
+      %s, %s, %s,
+      %s, %s,
+      %s
+    )
+  ",
+    run_id,
+    sql_val(diag$moran_i), sql_val(diag$moran_expected),
+    sql_val(diag$moran_variance), sql_val(diag$moran_z), sql_val(diag$moran_p),
+    sql_val(diag$lm_lag_stat), sql_val(diag$lm_lag_p),
+    sql_val(diag$lm_error_stat), sql_val(diag$lm_error_p),
+    sql_val(diag$rlm_lag_stat), sql_val(diag$rlm_lag_p),
+    sql_val(diag$rlm_error_stat), sql_val(diag$rlm_error_p),
+    sql_str(diag$model_selected), sql_val(diag$aic), sql_val(diag$log_likelihood),
+    sql_json(diag$coefficients), sql_val(diag$r_squared),
+    sql_val(diag$rho), sql_val(diag$lambda_param),
+    sql_val(diag$lisa_hh), sql_val(diag$lisa_ll),
+    sql_val(diag$lisa_hl), sql_val(diag$lisa_lh), sql_val(diag$lisa_ns),
+    sql_json(diag$vif_results), sql_json(diag$predictors_dropped),
+    sql_val(eta_h_emp), sql_val(eta_h_max), sql_val(eta_h_rel),
+    sql_val(diag$k_selected), sql_val(diag$mean_neighbors),
+    sql_json(diag$impacts)
+  )
+
+  tryCatch({
+    dbExecute(conn, insert_sql)
+    cat("  Zapisano diagnostyke.\n")
+  }, error = function(e) {
+    cat(sprintf("  BLAD zapisu: %s\n", e$message))
+    cat(sprintf("  SQL: %s\n", substr(insert_sql, 1, 500)))
+    quit(status = 1)
+  })
+
+  # Verify
+  verify <- dbGetQuery(conn, sprintf(
+    "SELECT run_id, model_selected, moran_i, moran_p, aic
+     FROM analytics_researchdiagnostics
+     WHERE run_id = '%s'", run_id))
+
+  if (nrow(verify) > 0) {
+    cat(sprintf("  Weryfikacja OK: model=%s, moran_i=%s, aic=%s\n",
+                verify$model_selected,
+                ifelse(is.na(verify$moran_i), "NULL", sprintf("%.4f", verify$moran_i)),
+                ifelse(is.na(verify$aic), "NULL", sprintf("%.2f", verify$aic))))
+  } else {
+    cat("  UWAGA: Rekord nie znaleziony po INSERT!\n")
+  }
+}
+
+# 10. Podsumowanie
+
+cat("\n============================================================\n")
+cat("PODSUMOWANIE DIAGNOSTYKI\n")
+cat("============================================================\n")
+cat(sprintf("Model: %s (AIC=%.2f)\n", diag$model_selected, diag$aic))
+if (!is.na(diag$r_squared))
+  cat(sprintf("Pseudo R²: %.4f\n", diag$r_squared))
+if (!is.na(diag$rho))
+  cat(sprintf("rho (SAR): %.4f\n", diag$rho))
+if (!is.na(diag$lambda_param))
+  cat(sprintf("lambda (SEM): %.4f\n", diag$lambda_param))
+if (!is.na(diag$moran_i))
+  cat(sprintf("Moran's I: %.4f (p=%.4f) %s\n",
+              diag$moran_i, diag$moran_p,
+              if (diag$moran_p < alpha) "ISTOTNY!" else "ok"))
+if (!is.na(diag$lm_lag_stat))
+  cat(sprintf("LM-lag: %.4f (p=%.4f), LM-error: %.4f (p=%.4f)\n",
+              diag$lm_lag_stat, diag$lm_lag_p,
+              diag$lm_error_stat, diag$lm_error_p))
+if (!is.na(diag$lisa_hh))
+  cat(sprintf("LISA: HH=%d LL=%d HL=%d LH=%d NS=%d\n",
+              diag$lisa_hh, diag$lisa_ll, diag$lisa_hl, diag$lisa_lh, diag$lisa_ns))
+if (has_impacts)
+  cat(sprintf("Impacts: TAK (%d predyktorów, direct/indirect/total)\n",
+              length(impacts_result$direct)))
+
+cat("\n============================================================\n")
+cat("07_diagnostics ZAKONCZONY POMYSLNIE\n")
+cat("============================================================\n")
