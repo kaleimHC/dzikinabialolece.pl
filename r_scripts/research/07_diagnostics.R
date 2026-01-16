@@ -408,3 +408,153 @@ if (run_lisa) {
   })
 
   if (!is.null(lisa_result)) {
+    # Classify: HH, LL, HL, LH, NS
+    Ii <- lisa_result[, "Ii"]
+    p_vals <- lisa_result[, "Pr(z != E(Ii))"]
+    Y_scaled <- Y - mean(Y)
+    WY <- lag.listw(listw, Y, zero.policy = TRUE)
+    WY_scaled <- WY - mean(WY, na.rm = TRUE)
+
+    # Classification
+    sig_mask <- p_vals < alpha
+    quad <- character(length(Y))
+    quad[Y_scaled > 0 & WY_scaled > 0] <- "HH"
+    quad[Y_scaled < 0 & WY_scaled < 0] <- "LL"
+    quad[Y_scaled > 0 & WY_scaled < 0] <- "HL"
+    quad[Y_scaled < 0 & WY_scaled > 0] <- "LH"
+    quad[!sig_mask] <- "NS"
+
+    diag$lisa_hh <- as.integer(sum(quad == "HH"))
+    diag$lisa_ll <- as.integer(sum(quad == "LL"))
+    diag$lisa_hl <- as.integer(sum(quad == "HL"))
+    diag$lisa_lh <- as.integer(sum(quad == "LH"))
+    diag$lisa_ns <- as.integer(sum(quad == "NS"))
+
+    cat(sprintf("  HH (hot spot):   %d\n", diag$lisa_hh))
+    cat(sprintf("  LL (cold spot):  %d\n", diag$lisa_ll))
+    cat(sprintf("  HL (outlier):    %d\n", diag$lisa_hl))
+    cat(sprintf("  LH (outlier):    %d\n", diag$lisa_lh))
+    cat(sprintf("  NS (nieistotne): %d\n", diag$lisa_ns))
+    cat(sprintf("  Istotnych: %d/%d (%.0f%%)\n",
+                sum(sig_mask), length(sig_mask),
+                100 * sum(sig_mask) / length(sig_mask)))
+  }
+} else {
+  cat("\n[6] LISA: POMINIETY\n")
+}
+
+# 8. ETA (Entropy of Tessellation)
+
+# Initialize eta_result (will be populated if run_eta=TRUE)
+eta_result <- NULL
+
+if (run_eta) {
+  cat("\n[7] ETA (entropia tessellacji)...\n")
+
+  eta_result <- tryCatch({
+    conn_eta <- dbConnect(
+      RPostgres::Postgres(),
+      dbname = Sys.getenv("DB_NAME", "dziki_db"),
+      host   = Sys.getenv("DB_HOST", "db"),
+      port   = as.integer(Sys.getenv("DB_PORT", "5432")),
+      user   = Sys.getenv("DB_USER", "dziki"),
+      password = Sys.getenv("DB_PASSWORD", "dziki_dev_password")
+    )
+    on.exit(dbDisconnect(conn_eta), add = TRUE)
+
+    areas <- dbGetQuery(conn_eta, sprintf("
+      SELECT ST_Area(geometry::geography) as area_m2
+      FROM %s
+      WHERE geometry IS NOT NULL
+      ORDER BY id
+    ", TARGET_TABLE))$area_m2
+
+    total_area <- sum(areas)
+    shares <- areas / total_area
+    H_emp <- -sum(shares * log(shares))
+    H_max <- log(length(shares))
+    H_rel <- H_emp / H_max
+
+    list(H_emp = H_emp, H_max = H_max, H_rel = H_rel, n = length(shares))
+  }, error = function(e) {
+    cat(sprintf("  BLAD ETA: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(eta_result)) {
+    cat(sprintf("  H_emp (entropia empiryczna): %.4f\n", eta_result$H_emp))
+    cat(sprintf("  H_max (entropia max):        %.4f\n", eta_result$H_max))
+    cat(sprintf("  H_rel (relatywna):           %.4f\n", eta_result$H_rel))
+    cat(sprintf("  n (kafli): %d\n", eta_result$n))
+    cat(sprintf("  Interpretacja: H_rel=%.2f — %s\n",
+                eta_result$H_rel,
+                if (eta_result$H_rel > 0.9) "rowne kafle (entropia wysoka)"
+                else if (eta_result$H_rel > 0.7) "umiarkowana nierownosc kafli"
+                else "nierownomierne kafle (entropia niska)"))
+  }
+} else {
+  cat("\n[7] ETA: POMINIETY\n")
+}
+
+# 8b. IMPACTS (SAR/SDM only)
+
+cat("\n[8] Impacts (SAR/SDM)...\n")
+
+if (has_impacts) {
+  cat("  Model wymaga impacts — wyswietlam wyniki:\n")
+
+  # Buduj JSON ręcznie (unikamy zależności od jsonlite)
+  build_named_json <- function(vals, names) {
+    if (is.null(names) || length(names) == 0) {
+      names <- paste0("X", seq_along(vals))
+    }
+    parts <- sapply(seq_along(vals), function(i) {
+      sprintf('"%s": %.6f', names[i], vals[i])
+    })
+    paste0("{", paste(parts, collapse = ", "), "}")
+  }
+
+  direct_json <- build_named_json(impacts_result$direct, impacts_result$pred_names)
+  indirect_json <- build_named_json(impacts_result$indirect, impacts_result$pred_names)
+  total_json <- build_named_json(impacts_result$total, impacts_result$pred_names)
+
+  diag$impacts <- sprintf("{\"direct\": %s, \"indirect\": %s, \"total\": %s}",
+                          direct_json, indirect_json, total_json)
+
+  # Wyswietl efekty
+  cat("\n  === IMPACTS ===\n")
+  cat("  Direct effects (wpływ X_i na Y_i):\n")
+  for (i in seq_along(impacts_result$direct)) {
+    nm <- impacts_result$pred_names[i]
+    val <- impacts_result$direct[i]
+    cat(sprintf("    %-20s: %+.4f\n", nm, val))
+  }
+
+  cat("  Indirect effects (spillover na sąsiadów):\n")
+  for (i in seq_along(impacts_result$indirect)) {
+    nm <- impacts_result$pred_names[i]
+    val <- impacts_result$indirect[i]
+    cat(sprintf("    %-20s: %+.4f\n", nm, val))
+  }
+
+  cat("  Total effects (direct + indirect):\n")
+  for (i in seq_along(impacts_result$total)) {
+    nm <- impacts_result$pred_names[i]
+    val <- impacts_result$total[i]
+    cat(sprintf("    %-20s: %+.4f\n", nm, val))
+  }
+
+  # Interpretacja
+  cat("\n  Interpretacja:\n")
+  cat("    - Direct: zmiana Y_i gdy X_i rośnie o 1 sd (z feedbackiem przestrzennym)\n")
+  cat("    - Indirect: zmiana Y sąsiadów gdy X_i rośnie (spillover)\n")
+  cat("    - Total: łączny efekt w systemie\n")
+
+  if (!is.na(best_result$rho) && best_result$rho > 0.5) {
+    cat(sprintf("    - UWAGA: rho=%.3f (wysoki) — indirect effects dominują.\n",
+                best_result$rho))
+  }
+} else {
+  cat(sprintf("  Model %s nie wymaga impacts (β jak w OLS).\n", best_result$type))
+}
+
