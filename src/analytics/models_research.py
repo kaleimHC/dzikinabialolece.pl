@@ -338,3 +338,269 @@ class ResearchConfig(models.Model):
 
 
 
+class ResearchRun(models.Model):
+    """
+    One execution of the Research Pipeline.
+
+    Stores a frozen snapshot of the config so results are reproducible
+    even if the config is later modified.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    config = models.ForeignKey(
+        ResearchConfig,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="runs",
+        help_text="Source config (may be null if config deleted)",
+    )
+    config_snapshot = models.JSONField(
+        help_text="Frozen copy of config at the moment of run start",
+    )
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=RunStatus.choices,
+        default=RunStatus.PENDING,
+    )
+
+    n_sightings = models.PositiveIntegerField(
+        help_text="Number of sightings included in this run",
+    )
+    n_cells = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of spatial units generated",
+    )
+
+    error_message = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Research Run"
+        verbose_name_plural = "Research Runs"
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        cfg = self.config.name if self.config else "(deleted)"
+        return f"Run {str(self.id)[:8]} [{self.status}] — {cfg}"
+
+
+
+class ResearchStepLog(models.Model):
+    """
+    Per-step execution log for a Research Run.
+
+    Each pipeline step (R script, Python calculation, SQL query)
+    gets its own log row with timing, exit code, stdout/stderr.
+    """
+
+    run = models.ForeignKey(
+        ResearchRun,
+        on_delete=models.CASCADE,
+        related_name="steps",
+    )
+
+    step_name = models.CharField(
+        max_length=100,
+        help_text="Human-readable step name (e.g. '01_generate_voronoi.R')",
+    )
+    step_order = models.PositiveIntegerField(
+        help_text="Execution order (1-based)",
+    )
+    step_type = models.CharField(
+        max_length=10,
+        choices=StepType.choices,
+    )
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.FloatField(null=True, blank=True)
+
+    exit_code = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Process exit code (0=success, 3=fallback, 137=OOM)",
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=StepStatus.choices,
+        default=StepStatus.RUNNING,
+    )
+
+    input_params = models.JSONField(
+        default=dict,
+        help_text="Parameters passed to this step",
+    )
+    output_stats = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Statistics returned by this step",
+    )
+
+    stdout = models.TextField(blank=True, default="")
+    stderr = models.TextField(blank=True, default="")
+
+    errors = models.JSONField(
+        default=list,
+        help_text="List of error messages",
+    )
+    warnings = models.JSONField(
+        default=list,
+        help_text="List of warning messages",
+    )
+
+    class Meta:
+        verbose_name = "Research Step Log"
+        verbose_name_plural = "Research Step Logs"
+        ordering = ["run", "step_order"]
+        unique_together = ["run", "step_order"]
+
+    def __str__(self):
+        return f"Step {self.step_order}: {self.step_name} [{self.status}]"
+
+
+
+class ResearchDiagnostics(models.Model):
+    """
+    Diagnostic test results for a Research Run.
+
+    One-to-one with ResearchRun. Stores Moran's I, LM tests,
+    model fit statistics, spatial parameters, and LISA summary.
+    """
+
+    run = models.OneToOneField(
+        ResearchRun,
+        on_delete=models.CASCADE,
+        related_name="diagnostics",
+        primary_key=True,
+    )
+
+    moran_i = models.FloatField(null=True, blank=True, help_text="Moran's I statistic")
+    moran_expected = models.FloatField(
+        null=True, blank=True, help_text="Expected Moran's I under H0"
+    )
+    moran_variance = models.FloatField(
+        null=True, blank=True, help_text="Variance of Moran's I"
+    )
+    moran_z = models.FloatField(null=True, blank=True, help_text="Z-score")
+    moran_p = models.FloatField(null=True, blank=True, help_text="p-value")
+
+    lm_lag_stat = models.FloatField(
+        null=True, blank=True, help_text="LM Lag test statistic"
+    )
+    lm_lag_p = models.FloatField(null=True, blank=True, help_text="LM Lag p-value")
+    lm_error_stat = models.FloatField(
+        null=True, blank=True, help_text="LM Error test statistic"
+    )
+    lm_error_p = models.FloatField(null=True, blank=True, help_text="LM Error p-value")
+    rlm_lag_stat = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Lag statistic"
+    )
+    rlm_lag_p = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Lag p-value"
+    )
+    rlm_error_stat = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Error statistic"
+    )
+    rlm_error_p = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Error p-value"
+    )
+
+    model_selected = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        help_text="Model actually selected (sar/sem/sdm/probit/logit)",
+    )
+    aic = models.FloatField(
+        null=True, blank=True, help_text="Akaike Information Criterion"
+    )
+    log_likelihood = models.FloatField(null=True, blank=True)
+    coefficients = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Dict of predictor coefficients {name: {estimate, std_error, z, p}}",
+    )
+    r_squared = models.FloatField(null=True, blank=True, help_text="Pseudo R-squared")
+
+    rho = models.FloatField(
+        null=True, blank=True, help_text="SAR spatial lag parameter rho"
+    )
+    lambda_param = models.FloatField(
+        null=True, blank=True, help_text="SEM spatial error parameter lambda"
+    )
+
+    lisa_hh_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="High-High clusters"
+    )
+    lisa_ll_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Low-Low clusters"
+    )
+    lisa_hl_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="High-Low outliers"
+    )
+    lisa_lh_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Low-High outliers"
+    )
+    lisa_ns_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Not significant"
+    )
+
+    vif_results = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="VIF per predictor {name: vif_value}",
+    )
+    predictors_dropped = models.JSONField(
+        default=list,
+        help_text="Predictors dropped due to VIF > threshold",
+    )
+
+    eta_h_emp = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Empirical Shannon entropy: H = -Σ(s_i × ln(s_i))",
+    )
+    eta_h_max = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Maximum entropy: H_max = ln(n)",
+    )
+    eta_h_rel = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="ETA (relative entropy): H_rel = H / H_max. Range [0,1]. ~1=uniform, <0.8=agglomeration",
+    )
+
+    k_selected = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Selected optimal k (for knn_aic method)",
+    )
+    mean_neighbors = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Average number of neighbors per cell in W matrix",
+    )
+
+    # SAR/SDM only: β coefficients don't have simple marginal interpretation
+    # due to spatial multiplier (I - ρW)⁻¹ — LeSage & Pace (2009)
+    impacts = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Spatial impacts: {direct: {...}, indirect: {...}, total: {...}} (SAR/SDM only)",
+    )
+
+    class Meta:
+        verbose_name = "Research Diagnostics"
+        verbose_name_plural = "Research Diagnostics"
+
+    def __str__(self):
+        model = self.model_selected or "N/A"
+        aic_str = f"AIC={self.aic:.1f}" if self.aic else "no AIC"
+        return f"Diagnostics [{model}] {aic_str}"
