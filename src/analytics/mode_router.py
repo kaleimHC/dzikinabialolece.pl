@@ -202,6 +202,206 @@ def _run_fast_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
     return results
 
 
+def _calculate_osm_features(debug: DebugLogger) -> dict:
+    """
+    Calculate OSM environmental features for Voronoi cells.
+    MUST run after 01_generate_voronoi.R (which TRUNCATES the table).
+
+    Calculates:
+    - forest_cover: % of cell covered by forest
+    - building_density: % of cell covered by buildings
+    - road_density: km of roads per km² of cell
+    - distance_to_water: distance from centroid to nearest water body
+    """
+    t = debug.start("osm_features", "Calculating OSM environmental features")
+
+    results = {"step": "osm_features", "updated": {}}
+
+    try:
+        with connection.cursor() as cursor:
+            # 1. Forest cover (% area)
+            debug.info("forest", "Calculating forest_cover...")
+            cursor.execute("""
+                UPDATE sightings_gridcell_voronoi gc
+                SET forest_cover = COALESCE(subq.cover, 0)
+                FROM (
+                    SELECT
+                        gc2.id,
+                        SUM(ST_Area(ST_Intersection(gc2.geometry, f.geom)::geography)) /
+                            NULLIF(ST_Area(gc2.geometry::geography), 0) as cover
+                    FROM sightings_gridcell_voronoi gc2
+                    LEFT JOIN osm_forests f ON ST_Intersects(gc2.geometry, f.geom)
+                    GROUP BY gc2.id
+                ) subq
+                WHERE gc.id = subq.id;
+            """)
+            results["updated"]["forest_cover"] = cursor.rowcount
+
+            # 2. Building density (% area)
+            debug.info("building", "Calculating building_density...")
+            cursor.execute("""
+                UPDATE sightings_gridcell_voronoi gc
+                SET building_density = COALESCE(subq.density, 0)
+                FROM (
+                    SELECT
+                        gc2.id,
+                        SUM(ST_Area(ST_Intersection(gc2.geometry, b.geom)::geography)) /
+                            NULLIF(ST_Area(gc2.geometry::geography), 0) as density
+                    FROM sightings_gridcell_voronoi gc2
+                    LEFT JOIN osm_buildings b ON ST_Intersects(gc2.geometry, b.geom)
+                    GROUP BY gc2.id
+                ) subq
+                WHERE gc.id = subq.id;
+            """)
+            results["updated"]["building_density"] = cursor.rowcount
+
+            # 3. Road density (km/km²)
+            debug.info("road", "Calculating road_density...")
+            cursor.execute("""
+                UPDATE sightings_gridcell_voronoi gc
+                SET road_density = COALESCE(subq.density, 0)
+                FROM (
+                    SELECT
+                        gc2.id,
+                        SUM(ST_Length(ST_Intersection(gc2.geometry, r.geom)::geography)) / 1000 /
+                            NULLIF(ST_Area(gc2.geometry::geography) / 1000000, 0) as density
+                    FROM sightings_gridcell_voronoi gc2
+                    LEFT JOIN osm_roads r ON ST_Intersects(gc2.geometry, r.geom)
+                    GROUP BY gc2.id
+                ) subq
+                WHERE gc.id = subq.id;
+            """)
+            results["updated"]["road_density"] = cursor.rowcount
+
+            # 4. Distance to water (meters)
+            debug.info("water", "Calculating distance_to_water...")
+            cursor.execute("""
+                UPDATE sightings_gridcell_voronoi gc
+                SET distance_to_water = COALESCE(subq.dist, 9999)
+                FROM (
+                    SELECT
+                        gc2.id,
+                        MIN(ST_Distance(gc2.centroid::geography, w.geom::geography)) as dist
+                    FROM sightings_gridcell_voronoi gc2
+                    CROSS JOIN osm_water w
+                    GROUP BY gc2.id
+                ) subq
+                WHERE gc.id = subq.id;
+            """)
+            results["updated"]["distance_to_water"] = cursor.rowcount
+
+            # Get stats
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN forest_cover > 0 THEN 1 ELSE 0 END) as has_forest,
+                    SUM(CASE WHEN building_density > 0 THEN 1 ELSE 0 END) as has_building,
+                    SUM(CASE WHEN road_density > 0 THEN 1 ELSE 0 END) as has_road,
+                    ROUND(AVG(forest_cover)::numeric, 4) as avg_forest,
+                    ROUND(AVG(building_density)::numeric, 4) as avg_building,
+                    ROUND(AVG(road_density)::numeric, 2) as avg_road
+                FROM sightings_gridcell_voronoi
+            """)
+            stats = cursor.fetchone()
+            results["stats"] = {
+                "total_cells": stats[0],
+                "cells_with_forest": stats[1],
+                "cells_with_building": stats[2],
+                "cells_with_road": stats[3],
+                "avg_forest_cover": float(stats[4]) if stats[4] else 0,
+                "avg_building_density": float(stats[5]) if stats[5] else 0,
+                "avg_road_density": float(stats[6]) if stats[6] else 0,
+            }
+
+        results["status"] = "success"
+        debug.success(
+            "osm_features",
+            "OSM features calculated",
+            values=results["stats"],
+            start_time=t,
+        )
+
+    except Exception as e:
+        results["status"] = "error"
+        results["error"] = str(e)
+        debug.error("osm_features", f"OSM features failed: {str(e)}")
+
+    return results
+
+
+def _calculate_population(debug: DebugLogger) -> dict:
+    """
+    Calculate area-weighted population for Voronoi cells from GUS 500m grid.
+    MUST run after 01_generate_voronoi.R (which TRUNCATES the table).
+
+    Formula: population = SUM(gus.tot * overlap_area / gus_cell_area)
+    This distributes GUS grid population proportionally to the overlap
+    between each Voronoi cell and intersecting GUS cells.
+    """
+    t = debug.start(
+        "population", "Calculating area-weighted population from GUS 500m grid"
+    )
+
+    results = {"step": "population"}
+
+    try:
+        with connection.cursor() as cursor:
+            debug.info("population", "Running area-weighted join...")
+            cursor.execute("""
+                UPDATE sightings_gridcell_voronoi gc
+                SET population = COALESCE(subq.pop, 0)
+                FROM (
+                    SELECT
+                        v.id,
+                        SUM(
+                            g.tot *
+                            ST_Area(ST_Intersection(v.geometry, g.geom)::geography) /
+                            NULLIF(ST_Area(g.geom::geography), 0)
+                        ) as pop
+                    FROM sightings_gridcell_voronoi v
+                    LEFT JOIN gus_population_grid_500m g
+                        ON ST_Intersects(v.geometry, g.geom)
+                    GROUP BY v.id
+                ) subq
+                WHERE gc.id = subq.id;
+            """)
+            updated = cursor.rowcount
+
+            # Get stats
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE population > 0) as has_pop,
+                    ROUND(MIN(population)::numeric, 1) as min_pop,
+                    ROUND(MAX(population)::numeric, 1) as max_pop,
+                    ROUND(AVG(population)::numeric, 1) as avg_pop,
+                    ROUND(SUM(population)::numeric, 0) as total_pop
+                FROM sightings_gridcell_voronoi
+            """)
+            stats = cursor.fetchone()
+            results["stats"] = {
+                "total_cells": stats[0],
+                "cells_with_population": stats[1],
+                "min_population": float(stats[2]) if stats[2] else 0,
+                "max_population": float(stats[3]) if stats[3] else 0,
+                "avg_population": float(stats[4]) if stats[4] else 0,
+                "total_population": float(stats[5]) if stats[5] else 0,
+            }
+            results["updated"] = updated
+
+        results["status"] = "success"
+        debug.success(
+            "population", "Population calculated", values=results["stats"], start_time=t
+        )
+
+    except Exception as e:
+        results["status"] = "error"
+        results["error"] = str(e)
+        debug.error("population", f"Population calculation failed: {str(e)}")
+
+    return results
+
+
 def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
-    """PUB pipeline: Voronoi + R spatial models."""
-    return {"status": "ok", "mode": "PUB", "grid_type": config["grid_type"]}
+    """
+    PUB pipeline: VORONOI grid + area-rank risk.
