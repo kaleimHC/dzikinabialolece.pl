@@ -478,3 +478,283 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
     if (form.geometry_type === "voronoi") {
       reasons.log_count = "Voronoi 1:1";
     }
+    return reasons;
+  }, [form.geometry_type]);
+
+  // Compute which model types are invalid for current Y formula
+  const disabledModelTypes = useMemo(() => {
+    if (form.y_formula === "binary") {
+      return ["sar", "sem", "sdm"];
+    }
+    return [];
+  }, [form.y_formula]);
+
+  // Reasons for disabled model types
+  const disabledModelReasons = useMemo(() => {
+    const reasons = {
+      probit: "nie zaimplementowane",
+      logit: "nie zaimplementowane",
+    };
+    if (form.y_formula === "binary") {
+      reasons.sar = "wymaga continuous Y";
+      reasons.sem = "wymaga continuous Y";
+      reasons.sdm = "wymaga continuous Y";
+    }
+    return reasons;
+  }, [form.y_formula]);
+
+  // Compute which W methods may cause problems for current geometry
+  const disabledWMethods = useMemo(() => {
+    // contiguity/tessw can have NAs for grid_500 (floating point precision)
+    // but we don't disable - just warn
+    return [];
+  }, [form.geometry_type]);
+
+  // Dynamic W method descriptions based on geometry
+  const wMethodChoices = useMemo(() => {
+    const base = W_METHOD_CHOICES.map((c) => ({ ...c }));
+    if (form.geometry_type === "grid_500") {
+      // Add warning for contiguity/tessw with grid
+      const contiguity = base.find((c) => c.value === "contiguity");
+      const tessw = base.find((c) => c.value === "tessw");
+      if (contiguity) contiguity.desc = "1 wyspa w grid_500 (NAs)";
+      if (tessw) tessw.desc = "1 wyspa + krótkie granice";
+    }
+    return base;
+  }, [form.geometry_type]);
+
+  // Dynamic population method based on geometry
+  const populationChoices = useMemo(() => {
+    return POPULATION_CHOICES.map((c) => {
+      const copy = { ...c };
+      if (form.geometry_type === "voronoi") {
+        if (c.value === "spatial_join") copy.desc = "Wolniejszy dla Voronoi";
+        if (c.value === "points") copy.desc = "Optymalny dla Voronoi (+)";
+      } else {
+        if (c.value === "spatial_join") copy.desc = "Optymalny dla grid (+)";
+        if (c.value === "points") copy.desc = "Dla Voronoi";
+      }
+      return copy;
+    });
+  }, [form.geometry_type]);
+
+  const togglePredictor = (name) => {
+    setForm((f) => {
+      const current = f.active_predictors || [];
+      return {
+        ...f,
+        active_predictors: current.includes(name)
+          ? current.filter((p) => p !== name)
+          : [...current, name],
+      };
+    });
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    try {
+      await onSave(form, isEdit);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  return (
+    <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white">
+          {isEdit ? `Edycja: ${form.name}` : "Nowa konfiguracja"}
+        </h3>
+        <button
+          data-qa="config.cancel"
+          onClick={onCancel}
+          className="text-gray-400 hover:text-white text-sm"
+        >
+          Anuluj
+        </button>
+      </div>
+
+      {/* Preset selector - only for new configs */}
+      {!isEdit && (
+        <div className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-3">
+          <label className="block">
+            <span className="text-xs text-gray-400 flex items-center gap-2">
+              Preset
+              {selectedPreset && presetModified && (
+                <span className="text-amber-400 text-[10px]">
+                  (zmodyfikowany)
+                </span>
+              )}
+            </span>
+            <select
+              data-qa="config.preset-select"
+              value={selectedPreset}
+              onChange={handlePresetChange}
+              className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">-- Wybierz preset --</option>
+              {PRESET_GROUPS.map((group) => (
+                <optgroup key={group.id} label={group.label}>
+                  {(presetsByGroup[group.id] || []).map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.recommended ? "★ " : ""}
+                      {preset.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          {selectedPreset && RESEARCH_PRESETS[selectedPreset] && (
+            <p className="text-xs text-gray-500 mt-1.5">
+              {RESEARCH_PRESETS[selectedPreset].description}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Name */}
+      {!isEdit && (
+        <label className="block">
+          <span className="text-xs text-gray-400">Nazwa</span>
+          <input
+            data-qa="config.name-input"
+            type="text"
+            value={form.name}
+            onChange={(e) => set("name")(e.target.value)}
+            placeholder="np. test_voronoi_v1"
+            className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:border-blue-500 focus:outline-none"
+          />
+          <span className="text-xs text-slate-500 mt-0.5 block">
+            {PARAM_HINTS.name}
+          </span>
+        </label>
+      )}
+
+      {/* Main dropdowns - 2 column grid */}
+      <div className="grid grid-cols-2 gap-3">
+        <SelectField
+          label="Geometria"
+          value={form.geometry_type}
+          onChange={set("geometry_type")}
+          options={GEOMETRY_CHOICES}
+          qaId="config.geometry-select"
+        />
+        <SelectField
+          label="Populacja"
+          value={form.population_method}
+          onChange={set("population_method")}
+          options={populationChoices}
+          qaId="config.population-select"
+        />
+        <SelectField
+          label="Zmienna Y"
+          value={form.y_formula}
+          onChange={set("y_formula")}
+          options={Y_FORMULA_CHOICES}
+          disabledValues={disabledYFormulas}
+          disabledReasons={disabledYReasons}
+          warning={
+            disabledYFormulas.includes(form.y_formula)
+              ? "Nieprawidłowe dla Voronoi"
+              : null
+          }
+          qaId="config.y-formula-select"
+        />
+        <SelectField
+          label="Model"
+          value={form.model_type}
+          onChange={set("model_type")}
+          options={MODEL_TYPE_CHOICES}
+          disabledValues={disabledModelTypes}
+          disabledReasons={disabledModelReasons}
+          warning={
+            disabledModelTypes.includes(form.model_type)
+              ? "Wymaga continuous Y"
+              : ["probit", "logit"].includes(form.model_type)
+                ? "Nie zaimplementowane"
+                : null
+          }
+          qaId="config.model-select"
+        />
+        <SelectField
+          label="Macierz W"
+          value={form.w_method}
+          onChange={set("w_method")}
+          options={wMethodChoices}
+          warning={
+            form.geometry_type === "grid_500" &&
+            ["contiguity", "tessw"].includes(form.w_method)
+              ? "Może mieć NAs dla grid_500"
+              : null
+          }
+          qaId="config.w-method-select"
+        />
+        <NumberField
+          label="Seed"
+          value={form.seed}
+          onChange={set("seed")}
+          min={1}
+          hint={PARAM_HINTS.seed}
+          qaId="config.seed-input"
+        />
+      </div>
+
+      {/* K range */}
+      <div className="grid grid-cols-2 gap-3">
+        <NumberField
+          label="k_range_min"
+          value={form.k_range_min}
+          onChange={set("k_range_min")}
+          min={1}
+          max={100}
+          hint={PARAM_HINTS.k_range_min}
+          qaId="config.k-min-input"
+        />
+        <NumberField
+          label="k_range_max"
+          value={form.k_range_max}
+          onChange={set("k_range_max")}
+          min={2}
+          max={200}
+          hint={PARAM_HINTS.k_range_max}
+          qaId="config.k-max-input"
+        />
+      </div>
+
+      {/* Thresholds */}
+      <div className="grid grid-cols-2 gap-3">
+        <NumberField
+          label="VIF threshold"
+          value={form.vif_threshold}
+          onChange={set("vif_threshold")}
+          min={1}
+          max={100}
+          step={0.5}
+          hint={PARAM_HINTS.vif_threshold}
+          qaId="config.vif-input"
+        />
+        <NumberField
+          label="Alpha (α)"
+          value={form.alpha}
+          onChange={set("alpha")}
+          min={0.001}
+          max={0.5}
+          step={0.01}
+          hint={PARAM_HINTS.alpha}
+          qaId="config.alpha-input"
+        />
+      </div>
+
+      {/* OSM predictors */}
+      <div>
+        <span className="text-xs text-gray-400 block mb-1">Predyktory OSM</span>
+        <span className="text-xs text-slate-500 block mb-2">
+          {PARAM_HINTS.predictors}
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {(availablePredictors || []).map((p) => {
+            const active = (form.active_predictors || []).includes(p);
+            return (
+              <button
+                key={p}
