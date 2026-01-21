@@ -758,3 +758,679 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
             return (
               <button
                 key={p}
+                data-qa={`config.predictor-${p}`}
+                onClick={() => togglePredictor(p)}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  active
+                    ? "bg-blue-600/40 text-blue-300 border border-blue-500/50"
+                    : "bg-gray-700 text-gray-400 border border-gray-600 hover:text-white"
+                }`}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Diagnostics toggles */}
+      <div>
+        <span className="text-xs text-gray-400 block mb-1">Diagnostyka</span>
+        <span className="text-xs text-slate-500 block mb-2">
+          Testy statystyczne wykonywane po estymacji modelu.
+        </span>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              key: "run_moran",
+              label: "Moran's I",
+              desc: PARAM_HINTS.run_moran,
+              implemented: true,
+            },
+            {
+              key: "run_lm_tests",
+              label: "Testy LM",
+              desc: PARAM_HINTS.run_lm_tests,
+              implemented: true,
+            },
+            {
+              key: "run_lisa",
+              label: "LISA",
+              desc: PARAM_HINTS.run_lisa,
+              implemented: false,
+            },
+            {
+              key: "run_eta",
+              label: "ETA",
+              desc: PARAM_HINTS.run_eta,
+              implemented: true,
+              voronoiOnly: true,
+            },
+          ].map(({ key, label, desc, implemented, voronoiOnly }) => {
+            const isVoronoi = form.geometry_type === "voronoi";
+            const isDisabled = !implemented || (voronoiOnly && !isVoronoi);
+            const disabledReason = !implemented
+              ? "(N/A)"
+              : voronoiOnly && !isVoronoi
+                ? "(tylko Voronoi)"
+                : null;
+
+            return (
+              <label
+                key={key}
+                className={`flex flex-col p-2 rounded border ${
+                  !isDisabled
+                    ? "border-gray-600 bg-gray-800/50 cursor-pointer hover:border-gray-500"
+                    : "border-gray-700 bg-gray-900/30 cursor-not-allowed opacity-60"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    data-qa={`config.diag-${key.replace("run_", "")}`}
+                    type="checkbox"
+                    checked={form[key]}
+                    onChange={() => !isDisabled && set(key)(!form[key])}
+                    disabled={isDisabled}
+                    className={`rounded bg-gray-700 border-gray-600 focus:ring-0 ${
+                      !isDisabled
+                        ? "text-blue-500"
+                        : "text-gray-600 cursor-not-allowed"
+                    }`}
+                  />
+                  <span
+                    className={`text-xs font-medium ${!isDisabled ? "text-gray-200" : "text-gray-500"}`}
+                  >
+                    {label}
+                    {disabledReason && (
+                      <span className="text-gray-600 ml-1">
+                        {disabledReason}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 mt-1 ml-5">
+                  {desc}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Regime model - merged: regime_type controls use_regime_model */}
+      <div>
+        <span className="text-xs text-gray-400 block mb-2">Model rezimowy</span>
+        <div className="mb-3">
+          <SelectField
+            label="Rezim przestrzenny"
+            value={form.regime_type}
+            onChange={(val) => {
+              set("regime_type")(val);
+              // Auto-sync use_regime_model based on regime_type
+              set("use_regime_model")(val !== "none");
+            }}
+            options={REGIME_TYPE_CHOICES}
+            qaId="config.regime-type-select"
+          />
+        </div>
+
+        {/* Interactive threshold sliders with histograms */}
+        {form.regime_type !== "none" && (
+          <RegimeThresholdControl
+            forestThreshold={form.regime_threshold}
+            urbanThreshold={form.regime_threshold_urban}
+            onForestChange={set("regime_threshold")}
+            onUrbanChange={set("regime_threshold_urban")}
+            geometryType={form.geometry_type}
+            disabled={form.regime_type === "none"}
+          />
+        )}
+      </div>
+
+      {/* Validation warnings */}
+      {hasWarnings && (
+        <div className="text-amber-400 text-xs bg-amber-900/20 border border-amber-700/30 rounded p-2 space-y-1">
+          <div className="font-medium">Nieprawidłowa kombinacja:</div>
+          {warnings.map((w, i) => (
+            <div key={i} className="pl-2">
+              - {w}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="text-red-400 text-xs bg-red-900/20 rounded p-2">
+          {error}
+        </div>
+      )}
+
+      <button
+        data-qa="config.save"
+        onClick={handleSubmit}
+        disabled={saving || hasWarnings}
+        className={`w-full py-2 rounded text-white text-sm font-medium transition-colors ${
+          hasWarnings
+            ? "bg-gray-600 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-500 disabled:opacity-50"
+        }`}
+        title={hasWarnings ? "Napraw ostrzeżenia przed zapisaniem" : undefined}
+      >
+        {saving
+          ? "Zapisywanie..."
+          : hasWarnings
+            ? "Napraw ostrzeżenia"
+            : isEdit
+              ? "Zapisz zmiany"
+              : "Utwórz konfigurację"}
+      </button>
+    </div>
+  );
+}
+
+// SECTION: Config List
+
+function ConfigList({
+  configs,
+  activeConfigId,
+  onActivate,
+  onEdit,
+  activating,
+}) {
+  if (!configs || configs.length === 0) {
+    return (
+      <div className="text-gray-500 text-sm">
+        Brak konfiguracji. Utwórz pierwszą.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {configs.map((c) => (
+        <div
+          key={c.id}
+          className={`flex items-center gap-2 p-2.5 rounded-lg border transition-colors ${
+            c.is_active
+              ? "bg-green-900/20 border-green-700/50"
+              : "bg-gray-800/50 border-gray-700/50 hover:bg-gray-800"
+          }`}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-white truncate">
+                {c.name}
+              </span>
+              {c.is_active && (
+                <span className="text-xs bg-green-600/30 text-green-400 px-1.5 py-0.5 rounded">
+                  aktywna
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">
+              {c.geometry_type} / {c.y_formula} / {c.model_type}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              data-qa={`config.edit-${c.id}`}
+              onClick={() => onEdit(c)}
+              className="px-2 py-1 text-xs text-gray-400 hover:text-white bg-gray-700 rounded transition-colors"
+            >
+              Edytuj
+            </button>
+            {!c.is_active && (
+              <button
+                data-qa={`config.activate-${c.id}`}
+                onClick={() => onActivate(c.id)}
+                disabled={activating}
+                className="px-2 py-1 text-xs text-green-400 hover:text-green-300 bg-green-900/30 rounded disabled:opacity-50 transition-colors"
+              >
+                Aktywuj
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// SECTION: Run Button + Progress
+
+function RunSection({
+  hasActiveConfig,
+  onRun,
+  runResult,
+  isRunning,
+  wsProgress,
+  currentRunId,
+}) {
+  return (
+    <div className="space-y-3">
+      <button
+        data-qa="pipeline.run"
+        onClick={onRun}
+        disabled={!hasActiveConfig || isRunning}
+        className={`w-full py-3 rounded-lg font-medium text-sm transition-colors ${
+          isRunning
+            ? "bg-blue-800 text-blue-300 cursor-wait"
+            : hasActiveConfig
+              ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+              : "bg-gray-700 text-gray-500 cursor-not-allowed"
+        }`}
+      >
+        {isRunning ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="animate-spin inline-block w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full" />
+            Pipeline uruchomiony...
+          </span>
+        ) : hasActiveConfig ? (
+          "Uruchom pipeline"
+        ) : (
+          "Brak aktywnej konfiguracji"
+        )}
+      </button>
+
+      {/* Live WebSocket progress */}
+      {isRunning && currentRunId && <LiveStepsProgress progress={wsProgress} />}
+
+      {/* Step results (after completion) */}
+      {!isRunning && runResult && runResult.status !== "running" && (
+        <RunStepsList run={runResult} />
+      )}
+    </div>
+  );
+}
+
+// MAIN: PipelineTab
+
+export default function PipelineTab() {
+  // --- store ---
+  const { setDisplayMode, setResearchGeometry, researchGeometry } =
+    useSightingsStore();
+
+  // --- data state ---
+  const [status, setStatus] = useState(null);
+  const [configs, setConfigs] = useState([]);
+  const [availablePredictors, setAvailablePredictors] = useState([]);
+  const [runs, setRuns] = useState([]);
+
+  // --- UI state ---
+  const [showForm, setShowForm] = useState(false);
+  const [editingConfig, setEditingConfig] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [runResult, setRunResult] = useState(null);
+  const [selectedRunId, setSelectedRunId] = useState(null);
+  const [selectedRunDetail, setSelectedRunDetail] = useState(null);
+  const [currentRunId, setCurrentRunId] = useState(null);
+
+  // --- WebSocket progress hook ---
+  const wsProgress = usePipelineProgress(currentRunId);
+
+  // --- Fetch all data ---
+  const refresh = useCallback(async () => {
+    try {
+      const [statusData, configData, runData] = await Promise.all([
+        apiFetch("/status/"),
+        apiFetch("/configs/"),
+        apiFetch("/runs/"),
+      ]);
+      setStatus(statusData);
+      setConfigs(configData.configs || []);
+      setAvailablePredictors(configData.available_predictors || []);
+      setRuns(runData.runs || []);
+      // Update researchGeometry based on LAST SUCCESSFUL RUN (not selected config)
+      // This ensures map shows computed results, not pending selection
+      const lastSuccess =
+        statusData?.last_run?.status === "success" ? statusData.last_run : null;
+      if (lastSuccess) {
+        // Find config geometry from the successful run
+        const successConfig = (configData.configs || []).find(
+          (c) => c.id === lastSuccess.config_id,
+        );
+        if (successConfig?.geometry_type) {
+          setResearchGeometry(successConfig.geometry_type);
+        }
+      }
+    } catch (e) {
+      console.error("PipelineTab refresh error:", e);
+    }
+  }, [setResearchGeometry]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // --- Config CRUD ---
+  const handleSaveConfig = async (form, isEdit) => {
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await apiFetch(`/configs/${form.id}/`, {
+          method: "PUT",
+          body: JSON.stringify(form),
+        });
+      } else {
+        await apiFetch("/configs/", {
+          method: "POST",
+          body: JSON.stringify(form),
+        });
+      }
+      setShowForm(false);
+      setEditingConfig(null);
+      await refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Activation error state ---
+  const [activateError, setActivateError] = useState(null);
+
+  const handleActivate = async (configId) => {
+    setActivating(true);
+    setActivateError(null);
+    try {
+      await apiFetch(`/configs/${configId}/activate/`, { method: "POST" });
+      // NOTE: Don't change researchGeometry here - it should only change after pipeline runs
+      await refresh();
+    } catch (e) {
+      console.error("Activate error:", e);
+      setActivateError(e.message);
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const handleEdit = (config) => {
+    setEditingConfig(config);
+    setShowForm(true);
+  };
+
+  // --- Run pipeline (ASYNC with polling) ---
+  const handleRun = async () => {
+    setIsRunning(true);
+    setRunResult(null);
+    setCurrentRunId(null); // Reset WebSocket connection
+    try {
+      const data = await apiFetch("/run/", { method: "POST" });
+      console.log("[Pipeline] Started:", data);
+
+      // NEW: Handle async response (status: 'pending')
+      if (data.status === "pending") {
+        // Set run_id to connect WebSocket for live progress
+        if (data.run_id) {
+          setCurrentRunId(data.run_id);
+          console.log(
+            "[Pipeline] WebSocket connecting to run_id:",
+            data.run_id,
+          );
+        }
+
+        setRunResult({
+          status: "running",
+          message: "Pipeline uruchomiony...",
+          task_id: data.task_id,
+          run_id: data.run_id,
+        });
+
+        // Poll for completion (fallback if WebSocket doesn't work)
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusData = await apiFetch("/status/");
+            const lastRun = statusData.last_run;
+            console.log("[Polling] Status:", lastRun?.status);
+
+            if (lastRun?.status === "success") {
+              clearInterval(pollInterval);
+              setIsRunning(false);
+              setCurrentRunId(null); // Close WebSocket
+              setRunResult({ status: "success", ...lastRun });
+              await refresh(); // This sets researchGeometry based on successful run
+
+              // Switch to RESEARCH mode and refresh map
+              setDisplayMode("research");
+              // NOTE: researchGeometry already set by refresh() based on last successful run
+              setTimeout(
+                () => window.dispatchEvent(new CustomEvent("voronoi-refresh")),
+                600,
+              );
+            } else if (
+              lastRun?.status === "error" ||
+              lastRun?.status === "failed"
+            ) {
+              clearInterval(pollInterval);
+              setIsRunning(false);
+              setCurrentRunId(null); // Close WebSocket
+              setRunResult({
+                status: "failed",
+                error_message: lastRun?.error_message || "Pipeline failed",
+                steps: [],
+              });
+            } else {
+              // Still running - update progress message (WebSocket provides live updates)
+              setRunResult((prev) => ({
+                ...prev,
+                message: `Pipeline w toku... (${lastRun?.status || "running"})`,
+              }));
+            }
+          } catch (pollErr) {
+            console.error("[Polling] Error:", pollErr);
+          }
+        }, 3000); // Poll every 3 seconds
+
+        // Timeout after 10 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (isRunning) {
+            setIsRunning(false);
+            setCurrentRunId(null);
+            setRunResult({
+              status: "failed",
+              error_message: "Pipeline timeout (10 min)",
+              steps: [],
+            });
+          }
+        }, 600000);
+      } else {
+        // Legacy: synchronous response (shouldn't happen anymore)
+        setRunResult(data);
+        await refresh();
+        if (data.status === "success") {
+          setDisplayMode("research");
+          setTimeout(
+            () => window.dispatchEvent(new CustomEvent("voronoi-refresh")),
+            600,
+          );
+        }
+        setIsRunning(false);
+      }
+    } catch (e) {
+      setRunResult({ status: "failed", error_message: e.message, steps: [] });
+      setIsRunning(false);
+      setCurrentRunId(null);
+    }
+  };
+
+  // --- Run detail ---
+  const handleSelectRun = async (runId) => {
+    // Toggle: if same run clicked, close it
+    if (runId === null || runId === selectedRunId) {
+      setSelectedRunId(null);
+      setSelectedRunDetail(null);
+      return;
+    }
+
+    setSelectedRunId(runId);
+    try {
+      const [detail, stepsData, diagData] = await Promise.all([
+        apiFetch(`/runs/${runId}/`),
+        apiFetch(`/runs/${runId}/steps/`),
+        apiFetch(`/runs/${runId}/diagnostics/`).catch(() => ({
+          diagnostics: null,
+        })),
+      ]);
+      setSelectedRunDetail({
+        ...detail,
+        steps: stepsData.steps || [],
+        diagnostics: diagData.diagnostics || null,
+      });
+    } catch (e) {
+      console.error("Run detail error:", e);
+      setSelectedRunDetail(null);
+    }
+  };
+
+  // --- Clear history ---
+  const handleClearHistory = async () => {
+    if (
+      !window.confirm("Czy na pewno chcesz wyczyścić całą historię uruchomień?")
+    ) {
+      return;
+    }
+    try {
+      await apiFetch("/runs/clear/", { method: "DELETE" });
+      setRuns([]);
+      setSelectedRunId(null);
+      setSelectedRunDetail(null);
+      setRunResult(null);
+    } catch (e) {
+      console.error("Clear history error:", e);
+    }
+  };
+
+  // --- active config id ---
+  const activeConfigId = status?.active_config?.id;
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* ── STATUS ── */}
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+            Status
+          </h2>
+          <button
+            data-qa="pipeline.status-refresh"
+            onClick={refresh}
+            className="text-xs text-gray-500 hover:text-white transition-colors"
+          >
+            Odśwież
+          </button>
+        </div>
+        <StatusSection
+          status={status}
+          onRefresh={refresh}
+          researchGeometry={researchGeometry}
+        />
+      </section>
+
+      {/* ── RUN PIPELINE ── */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          Uruchomienie
+        </h2>
+        <RunSection
+          hasActiveConfig={!!activeConfigId}
+          onRun={handleRun}
+          runResult={runResult}
+          isRunning={isRunning}
+          wsProgress={wsProgress}
+          currentRunId={currentRunId}
+        />
+      </section>
+
+      {/* ── CONFIGS ── */}
+      <section>
+        {activateError && (
+          <div className="mb-3 text-xs text-red-400 bg-red-900/20 border border-red-700/30 rounded p-2">
+            Błąd aktywacji: {activateError}
+          </div>
+        )}
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+            Konfiguracje
+          </h2>
+          {!showForm && (
+            <button
+              data-qa="config.new"
+              onClick={() => {
+                setEditingConfig(null);
+                setShowForm(true);
+              }}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              + Nowa
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence mode="wait">
+          {showForm ? (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              <ConfigForm
+                config={editingConfig}
+                availablePredictors={availablePredictors}
+                onSave={handleSaveConfig}
+                onCancel={() => {
+                  setShowForm(false);
+                  setEditingConfig(null);
+                }}
+                saving={saving}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="list"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+            >
+              <ConfigList
+                configs={configs}
+                activeConfigId={activeConfigId}
+                onActivate={handleActivate}
+                onEdit={handleEdit}
+                activating={activating}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* ── HISTORY ── */}
+      {runs.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+              Historia ({runs.length})
+            </h2>
+            <button
+              data-qa="pipeline.clear-history"
+              onClick={handleClearHistory}
+              className="text-xs text-red-400 hover:text-red-300 transition-colors"
+            >
+              Wyczyść
+            </button>
+          </div>
+          <RunHistory
+            runs={runs}
+            onSelectRun={handleSelectRun}
+            selectedRunId={selectedRunId}
+            selectedRunDetail={selectedRunDetail}
+          />
+        </section>
+      )}
+    </div>
+  );
+}
