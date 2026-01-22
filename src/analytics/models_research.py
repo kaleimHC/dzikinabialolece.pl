@@ -469,3 +469,120 @@ class ResearchStepLog(models.Model):
 # =============================================================================
 # ResearchDiagnostics
 # =============================================================================
+
+class ResearchDiagnostics(models.Model):
+    """
+    Diagnostic test results for a Research Run.
+
+    One-to-one with ResearchRun. Stores Moran's I, LM tests,
+    model fit statistics, spatial parameters, and LISA summary.
+    """
+
+    run = models.OneToOneField(
+        ResearchRun,
+        on_delete=models.CASCADE,
+        related_name='diagnostics',
+        primary_key=True,
+    )
+
+    # -- Moran's I --
+    moran_i = models.FloatField(null=True, blank=True, help_text="Moran's I statistic")
+    moran_expected = models.FloatField(null=True, blank=True, help_text="Expected Moran's I under H0")
+    moran_variance = models.FloatField(null=True, blank=True, help_text="Variance of Moran's I")
+    moran_z = models.FloatField(null=True, blank=True, help_text="Z-score")
+    moran_p = models.FloatField(null=True, blank=True, help_text="p-value")
+
+    # -- LM tests --
+    lm_lag_stat = models.FloatField(null=True, blank=True, help_text="LM Lag test statistic")
+    lm_lag_p = models.FloatField(null=True, blank=True, help_text="LM Lag p-value")
+    lm_error_stat = models.FloatField(null=True, blank=True, help_text="LM Error test statistic")
+    lm_error_p = models.FloatField(null=True, blank=True, help_text="LM Error p-value")
+    rlm_lag_stat = models.FloatField(null=True, blank=True, help_text="Robust LM Lag statistic")
+    rlm_lag_p = models.FloatField(null=True, blank=True, help_text="Robust LM Lag p-value")
+    rlm_error_stat = models.FloatField(null=True, blank=True, help_text="Robust LM Error statistic")
+    rlm_error_p = models.FloatField(null=True, blank=True, help_text="Robust LM Error p-value")
+
+    # -- Model fit --
+    model_selected = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        help_text="Model actually selected (sar/sem/sdm/probit/logit)",
+    )
+    aic = models.FloatField(null=True, blank=True, help_text="Akaike Information Criterion")
+    log_likelihood = models.FloatField(null=True, blank=True)
+    coefficients = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Dict of predictor coefficients {name: {estimate, std_error, z, p}}",
+    )
+    r_squared = models.FloatField(null=True, blank=True, help_text="Pseudo R-squared")
+
+    # -- Spatial parameters --
+    rho = models.FloatField(null=True, blank=True, help_text="SAR spatial lag parameter rho")
+    lambda_param = models.FloatField(null=True, blank=True, help_text="SEM spatial error parameter lambda")
+
+    # -- LISA summary --
+    lisa_hh_count = models.PositiveIntegerField(null=True, blank=True, help_text="High-High clusters")
+    lisa_ll_count = models.PositiveIntegerField(null=True, blank=True, help_text="Low-Low clusters")
+    lisa_hl_count = models.PositiveIntegerField(null=True, blank=True, help_text="High-Low outliers")
+    lisa_lh_count = models.PositiveIntegerField(null=True, blank=True, help_text="Low-High outliers")
+    lisa_ns_count = models.PositiveIntegerField(null=True, blank=True, help_text="Not significant")
+
+    # -- VIF --
+    vif_results = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="VIF per predictor {name: vif_value}",
+    )
+    predictors_dropped = models.JSONField(
+        default=list,
+        help_text="Predictors dropped due to VIF > threshold",
+    )
+
+    # -- ETA (Entropy-based Tessellation for Agglomeration) --
+    eta_h_emp = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Empirical Shannon entropy: H = -Σ(s_i × ln(s_i))",
+    )
+    eta_h_max = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Maximum entropy: H_max = ln(n)",
+    )
+    eta_h_rel = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="ETA (relative entropy): H_rel = H / H_max. Range [0,1]. ~1=uniform, <0.8=agglomeration",
+    )
+
+    # -- Macierz W metrics --
+    k_selected = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Selected optimal k (for knn_aic method)",
+    )
+    mean_neighbors = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Average number of neighbors per cell in W matrix",
+    )
+
+    # -- Impacts (SAR/SDM only) --
+    # LeSage & Pace (2009): For SAR/SDM, β coefficients don't have simple
+    # marginal interpretation due to spatial multiplier (I - ρW)⁻¹
+    impacts = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Spatial impacts: {direct: {...}, indirect: {...}, total: {...}} (SAR/SDM only)",
+    )
+
+    class Meta:
+        verbose_name = "Research Diagnostics"
+        verbose_name_plural = "Research Diagnostics"
+
+    def __str__(self):
+        model = self.model_selected or 'N/A'
+        aic_str = f"AIC={self.aic:.1f}" if self.aic else "no AIC"
+        return f"Diagnostics [{model}] {aic_str}"
