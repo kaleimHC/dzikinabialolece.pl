@@ -336,3 +336,136 @@ class ResearchConfig(models.Model):
 # =============================================================================
 # ResearchRun
 # =============================================================================
+
+class ResearchRun(models.Model):
+    """
+    One execution of the Research Pipeline.
+
+    Stores a frozen snapshot of the config so results are reproducible
+    even if the config is later modified.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    config = models.ForeignKey(
+        ResearchConfig,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='runs',
+        help_text="Source config (may be null if config deleted)",
+    )
+    config_snapshot = models.JSONField(
+        help_text="Frozen copy of config at the moment of run start",
+    )
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=RunStatus.choices,
+        default=RunStatus.PENDING,
+    )
+
+    n_sightings = models.PositiveIntegerField(
+        help_text="Number of sightings included in this run",
+    )
+    n_cells = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of spatial units generated",
+    )
+
+    error_message = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = "Research Run"
+        verbose_name_plural = "Research Runs"
+        ordering = ['-started_at']
+
+    def __str__(self):
+        cfg = self.config.name if self.config else '(deleted)'
+        return f"Run {str(self.id)[:8]} [{self.status}] — {cfg}"
+
+
+# =============================================================================
+# ResearchStepLog
+# =============================================================================
+
+class ResearchStepLog(models.Model):
+    """
+    Per-step execution log for a Research Run.
+
+    Each pipeline step (R script, Python calculation, SQL query)
+    gets its own log row with timing, exit code, stdout/stderr.
+    """
+
+    run = models.ForeignKey(
+        ResearchRun,
+        on_delete=models.CASCADE,
+        related_name='steps',
+    )
+
+    step_name = models.CharField(
+        max_length=100,
+        help_text="Human-readable step name (e.g. '01_generate_voronoi.R')",
+    )
+    step_order = models.PositiveIntegerField(
+        help_text="Execution order (1-based)",
+    )
+    step_type = models.CharField(
+        max_length=10,
+        choices=StepType.choices,
+    )
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.FloatField(null=True, blank=True)
+
+    exit_code = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Process exit code (0=success, 3=fallback, 137=OOM)",
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=StepStatus.choices,
+        default=StepStatus.RUNNING,
+    )
+
+    input_params = models.JSONField(
+        default=dict,
+        help_text="Parameters passed to this step",
+    )
+    output_stats = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Statistics returned by this step",
+    )
+
+    stdout = models.TextField(blank=True, default='')
+    stderr = models.TextField(blank=True, default='')
+
+    errors = models.JSONField(
+        default=list,
+        help_text="List of error messages",
+    )
+    warnings = models.JSONField(
+        default=list,
+        help_text="List of warning messages",
+    )
+
+    class Meta:
+        verbose_name = "Research Step Log"
+        verbose_name_plural = "Research Step Logs"
+        ordering = ['run', 'step_order']
+        unique_together = ['run', 'step_order']
+
+    def __str__(self):
+        return f"Step {self.step_order}: {self.step_name} [{self.status}]"
+
+
+# =============================================================================
+# ResearchDiagnostics
+# =============================================================================
