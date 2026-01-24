@@ -1,0 +1,732 @@
+#!/usr/bin/env Rscript
+# =============================================================================
+# 07_diagnostics.R
+# Testy diagnostyczne modelu przestrzennego
+#
+# Testy:
+#   Moran I     — autokorelacja przestrzenna reszt (obowiazkowe)
+#   LM tests    — LM-lag vs LM-error (obowiazkowe)
+#   LISA        — Local Moran I, klasyfikacja HH/LL/HL/LH/NS (opcjonalne)
+#   ETA         — entropia globalna tessellacji (opcjonalne)
+#   VIF         — Variance Inflation Factor (zawsze)
+#   Coefficients— wspolczynniki modelu (zawsze)
+#
+# Input:
+#   /app/data/research_W.rds      (macierz W z kroku 05)
+#   /app/data/research_model.rds  (model z kroku 06)
+#   sightings_gridcell_voronoi    (geometria dla ETA)
+#
+# Output: INSERT INTO analytics_researchdiagnostics
+#
+# ENV vars:
+#   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+#   RESEARCH_TARGET_TABLE    (default: sightings_gridcell_voronoi)
+#   RESEARCH_RUN_ID          (UUID runu)
+#   RESEARCH_RUN_MORAN       (1/0, default: 1)
+#   RESEARCH_RUN_LM_TESTS    (1/0, default: 1)
+#   RESEARCH_RUN_LISA        (1/0, default: 0)
+#   RESEARCH_RUN_ETA         (1/0, default: 0)
+#   RESEARCH_ALPHA           (poziom istotnosci, default: 0.05)
+#   RESEARCH_VIF_THRESHOLD   (prog VIF, default: 5.0)
+# =============================================================================
+
+library(sf)
+library(spdep)
+library(DBI)
+library(RPostgres)
+
+cat("============================================================\n")
+cat("07_diagnostics.R — Testy diagnostyczne\n")
+cat("============================================================\n")
+
+# -----------------------------------------------------------------------------
+# 1. Parametry z ENV
+# -----------------------------------------------------------------------------
+
+TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
+run_id        <- Sys.getenv("RESEARCH_RUN_ID", "")
+run_moran     <- Sys.getenv("RESEARCH_RUN_MORAN", "1") == "1"
+
+cat(sprintf("Target table: %s\n", TARGET_TABLE))
+run_lm_tests  <- Sys.getenv("RESEARCH_RUN_LM_TESTS", "1") == "1"
+run_lisa       <- Sys.getenv("RESEARCH_RUN_LISA", "0") == "1"
+run_eta       <- Sys.getenv("RESEARCH_RUN_ETA", "0") == "1"
+alpha         <- as.numeric(Sys.getenv("RESEARCH_ALPHA", "0.05"))
+vif_threshold <- as.numeric(Sys.getenv("RESEARCH_VIF_THRESHOLD", "5.0"))
+
+cat(sprintf("Run ID: %s\n", run_id))
+cat(sprintf("Testy: Moran=%s, LM=%s, LISA=%s, ETA=%s\n",
+            run_moran, run_lm_tests, run_lisa, run_eta))
+cat(sprintf("Alpha: %.3f, VIF threshold: %.1f\n", alpha, vif_threshold))
+
+if (nchar(run_id) == 0) {
+  cat("UWAGA: Brak RESEARCH_RUN_ID — wyniki nie beda zapisane do bazy.\n")
+}
+
+# -----------------------------------------------------------------------------
+# 2. Wczytaj dane z RDS
+# -----------------------------------------------------------------------------
+
+cat("\n[1] Wczytywanie danych...\n")
+
+# Macierz W z kroku 05
+w_rds_path <- "/app/data/research_W.rds"
+if (!file.exists(w_rds_path)) {
+  cat(sprintf("BLAD: Brak pliku %s (krok 05 nie uruchomiony).\n", w_rds_path))
+  quit(status = 1)
+}
+w_data <- readRDS(w_rds_path)
+listw <- w_data$listw
+nb <- w_data$nb
+cat(sprintf("  W: metoda=%s, regionow=%d\n", w_data$method, length(nb)))
+
+# Extract W matrix metrics for diagnostics
+k_selected <- if (!is.null(w_data$k_optimal)) as.integer(w_data$k_optimal) else NA_integer_
+mean_neighbors <- mean(card(nb))
+cat(sprintf("  k_selected: %s\n", ifelse(is.na(k_selected), "N/A (non-KNN method)", k_selected)))
+cat(sprintf("  mean_neighbors: %.2f\n", mean_neighbors))
+
+# Model z kroku 06
+model_rds_path <- "/app/data/research_model.rds"
+if (!file.exists(model_rds_path)) {
+  cat(sprintf("BLAD: Brak pliku %s (krok 06 nie uruchomiony).\n", model_rds_path))
+  quit(status = 1)
+}
+model_data <- readRDS(model_rds_path)
+best_result <- model_data$best_result
+sar_result  <- model_data$sar_result
+sem_result  <- model_data$sem_result
+model_df    <- model_data$data
+eq          <- model_data$formula
+n_cells     <- model_data$n_cells
+
+cat(sprintf("  Model: %s, AIC=%.2f, n=%d\n",
+            best_result$type, best_result$AIC, n_cells))
+cat(sprintf("  Formula: %s\n", deparse(eq)))
+
+# Wczytaj impacts (SAR/SDM only) z kroku 06
+# Używamy isTRUE() dla bezpieczeństwa (stare RDS mogą nie mieć tego pola)
+impacts_result <- model_data$impacts_result
+has_impacts <- !is.null(impacts_result) && isTRUE(impacts_result$success)
+if (has_impacts) {
+  cat(sprintf("  Impacts: TAK (%d predyktorow)\n", length(impacts_result$direct)))
+} else {
+  cat("  Impacts: NIE (model nie wymaga lub blad)\n")
+}
+
+# Load spatialreg for model functions
+if (!requireNamespace("spatialreg", quietly = TRUE)) {
+  install.packages("spatialreg", repos = "https://cloud.r-project.org")
+}
+library(spatialreg)
+
+# =============================================================================
+# Storage for results (will be inserted into DB at the end)
+# =============================================================================
+
+diag <- list(
+  # Moran I
+  moran_i = NA_real_, moran_expected = NA_real_, moran_variance = NA_real_,
+  moran_z = NA_real_, moran_p = NA_real_,
+  # LM tests
+  lm_lag_stat = NA_real_, lm_lag_p = NA_real_,
+  lm_error_stat = NA_real_, lm_error_p = NA_real_,
+  rlm_lag_stat = NA_real_, rlm_lag_p = NA_real_,
+  rlm_error_stat = NA_real_, rlm_error_p = NA_real_,
+  # Model info
+  model_selected = best_result$type,
+  aic = best_result$AIC,
+  log_likelihood = NA_real_,
+  coefficients = "null",   # JSON string
+  r_squared = NA_real_,
+  rho = NA_real_, lambda_param = NA_real_,
+  # LISA
+  lisa_hh = NA_integer_, lisa_ll = NA_integer_,
+  lisa_hl = NA_integer_, lisa_lh = NA_integer_, lisa_ns = NA_integer_,
+  # VIF
+  vif_results = "null",       # JSON string
+  predictors_dropped = "[]",  # JSON string
+  # W matrix metrics
+  k_selected = k_selected,
+  mean_neighbors = mean_neighbors,
+  # Impacts (SAR/SDM only)
+  impacts = "null"            # JSON string
+)
+
+# Spatial parameters
+if (!is.na(best_result$rho))    diag$rho <- best_result$rho
+if (!is.na(best_result$lambda)) diag$lambda_param <- best_result$lambda
+
+# Log-likelihood
+diag$log_likelihood <- tryCatch({
+  as.numeric(logLik(best_result$model))
+}, error = function(e) NA_real_)
+
+# =============================================================================
+# 3. Coefficients & Pseudo-R²
+# =============================================================================
+
+cat("\n[2] Wspolczynniki modelu...\n")
+
+coef_table <- tryCatch({
+  s <- summary(best_result$model)
+  if (best_result$type == "OLS") {
+    s$coefficients
+  } else {
+    # spatialreg: summary has $Coef or $coefficients
+    if (!is.null(s$Coef)) s$Coef else s$coefficients
+  }
+}, error = function(e) {
+  cat(sprintf("  Nie mozna wyciagnac wspolczynnikow: %s\n", e$message))
+  NULL
+})
+
+if (!is.null(coef_table) && is.matrix(coef_table)) {
+  cat("  Wspolczynniki:\n")
+  print(round(coef_table, 4))
+
+  # Build JSON: {name: {estimate, std_error, z, p}}
+  coef_names <- rownames(coef_table)
+  coef_list <- list()
+  for (i in seq_along(coef_names)) {
+    nm <- coef_names[i]
+    coef_list[[nm]] <- list(
+      estimate  = round(coef_table[i, 1], 6),
+      std_error = round(coef_table[i, 2], 6),
+      z         = round(coef_table[i, 3], 4),
+      p         = round(coef_table[i, 4], 6)
+    )
+  }
+
+  # Manual JSON construction (avoid jsonlite dependency)
+  json_parts <- sapply(names(coef_list), function(nm) {
+    cl <- coef_list[[nm]]
+    sprintf('"%s": {"estimate": %s, "std_error": %s, "z": %s, "p": %s}',
+            nm,
+            ifelse(is.na(cl$estimate), "null", as.character(cl$estimate)),
+            ifelse(is.na(cl$std_error), "null", as.character(cl$std_error)),
+            ifelse(is.na(cl$z), "null", as.character(cl$z)),
+            ifelse(is.na(cl$p), "null", as.character(cl$p)))
+  })
+  diag$coefficients <- paste0("{", paste(json_parts, collapse = ", "), "}")
+}
+
+# Pseudo R²: 1 - RSS/TSS
+# Y column: "Y" (from step 06 fix) or legacy "log_density"
+if ("Y" %in% names(model_df)) {
+  Y <- model_df$Y
+} else if ("log_density" %in% names(model_df)) {
+  Y <- model_df$log_density
+} else {
+  Y <- NULL
+  cat("  Brak kolumny Y/log_density w danych modelu.\n")
+}
+resids <- tryCatch(residuals(best_result$model), error = function(e) NULL)
+
+if (!is.null(resids) && length(resids) == length(Y)) {
+  rss <- sum(resids^2)
+  tss <- sum((Y - mean(Y))^2)
+  if (tss > 0) {
+    diag$r_squared <- round(1 - rss / tss, 6)
+    cat(sprintf("  Pseudo R²: %.4f\n", diag$r_squared))
+  }
+} else {
+  cat("  Brak residuow — nie mozna obliczyc R².\n")
+}
+
+# =============================================================================
+# 4. VIF (Variance Inflation Factor)
+# =============================================================================
+
+cat("\n[3] VIF (multicollinearity)...\n")
+
+ols_model <- tryCatch(lm(eq, data = model_df), error = function(e) NULL)
+
+if (!is.null(ols_model)) {
+  X <- model.matrix(ols_model)[, -1, drop = FALSE]  # exclude intercept
+
+  if (ncol(X) >= 2) {
+    vif_vals <- numeric(ncol(X))
+    names(vif_vals) <- colnames(X)
+
+    for (j in seq_len(ncol(X))) {
+      r2 <- summary(lm(X[, j] ~ X[, -j]))$r.squared
+      vif_vals[j] <- 1 / (1 - r2)
+    }
+
+    cat("  VIF:\n")
+    for (nm in names(vif_vals)) {
+      v <- vif_vals[nm]
+      if (is.na(v) || !is.finite(v)) {
+        cat(sprintf("    %-15s NA (aliased/zero-variance)\n", nm))
+      } else {
+        flag <- if (v > vif_threshold) " *** WYSOKI!" else ""
+        cat(sprintf("    %-15s %.2f%s\n", nm, v, flag))
+      }
+    }
+
+    # JSON for VIF results (handle NA/Inf)
+    vif_parts <- sapply(names(vif_vals), function(nm) {
+      v <- vif_vals[nm]
+      if (is.na(v) || !is.finite(v)) {
+        sprintf('"%s": null', nm)
+      } else {
+        sprintf('"%s": %.4f', nm, v)
+      }
+    })
+    diag$vif_results <- paste0("{", paste(vif_parts, collapse = ", "), "}")
+
+    # Predictors dropped (guard against NA)
+    dropped <- names(vif_vals[!is.na(vif_vals) & is.finite(vif_vals) & vif_vals > vif_threshold])
+    if (length(dropped) > 0) {
+      cat(sprintf("  Predyktory z VIF > %.1f: %s\n",
+                  vif_threshold, paste(dropped, collapse = ", ")))
+      diag$predictors_dropped <- paste0(
+        "[", paste(sprintf('"%s"', dropped), collapse = ", "), "]")
+    }
+  } else {
+    cat("  Za malo predyktorow (<2) do obliczenia VIF.\n")
+  }
+} else {
+  cat("  OLS nie zbiegnal — brak VIF.\n")
+}
+
+# =============================================================================
+# 5. Moran's I (residuals)
+# =============================================================================
+
+if (run_moran) {
+  cat("\n[4] Moran's I na resztach modelu...\n")
+
+  moran_input <- if (!is.null(resids)) resids else Y
+
+  moran_result <- tryCatch({
+    moran.test(moran_input, listw = listw, zero.policy = TRUE)
+  }, error = function(e) {
+    cat(sprintf("  BLAD Moran: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(moran_result)) {
+    diag$moran_i        <- round(moran_result$estimate["Moran I statistic"], 6)
+    diag$moran_expected <- round(moran_result$estimate["Expectation"], 6)
+    diag$moran_variance <- round(moran_result$estimate["Variance"], 6)
+    diag$moran_z        <- round(moran_result$statistic, 4)
+    diag$moran_p        <- round(moran_result$p.value, 6)
+
+    sig <- if (diag$moran_p < alpha) "ISTOTNY" else "nieistotny"
+    cat(sprintf("  Moran's I: %.4f (z=%.2f, p=%.4f) — %s\n",
+                diag$moran_i, diag$moran_z, diag$moran_p, sig))
+
+    if (diag$moran_p < alpha) {
+      cat("  UWAGA: Istotna autokorelacja reszt — model nie wyczyścił zależności przestrzennej.\n")
+    } else {
+      cat("  OK: Brak istotnej autokorelacji reszt.\n")
+    }
+  }
+} else {
+  cat("\n[4] Moran's I: POMINIETY\n")
+}
+
+# =============================================================================
+# 6. LM Tests (Lagrange Multiplier)
+# =============================================================================
+
+if (run_lm_tests && !is.null(ols_model)) {
+  cat("\n[5] LM tests (lag vs error)...\n")
+
+  # Use lm.RStests (successor to deprecated lm.LMtests)
+  lm_result <- tryCatch({
+    lm.RStests(ols_model, listw = listw, zero.policy = TRUE,
+               test = "all")
+  }, error = function(e) {
+    cat(sprintf("  BLAD LM: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(lm_result)) {
+    # Extract safely — lm.RStests returns named list of htest objects
+    safe_extract <- function(obj, test_name) {
+      t <- tryCatch(obj[[test_name]], error = function(e) NULL)
+      if (is.null(t)) return(list(stat = NA_real_, p = NA_real_))
+      list(
+        stat = as.numeric(t$statistic[1]),
+        p    = as.numeric(t$p.value[1])
+      )
+    }
+
+    # lm.RStests returns: RSerr, RSlag, adjRSerr, adjRSlag, SARMA
+    lm_lag   <- safe_extract(lm_result, "RSlag")
+    lm_err   <- safe_extract(lm_result, "RSerr")
+    rlm_lag  <- safe_extract(lm_result, "adjRSlag")
+    rlm_err  <- safe_extract(lm_result, "adjRSerr")
+
+    diag$lm_lag_stat    <- round(lm_lag$stat, 4)
+    diag$lm_lag_p       <- round(lm_lag$p, 6)
+    diag$lm_error_stat  <- round(lm_err$stat, 4)
+    diag$lm_error_p     <- round(lm_err$p, 6)
+    diag$rlm_lag_stat   <- round(rlm_lag$stat, 4)
+    diag$rlm_lag_p      <- round(rlm_lag$p, 6)
+    diag$rlm_error_stat <- round(rlm_err$stat, 4)
+    diag$rlm_error_p    <- round(rlm_err$p, 6)
+
+    fmt_sig <- function(p) if (is.na(p)) "" else if (p < alpha) " *" else ""
+
+    cat(sprintf("  LM-lag:    stat=%.4f  p=%.4f%s\n",
+                lm_lag$stat, lm_lag$p, fmt_sig(lm_lag$p)))
+    cat(sprintf("  LM-error:  stat=%.4f  p=%.4f%s\n",
+                lm_err$stat, lm_err$p, fmt_sig(lm_err$p)))
+    cat(sprintf("  RLM-lag:   stat=%.4f  p=%.4f%s\n",
+                rlm_lag$stat, rlm_lag$p, fmt_sig(rlm_lag$p)))
+    cat(sprintf("  RLM-error: stat=%.4f  p=%.4f%s\n",
+                rlm_err$stat, rlm_err$p, fmt_sig(rlm_err$p)))
+
+    # Decision logic (only if values available)
+    if (!is.na(lm_lag$p) && !is.na(lm_err$p)) {
+      cat("\n  Rekomendacja: ")
+      if (lm_lag$p < alpha && lm_err$p < alpha) {
+        if (!is.na(rlm_lag$p) && !is.na(rlm_err$p)) {
+          if (rlm_lag$p < alpha && rlm_err$p >= alpha) {
+            cat("SAR (RLM-lag istotny, RLM-error nie)\n")
+          } else if (rlm_err$p < alpha && rlm_lag$p >= alpha) {
+            cat("SEM (RLM-error istotny, RLM-lag nie)\n")
+          } else {
+            cat("SDM lub SARAR (oba RLM istotne)\n")
+          }
+        } else {
+          cat("Oba LM istotne, brak Robust LM\n")
+        }
+      } else if (lm_lag$p < alpha) {
+        cat("SAR (LM-lag istotny)\n")
+      } else if (lm_err$p < alpha) {
+        cat("SEM (LM-error istotny)\n")
+      } else {
+        cat("OLS wystarczajacy (brak istotnych LM)\n")
+      }
+    }
+  }
+} else if (run_lm_tests) {
+  cat("\n[5] LM tests: POMINIETY (brak OLS)\n")
+} else {
+  cat("\n[5] LM tests: POMINIETY\n")
+}
+
+# =============================================================================
+# 7. LISA (Local Indicators of Spatial Association)
+# =============================================================================
+
+if (run_lisa) {
+  cat("\n[6] LISA (Local Moran)...\n")
+
+  lisa_result <- tryCatch({
+    localmoran(Y, listw = listw, zero.policy = TRUE)
+  }, error = function(e) {
+    cat(sprintf("  BLAD LISA: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(lisa_result)) {
+    # Classify: HH, LL, HL, LH, NS
+    Ii <- lisa_result[, "Ii"]
+    p_vals <- lisa_result[, "Pr(z != E(Ii))"]
+    Y_scaled <- Y - mean(Y)
+    WY <- lag.listw(listw, Y, zero.policy = TRUE)
+    WY_scaled <- WY - mean(WY, na.rm = TRUE)
+
+    # Classification
+    sig_mask <- p_vals < alpha
+    quad <- character(length(Y))
+    quad[Y_scaled > 0 & WY_scaled > 0] <- "HH"
+    quad[Y_scaled < 0 & WY_scaled < 0] <- "LL"
+    quad[Y_scaled > 0 & WY_scaled < 0] <- "HL"
+    quad[Y_scaled < 0 & WY_scaled > 0] <- "LH"
+    quad[!sig_mask] <- "NS"
+
+    diag$lisa_hh <- as.integer(sum(quad == "HH"))
+    diag$lisa_ll <- as.integer(sum(quad == "LL"))
+    diag$lisa_hl <- as.integer(sum(quad == "HL"))
+    diag$lisa_lh <- as.integer(sum(quad == "LH"))
+    diag$lisa_ns <- as.integer(sum(quad == "NS"))
+
+    cat(sprintf("  HH (hot spot):   %d\n", diag$lisa_hh))
+    cat(sprintf("  LL (cold spot):  %d\n", diag$lisa_ll))
+    cat(sprintf("  HL (outlier):    %d\n", diag$lisa_hl))
+    cat(sprintf("  LH (outlier):    %d\n", diag$lisa_lh))
+    cat(sprintf("  NS (nieistotne): %d\n", diag$lisa_ns))
+    cat(sprintf("  Istotnych: %d/%d (%.0f%%)\n",
+                sum(sig_mask), length(sig_mask),
+                100 * sum(sig_mask) / length(sig_mask)))
+  }
+} else {
+  cat("\n[6] LISA: POMINIETY\n")
+}
+
+# =============================================================================
+# 8. ETA (Entropy of Tessellation)
+# =============================================================================
+
+# Initialize eta_result (will be populated if run_eta=TRUE)
+eta_result <- NULL
+
+if (run_eta) {
+  cat("\n[7] ETA (entropia tessellacji)...\n")
+
+  eta_result <- tryCatch({
+    conn_eta <- dbConnect(
+      RPostgres::Postgres(),
+      dbname = Sys.getenv("DB_NAME", "dziki_db"),
+      host   = Sys.getenv("DB_HOST", "db"),
+      port   = as.integer(Sys.getenv("DB_PORT", "5432")),
+      user   = Sys.getenv("DB_USER", "dziki"),
+      password = Sys.getenv("DB_PASSWORD", "dziki_dev_password")
+    )
+    on.exit(dbDisconnect(conn_eta), add = TRUE)
+
+    areas <- dbGetQuery(conn_eta, sprintf("
+      SELECT ST_Area(geometry::geography) as area_m2
+      FROM %s
+      WHERE geometry IS NOT NULL
+      ORDER BY id
+    ", TARGET_TABLE))$area_m2
+
+    total_area <- sum(areas)
+    shares <- areas / total_area
+    H_emp <- -sum(shares * log(shares))
+    H_max <- log(length(shares))
+    H_rel <- H_emp / H_max
+
+    list(H_emp = H_emp, H_max = H_max, H_rel = H_rel, n = length(shares))
+  }, error = function(e) {
+    cat(sprintf("  BLAD ETA: %s\n", e$message))
+    NULL
+  })
+
+  if (!is.null(eta_result)) {
+    cat(sprintf("  H_emp (entropia empiryczna): %.4f\n", eta_result$H_emp))
+    cat(sprintf("  H_max (entropia max):        %.4f\n", eta_result$H_max))
+    cat(sprintf("  H_rel (relatywna):           %.4f\n", eta_result$H_rel))
+    cat(sprintf("  n (kafli): %d\n", eta_result$n))
+    cat(sprintf("  Interpretacja: H_rel=%.2f — %s\n",
+                eta_result$H_rel,
+                if (eta_result$H_rel > 0.9) "rowne kafle (entropia wysoka)"
+                else if (eta_result$H_rel > 0.7) "umiarkowana nierownosc kafli"
+                else "nierownomierne kafle (entropia niska)"))
+  }
+} else {
+  cat("\n[7] ETA: POMINIETY\n")
+}
+
+# =============================================================================
+# 8b. IMPACTS (SAR/SDM only)
+# =============================================================================
+
+cat("\n[8] Impacts (SAR/SDM)...\n")
+
+if (has_impacts) {
+  cat("  Model wymaga impacts — wyswietlam wyniki:\n")
+
+  # Buduj JSON ręcznie (unikamy zależności od jsonlite)
+  build_named_json <- function(vals, names) {
+    if (is.null(names) || length(names) == 0) {
+      names <- paste0("X", seq_along(vals))
+    }
+    parts <- sapply(seq_along(vals), function(i) {
+      sprintf('"%s": %.6f', names[i], vals[i])
+    })
+    paste0("{", paste(parts, collapse = ", "), "}")
+  }
+
+  direct_json <- build_named_json(impacts_result$direct, impacts_result$pred_names)
+  indirect_json <- build_named_json(impacts_result$indirect, impacts_result$pred_names)
+  total_json <- build_named_json(impacts_result$total, impacts_result$pred_names)
+
+  diag$impacts <- sprintf("{\"direct\": %s, \"indirect\": %s, \"total\": %s}",
+                          direct_json, indirect_json, total_json)
+
+  # Wyswietl efekty
+  cat("\n  === IMPACTS ===\n")
+  cat("  Direct effects (wpływ X_i na Y_i):\n")
+  for (i in seq_along(impacts_result$direct)) {
+    nm <- impacts_result$pred_names[i]
+    val <- impacts_result$direct[i]
+    cat(sprintf("    %-20s: %+.4f\n", nm, val))
+  }
+
+  cat("  Indirect effects (spillover na sąsiadów):\n")
+  for (i in seq_along(impacts_result$indirect)) {
+    nm <- impacts_result$pred_names[i]
+    val <- impacts_result$indirect[i]
+    cat(sprintf("    %-20s: %+.4f\n", nm, val))
+  }
+
+  cat("  Total effects (direct + indirect):\n")
+  for (i in seq_along(impacts_result$total)) {
+    nm <- impacts_result$pred_names[i]
+    val <- impacts_result$total[i]
+    cat(sprintf("    %-20s: %+.4f\n", nm, val))
+  }
+
+  # Interpretacja
+  cat("\n  Interpretacja:\n")
+  cat("    - Direct: zmiana Y_i gdy X_i rośnie o 1 sd (z feedbackiem przestrzennym)\n")
+  cat("    - Indirect: zmiana Y sąsiadów gdy X_i rośnie (spillover)\n")
+  cat("    - Total: łączny efekt w systemie\n")
+
+  if (!is.na(best_result$rho) && best_result$rho > 0.5) {
+    cat(sprintf("    - UWAGA: rho=%.3f (wysoki) — indirect effects dominują.\n",
+                best_result$rho))
+  }
+} else {
+  cat(sprintf("  Model %s nie wymaga impacts (β jak w OLS).\n", best_result$type))
+}
+
+# =============================================================================
+# 9. Zapis do bazy
+# =============================================================================
+
+cat("\n[8] Zapis do bazy (analytics_researchdiagnostics)...\n")
+
+if (nchar(run_id) == 0) {
+  cat("  POMINIETY — brak RESEARCH_RUN_ID.\n")
+} else {
+  conn <- dbConnect(
+    RPostgres::Postgres(),
+    dbname = Sys.getenv("DB_NAME", "dziki_db"),
+    host   = Sys.getenv("DB_HOST", "db"),
+    port   = as.integer(Sys.getenv("DB_PORT", "5432")),
+    user   = Sys.getenv("DB_USER", "dziki"),
+    password = Sys.getenv("DB_PASSWORD", "dziki_dev_password")
+  )
+  on.exit({
+    if (exists("conn") && dbIsValid(conn)) dbDisconnect(conn)
+  }, add = TRUE)
+
+  # Helper: NA -> "NULL", number -> number string
+  sql_val <- function(x) {
+    if (is.null(x) || is.na(x)) return("NULL")
+    return(as.character(x))
+  }
+
+  sql_str <- function(x) {
+    if (is.null(x) || is.na(x) || x == "") return("''")
+    return(sprintf("'%s'", gsub("'", "''", x)))
+  }
+
+  sql_json <- function(x) {
+    if (is.null(x) || x == "null") return("NULL")
+    return(sprintf("'%s'::jsonb", gsub("'", "''", x)))
+  }
+
+  # Delete existing diagnostics for this run (idempotent)
+  dbExecute(conn, sprintf(
+    "DELETE FROM analytics_researchdiagnostics WHERE run_id = '%s'", run_id))
+
+  # ETA values (may be NULL if run_eta=FALSE or error)
+  eta_h_emp <- if (!is.null(eta_result)) eta_result$H_emp else NA
+  eta_h_max <- if (!is.null(eta_result)) eta_result$H_max else NA
+  eta_h_rel <- if (!is.null(eta_result)) eta_result$H_rel else NA
+
+  insert_sql <- sprintf("
+    INSERT INTO analytics_researchdiagnostics (
+      run_id,
+      moran_i, moran_expected, moran_variance, moran_z, moran_p,
+      lm_lag_stat, lm_lag_p, lm_error_stat, lm_error_p,
+      rlm_lag_stat, rlm_lag_p, rlm_error_stat, rlm_error_p,
+      model_selected, aic, log_likelihood,
+      coefficients, r_squared,
+      rho, lambda_param,
+      lisa_hh_count, lisa_ll_count, lisa_hl_count, lisa_lh_count, lisa_ns_count,
+      vif_results, predictors_dropped,
+      eta_h_emp, eta_h_max, eta_h_rel,
+      k_selected, mean_neighbors,
+      impacts
+    ) VALUES (
+      '%s',
+      %s, %s, %s, %s, %s,
+      %s, %s, %s, %s,
+      %s, %s, %s, %s,
+      %s, %s, %s,
+      %s, %s,
+      %s, %s,
+      %s, %s, %s, %s, %s,
+      %s, %s,
+      %s, %s, %s,
+      %s, %s,
+      %s
+    )
+  ",
+    run_id,
+    sql_val(diag$moran_i), sql_val(diag$moran_expected),
+    sql_val(diag$moran_variance), sql_val(diag$moran_z), sql_val(diag$moran_p),
+    sql_val(diag$lm_lag_stat), sql_val(diag$lm_lag_p),
+    sql_val(diag$lm_error_stat), sql_val(diag$lm_error_p),
+    sql_val(diag$rlm_lag_stat), sql_val(diag$rlm_lag_p),
+    sql_val(diag$rlm_error_stat), sql_val(diag$rlm_error_p),
+    sql_str(diag$model_selected), sql_val(diag$aic), sql_val(diag$log_likelihood),
+    sql_json(diag$coefficients), sql_val(diag$r_squared),
+    sql_val(diag$rho), sql_val(diag$lambda_param),
+    sql_val(diag$lisa_hh), sql_val(diag$lisa_ll),
+    sql_val(diag$lisa_hl), sql_val(diag$lisa_lh), sql_val(diag$lisa_ns),
+    sql_json(diag$vif_results), sql_json(diag$predictors_dropped),
+    sql_val(eta_h_emp), sql_val(eta_h_max), sql_val(eta_h_rel),
+    sql_val(diag$k_selected), sql_val(diag$mean_neighbors),
+    sql_json(diag$impacts)
+  )
+
+  tryCatch({
+    dbExecute(conn, insert_sql)
+    cat("  Zapisano diagnostyke.\n")
+  }, error = function(e) {
+    cat(sprintf("  BLAD zapisu: %s\n", e$message))
+    cat(sprintf("  SQL: %s\n", substr(insert_sql, 1, 500)))
+    quit(status = 1)
+  })
+
+  # Verify
+  verify <- dbGetQuery(conn, sprintf(
+    "SELECT run_id, model_selected, moran_i, moran_p, aic
+     FROM analytics_researchdiagnostics
+     WHERE run_id = '%s'", run_id))
+
+  if (nrow(verify) > 0) {
+    cat(sprintf("  Weryfikacja OK: model=%s, moran_i=%s, aic=%s\n",
+                verify$model_selected,
+                ifelse(is.na(verify$moran_i), "NULL", sprintf("%.4f", verify$moran_i)),
+                ifelse(is.na(verify$aic), "NULL", sprintf("%.2f", verify$aic))))
+  } else {
+    cat("  UWAGA: Rekord nie znaleziony po INSERT!\n")
+  }
+}
+
+# =============================================================================
+# 10. Podsumowanie
+# =============================================================================
+
+cat("\n============================================================\n")
+cat("PODSUMOWANIE DIAGNOSTYKI\n")
+cat("============================================================\n")
+cat(sprintf("Model: %s (AIC=%.2f)\n", diag$model_selected, diag$aic))
+if (!is.na(diag$r_squared))
+  cat(sprintf("Pseudo R²: %.4f\n", diag$r_squared))
+if (!is.na(diag$rho))
+  cat(sprintf("rho (SAR): %.4f\n", diag$rho))
+if (!is.na(diag$lambda_param))
+  cat(sprintf("lambda (SEM): %.4f\n", diag$lambda_param))
+if (!is.na(diag$moran_i))
+  cat(sprintf("Moran's I: %.4f (p=%.4f) %s\n",
+              diag$moran_i, diag$moran_p,
+              if (diag$moran_p < alpha) "ISTOTNY!" else "ok"))
+if (!is.na(diag$lm_lag_stat))
+  cat(sprintf("LM-lag: %.4f (p=%.4f), LM-error: %.4f (p=%.4f)\n",
+              diag$lm_lag_stat, diag$lm_lag_p,
+              diag$lm_error_stat, diag$lm_error_p))
+if (!is.na(diag$lisa_hh))
+  cat(sprintf("LISA: HH=%d LL=%d HL=%d LH=%d NS=%d\n",
+              diag$lisa_hh, diag$lisa_ll, diag$lisa_hl, diag$lisa_lh, diag$lisa_ns))
+if (has_impacts)
+  cat(sprintf("Impacts: TAK (%d predyktorów, direct/indirect/total)\n",
+              length(impacts_result$direct)))
+
+cat("\n============================================================\n")
+cat("07_diagnostics ZAKONCZONY POMYSLNIE\n")
+cat("============================================================\n")
