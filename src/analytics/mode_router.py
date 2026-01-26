@@ -405,3 +405,171 @@ def _calculate_population(debug: DebugLogger) -> dict:
 def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
     """
     PUB pipeline: VORONOI grid + area-rank risk.
+
+    IZOLACJA: Tylko VORONOI grid, NIE dotyka SQUARE (FAST mode).
+
+    Pipeline steps:
+    1. 01_generate_voronoi.R - Generate Voronoi cells from sightings
+    2. _calculate_osm_features() - Calculate OSM environmental features (Python/SQL)
+    3. _calculate_population() - Area-weighted population from GUS 500m grid (Python/SQL)
+    4. 03_inverse_area_risk.R - Inverse area risk (area-rank, D-01)
+    5. 05_ensemble_prediction.R - Ensemble prediction
+    """
+    import docker
+    import os
+
+    grid_type = config["grid_type"]  # 'voronoi'
+    results = {"mode": "PUB", "grid_type": grid_type, "steps": {}}
+
+    # D-05: 02_spatial_models.R removed from PUB — it always fails (no RESEARCH_TARGET_TABLE)
+    # and its output is overwritten by 03_inverse_area_risk.R anyway (D-01).
+    r_scripts = [
+        ("01_generate_voronoi.R", "Generate Voronoi from current sightings"),
+        ("03_inverse_area_risk.R", "Inverse area risk"),
+        ("05_ensemble_prediction.R", "Ensemble prediction"),
+    ]
+
+    t = debug.start(
+        "pub_pipeline",
+        "PUB: Running pipeline (3 R scripts + OSM features + population)",
+    )
+
+    try:
+        # Initialize Docker client
+        client = docker.from_env()
+        client.ping()
+        debug.info("docker", "Docker connected")
+
+        step_num = 0
+        failed_steps = []
+
+        for i, (script, description) in enumerate(r_scripts, 1):
+            step_num += 1
+            t_step = debug.start(f"step{step_num}", f"{description} ({script})")
+
+            try:
+                # Run R script via Docker
+                # Mount r_scripts from host to get latest version
+                # Use HOST_PROJECT_PATH env var (set in docker-compose.yml)
+                host_project_path = os.environ.get("HOST_PROJECT_PATH", "/opt/dziki")
+                r_scripts_path = f"{host_project_path}/r_scripts"
+                container_output = client.containers.run(
+                    "dziki-worker-r:latest",
+                    command=["Rscript", "--vanilla", f"/app/r_scripts/{script}"],
+                    environment={
+                        "DB_HOST": "db",
+                        "DB_PORT": "5432",
+                        "DB_NAME": os.environ.get("DB_NAME", "dziki_db"),
+                        "DB_USER": os.environ.get("DB_USER", "dziki"),
+                        "DB_PASSWORD": os.environ.get(
+                            "DB_PASSWORD", "dziki_dev_password"
+                        ),
+                        "OMP_NUM_THREADS": "1",
+                    },
+                    network="dziki_dziki-internal",
+                    volumes={
+                        "dziki_r_data": {"bind": "/app/data", "mode": "rw"},
+                        r_scripts_path: {"bind": "/app/r_scripts", "mode": "ro"},
+                    },
+                    remove=True,
+                    detach=False,
+                    stdout=True,
+                    stderr=True,
+                )
+
+                results["steps"][script] = "success"
+                debug.success(
+                    f"step{step_num}", f"{script} completed", start_time=t_step
+                )
+
+                if script == "01_generate_voronoi.R":
+                    step_num += 1
+                    osm_result = _calculate_osm_features(debug)
+                    results["steps"]["osm_features"] = osm_result.get(
+                        "status", "unknown"
+                    )
+                    if osm_result.get("stats"):
+                        results["osm_stats"] = osm_result["stats"]
+
+                    # Area-weighted population from GUS 500m grid
+                    step_num += 1
+                    pop_result = _calculate_population(debug)
+                    results["steps"]["population"] = pop_result.get("status", "unknown")
+                    if pop_result.get("stats"):
+                        results["population_stats"] = pop_result["stats"]
+
+            except docker.errors.ContainerError as e:
+                stderr = e.stderr.decode("utf-8")[:300] if e.stderr else str(e)
+                results["steps"][script] = f"error: {stderr}"
+                failed_steps.append(script)
+                logger.error(
+                    "[PUB] Step %s FAILED (ContainerError): %s",
+                    script,
+                    stderr[:300],
+                )
+                debug.error(f"step{step_num}", f"{script} failed: {stderr}")
+
+            except Exception as e:
+                results["steps"][script] = f"error: {str(e)}"
+                failed_steps.append(script)
+                logger.error(
+                    "[PUB] Step %s FAILED (%s): %s",
+                    script,
+                    type(e).__name__,
+                    str(e)[:300],
+                )
+                debug.error(f"step{step_num}", f"{script} error: {str(e)}")
+
+        # Get final stats from VORONOI
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT COUNT(*),
+                       COUNT(DISTINCT ROUND(ensemble_risk::numeric, 4)),
+                       MIN(ensemble_risk), MAX(ensemble_risk),
+                       COUNT(*) FILTER (WHERE ensemble_risk >= 0.7)
+                FROM sightings_gridcell_voronoi
+                WHERE ensemble_risk IS NOT NULL
+            """)
+            total, unique, min_risk, max_risk, critical = cursor.fetchone()
+
+        results["ensemble"] = {
+            "count": total,
+            "unique_values": unique,
+            "min": round(float(min_risk), 4) if min_risk else None,
+            "max": round(float(max_risk), 4) if max_risk else None,
+            "critical_cells": critical,
+        }
+
+        if failed_steps:
+            results["status"] = "partial_success"
+            results["failed_steps"] = failed_steps
+            logger.warning(
+                "[PUB] Pipeline completed with %d failed step(s): %s",
+                len(failed_steps),
+                ", ".join(failed_steps),
+            )
+            debug.success(
+                "pub_pipeline",
+                f"PUB completed (partial — {len(failed_steps)} step(s) failed)",
+                values=results["ensemble"],
+                start_time=t,
+            )
+        else:
+            results["status"] = "success"
+            debug.success(
+                "pub_pipeline", "PUB completed", values=results["ensemble"], start_time=t
+            )
+
+    except docker.errors.DockerException as e:
+        debug.error("docker", f"Docker error: {str(e)}")
+        results["status"] = "error"
+        results["error"] = f"Docker: {str(e)}"
+
+    except Exception as e:
+        debug.error("pub_pipeline", f"PUB failed: {str(e)}")
+        results["status"] = "error"
+        results["error"] = str(e)
+
+    return results
+
+
