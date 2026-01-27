@@ -33,13 +33,13 @@ class Sighting(models.Model):
 
     location = models.PointField(
         srid=4326,
-        spatial_index=True,
+        spatial_index=True,  # Creates GIST index by default
         help_text="Lokalizacja zgłoszenia (WGS84)",
     )
 
     observed_at = models.DateTimeField(
         default=timezone.now,
-        db_index=True,
+        db_index=True,  # Standard B-tree; consider BRIN in production
         help_text="Data i czas obserwacji",
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -84,7 +84,11 @@ class Sighting(models.Model):
     class Meta:
         ordering = ["-observed_at"]
         indexes = [
+            # Composite index for common queries
             models.Index(fields=["status", "observed_at"]),
+            # NOTE: SPGIST and BRIN indexes should be added via raw SQL migration:
+            # CREATE INDEX idx_sightings_location_spgist ON sightings_sighting USING SPGIST (location);
+            # CREATE INDEX idx_sightings_observed_at_brin ON sightings_sighting USING BRIN (observed_at);
         ]
 
     def __str__(self):
@@ -129,7 +133,7 @@ class GridCell(models.Model):
     gwr_score = models.FloatField(default=0, help_text="GWR prediction score")
     confidence = models.FloatField(default=0.2, help_text="Prediction confidence 0-1")
 
-    # Proximity factor - tłumienie ryzyka dla komórek daleko od obserwacji
+    # Proximity factor (v1.6) - tłumienie ryzyka dla komórek daleko od obserwacji
     # proximity_weight = 1 / (1 + dist_to_nearest_sighting / 200)
     proximity_weight = models.FloatField(
         default=1.0,
@@ -194,8 +198,83 @@ class WarsawBoundary(models.Model):
         """Check if point is within Warsaw boundaries."""
         try:
             boundary = cls.objects.first()
-            if boundary is None:
-                return True
-            return boundary.geometry.contains(point)
+            if boundary:
+                return boundary.geometry.contains(point)
+            return True  # Allow if no boundary defined (dev mode)
         except Exception:
-            return True
+            return True  # Graceful degradation
+
+
+# OSM TABLES (managed=False - tabele istnieją, tylko dokumentacja)
+# OSM models below (managed=False): retained for migration history only.
+# Not registered in admin.py (see sightings/admin.py and analytics/admin.py for
+# active registrations). All OSM API views use raw SQL (connection.cursor())
+# in analytics/views.py — the ORM is intentionally bypassed for these layers.
+
+
+class OsmForest(models.Model):
+    """Lasy z OpenStreetMap - preferowane siedlisko dzików"""
+
+    osm_id = models.BigIntegerField(null=True, blank=True)
+    name = models.TextField(null=True, blank=True)
+    geom = models.GeometryField(srid=4326, null=True)
+    fetched_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "osm_forests"
+
+
+class OsmWater(models.Model):
+    """Wody z OpenStreetMap - zbiorniki i cieki wodne"""
+
+    osm_id = models.BigIntegerField(null=True, blank=True)
+    name = models.TextField(null=True, blank=True)
+    waterway = models.TextField(null=True, blank=True)
+    geom = models.GeometryField(srid=4326, null=True)
+    fetched_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "osm_water"
+
+
+class OsmRoad(models.Model):
+    """Drogi z OpenStreetMap - sieć drogowa"""
+
+    osm_id = models.BigIntegerField(null=True, blank=True)
+    highway = models.TextField(null=True, blank=True)
+    name = models.TextField(null=True, blank=True)
+    geom = models.GeometryField(srid=4326, null=True)
+    fetched_at = models.DateTimeField(null=True, blank=True)
+    permeability = models.FloatField(default=0.5)
+
+    class Meta:
+        managed = False
+        db_table = "osm_roads"
+
+
+class OsmBuilding(models.Model):
+    """Budynki z OpenStreetMap - zabudowa"""
+
+    osm_id = models.BigIntegerField(null=True, blank=True)
+    building_type = models.TextField(null=True, blank=True)
+    geom = models.GeometryField(srid=4326, null=True)
+    fetched_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "osm_buildings"
+
+
+class OsmBarrier(models.Model):
+    """Bariery z OpenStreetMap - ogrodzenia, mury"""
+
+    osm_id = models.BigIntegerField(null=True, blank=True)
+    barrier_type = models.TextField(null=True, blank=True)
+    permeability = models.FloatField(null=True, blank=True)
+    geom = models.GeometryField(srid=4326, null=True)  # LineString
+
+    class Meta:
+        managed = False
+        db_table = "osm_barriers"
