@@ -118,3 +118,379 @@
   --color-warning:           224 132 196;
   --radius-base:  0;
   --border-width: 1px;
+  --color-text:            230 226 240;
+}
+
+[data-theme="topographic-cream"] {
+  --color-primary:           139  44  31;
+  --color-primary-dark:      108  32  22;
+  --color-bg:                247 244 237;
+  --color-surface:           255 252 244;
+  --color-surface-2:         240 234 219;
+  --color-border:            216 210 196;
+  --color-muted:              90  84  76;
+  --color-gray-300:          247 244 237;
+  --color-gray-400:          240 234 219;
+  --color-gray-500:          216 210 196;
+  --color-gray-600:          139 132 120;
+  --color-gray-700:           90  84  76;
+  --color-gray-800:           60  56  48;
+  --color-gray-900:           26  24  20;
+  --color-gray-950:           14  12  10;
+  --color-layer-wmatrix:     255  80 200;
+  --color-layer-population:  232 197  71;
+  --color-layer-research:     26  79  42;
+  --color-link-xor:          139  44  31;
+  --color-link-sync:          26  79  42;
+  --color-warning:           232 197  71;
+  --radius-base:  0;
+  --border-width: 1px;
+  --color-text:             26  24  20;
+}
+
+[data-theme="field-notebook"] {
+  --color-primary:           156 175 136;
+  --color-primary-dark:      110 130  95;
+  --color-bg:                240 235 227;
+  --color-surface:           255 252 244;
+  --color-surface-2:         232 226 213;
+  --color-border:             26  22  20;
+  --color-muted:              92  84  72;
+  --color-gray-300:          240 235 227;
+  --color-gray-400:          232 226 213;
+  --color-gray-500:          200 192 178;
+  --color-gray-600:          138 126 110;
+  --color-gray-700:           92  84  72;
+  --color-gray-800:           60  52  44;
+  --color-gray-900:           26  22  20;
+  --color-gray-950:           14  10   8;
+  --color-layer-wmatrix:     255  60 120;
+  --color-layer-population:  156 175 136;
+  --color-layer-research:    168 159 145;
+  --color-link-xor:          201 123  90;
+  --color-link-sync:         156 175 136;
+  --color-warning:           201 123  90;
+  --radius-base:  0;
+  --border-width: 2px;
+  --color-text:             26  22  20;
+}
+
+[data-theme="architecture-drafting"] {
+  --color-primary:           181  41  42;
+  --color-primary-dark:      138  30  32;
+  --color-bg:                242 238 227;
+  --color-surface:           255 252 242;
+  --color-surface-2:         232 228 217;
+  --color-border:             26  32  48;
+  --color-muted:             108 122 138;
+  --color-gray-300:          242 238 227;
+  --color-gray-400:          232 228 217;
+  --color-gray-500:          200 208 216;
+  --color-gray-600:          154 166 180;
+  --color-gray-700:          108 122 138;
+  --color-gray-800:           60  70  86;
+  --color-gray-900:           26  32  48;
+  --color-gray-950:           14  18  28;
+  --color-layer-wmatrix:     255 160   0;
+  --color-layer-population:  112 136 184;
+  --color-layer-research:    181  41  42;
+  --color-link-xor:          181  41  42;
+  --color-link-sync:         112 136 184;
+  --color-warning:           181  41  42;
+  --radius-base:  0;
+  --border-width: 1px;
+  --color-text:             26  32  48;
+}
+
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  background: rgb(var(--color-bg));
+  color: white;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Onboarding - pulsujący ring wokół elementów UI */
+@keyframes pulseRing {
+  0%   { box-shadow: 0 0 0 3px  color-mix(in srgb, rgb(var(--color-primary)) 90%, transparent),
+                     0 0 0  8px color-mix(in srgb, rgb(var(--color-primary)) 30%, transparent),
+                     0 0 60px   color-mix(in srgb, rgb(var(--color-primary)) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 3px  color-mix(in srgb, rgb(var(--color-primary)) 90%, transparent),
+                     0 0 0 22px color-mix(in srgb, rgb(var(--color-primary))  0%, transparent),
+                     0 0 60px   color-mix(in srgb, rgb(var(--color-primary)) 20%, transparent); }
+  100% { box-shadow: 0 0 0 3px  color-mix(in srgb, rgb(var(--color-primary)) 90%, transparent),
+                     0 0 0  8px color-mix(in srgb, rgb(var(--color-primary))  0%, transparent),
+                     0 0 60px   color-mix(in srgb, rgb(var(--color-primary)) 20%, transparent); }
+}
+.onboarding-ring {
+  pointer-events: none;
+  animation: pulseRing 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-ring {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, rgb(var(--color-primary)) 90%, transparent);
+  }
+}
+
+/* MapLibre popup overrides */
+.maplibregl-popup-content {
+  background: rgb(var(--color-surface)) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgb(var(--color-border)) !important;
+  padding: 0 !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: rgb(var(--color-surface)) !important;
+}
+
+.maplibregl-popup-close-button {
+  color: rgb(var(--color-muted)) !important;
+  font-size: 20px !important;
+  padding: 4px 8px !important;
+}
+
+.maplibregl-popup-close-button:hover {
+  color: white !important;
+  background: transparent !important;
+}
+
+/* PWA safe areas */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Fix MapLibre container height */
+.maplibregl-map {
+  position: absolute !important;
+  inset: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.maplibregl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Hide accuracy circle */
+.maplibregl-user-location-accuracy-circle {
+  display: none !important;
+}
+
+/* Control groups - dark glass */
+.maplibregl-ctrl-group {
+  background: rgb(var(--color-bg) / 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(8px);
+}
+
+.maplibregl-ctrl-group button {
+  background: transparent !important;
+  border: none !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.maplibregl-ctrl-group button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.maplibregl-ctrl-icon {
+  filter: invert(1) !important;
+}
+
+/* Geolocate icon - bright */
+.maplibregl-ctrl-geolocate .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(3) !important;
+}
+
+/* Compass icon - bright rotating arrow */
+.maplibregl-ctrl-compass .maplibregl-ctrl-icon {
+  filter: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23EF4444' d='M12 2L8 12h8L12 2z'/%3E%3Cpath fill='%23ffffff' d='M12 22l4-10H8l4 10z'/%3E%3C/svg%3E") !important;
+  background-size: 70% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Position controls below header */
+.maplibregl-ctrl-top-right {
+  top: calc(env(safe-area-inset-top, 0px) + 70px) !important;
+  right: 16px !important;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out !important;
+}
+
+/* Desktop: ukryj GPS i kompas z animacją fade (widoczne tylko na mobile < 768px) */
+@media (min-width: 768px) {
+  .maplibregl-ctrl-top-right {
+    opacity: 0 !important;
+    transform: translateX(20px) !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Hide controls in fullscreen mode (research panel, add mode) */
+body.ui-hidden .maplibregl-ctrl-top-right {
+  opacity: 0 !important;
+  transform: translateX(20px) !important;
+  pointer-events: none !important;
+}
+
+/* Position controls above FAB */
+.maplibregl-ctrl-bottom-right {
+  right: 16px !important;
+  bottom: 100px !important;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin-bottom: 8px !important;
+}
+
+/* User location dot */
+.maplibregl-user-location-dot {
+  background-color: rgb(var(--color-primary)) !important;
+  box-shadow: 0 0 8px rgb(var(--color-primary)) !important;
+  width: 12px !important;
+  height: 12px !important;
+}
+
+.maplibregl-user-location-dot::before {
+  background-color: rgb(var(--color-primary)) !important;
+}
+
+/* Attribution - compact */
+.maplibregl-ctrl-attrib {
+  background: rgb(var(--color-bg) / 0.7) !important;
+  border-radius: 8px !important;
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: rgb(var(--color-muted)) !important;
+}
+
+.maplibregl-ctrl-attrib-button {
+  filter: invert(0.7) !important;
+}
+
+.maplibregl-ctrl-bottom-left {
+  left: 8px !important;
+  bottom: 8px !important;
+}
+
+/* ─── Phase 1B - Header.jsx utility classes ─── */
+@layer components {
+
+  .btn-hdr {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .btn-hdr-animated {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .btn-on-wmatrix {
+    background-color: rgb(var(--color-layer-wmatrix) / 0.15);
+    color: rgb(var(--color-layer-wmatrix));
+    border: 1px solid rgb(var(--color-layer-wmatrix));
+    box-shadow: 0 0 10px rgb(var(--color-layer-wmatrix) / 0.25);
+  }
+  .btn-on-research {
+    background-color: rgb(var(--color-layer-research));
+    color: #fff;
+    border: 1px solid rgb(var(--color-layer-research));
+  }
+
+  .btn-off {
+    background-color: rgb(var(--color-gray-700) / 0.8);
+    color: rgb(156 163 175);
+    border: 1px solid rgb(var(--color-gray-600) / 0.5);
+  }
+
+  .btn-link {
+    padding: 6px 8px;
+    border-radius: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    background-color: rgb(var(--color-gray-700) / 0.6);
+    border: 1px solid rgb(var(--color-gray-600) / 0.5);
+    color: rgb(var(--color-muted));
+  }
+  .btn-link-xor {
+    background-color: rgb(var(--color-link-xor) / 0.3);
+    border: 1px solid rgb(var(--color-link-xor));
+    color: rgb(var(--color-link-xor));
+  }
+  .btn-link-sync {
+    background-color: rgb(var(--color-link-sync) / 0.3);
+    border: 1px solid rgb(var(--color-link-sync));
+    color: rgb(var(--color-link-sync));
+  }
+
+  .header-bg {
+    background: linear-gradient(
+      to bottom,
+      rgb(var(--color-bg) / 0.95) 0%,
+      rgb(var(--color-bg) / 0.8) 50%,
+      transparent 100%
+    );
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .logo-gradient {
+    background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, rgb(var(--color-primary-dark)) 100%);
+    box-shadow: 0 4px 12px rgb(var(--color-primary) / 0.4);
+  }
+
+  .badge-offline {
+    background: rgb(var(--color-warning) / 0.15);
+    border: 1px solid rgb(var(--color-warning) / 0.3);
+    color: rgb(var(--color-warning));
+  }
+
+  .fab-primary {
+    background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, rgb(var(--color-primary-dark)) 100%);
+    box-shadow: 0 8px 24px rgb(var(--color-primary) / 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .pin-primary { color: rgb(var(--color-primary)); }
+
+  .text-primary { color: rgb(var(--color-primary)); }
+
+}
