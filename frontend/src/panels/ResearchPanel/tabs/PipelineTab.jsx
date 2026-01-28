@@ -655,6 +655,529 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
         />
         <NumberField label="Seed" value={form.seed} onChange={set('seed')} min={1} hint={PARAM_HINTS.seed} />
       </div>
+
+      {/* K range */}
+      <div className="grid grid-cols-2 gap-3">
+        <NumberField label="k_range_min" value={form.k_range_min} onChange={set('k_range_min')} min={1} max={100} hint={PARAM_HINTS.k_range_min} />
+        <NumberField label="k_range_max" value={form.k_range_max} onChange={set('k_range_max')} min={2} max={200} hint={PARAM_HINTS.k_range_max} />
+      </div>
+
+      {/* Thresholds */}
+      <div className="grid grid-cols-2 gap-3">
+        <NumberField label="VIF threshold" value={form.vif_threshold} onChange={set('vif_threshold')} min={1} max={100} step={0.5} hint={PARAM_HINTS.vif_threshold} />
+        <NumberField label="Alpha (α)" value={form.alpha} onChange={set('alpha')} min={0.001} max={0.5} step={0.01} hint={PARAM_HINTS.alpha} />
+      </div>
+
+      {/* OSM predictors */}
+      <div>
+        <span className="text-xs text-gray-400 block mb-1">Predyktory OSM</span>
+        <span className="text-xs text-slate-500 block mb-2">{PARAM_HINTS.predictors}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {(availablePredictors || []).map((p) => {
+            const active = (form.active_predictors || []).includes(p);
+            return (
+              <button
+                key={p}
+                onClick={() => togglePredictor(p)}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  active
+                    ? 'bg-blue-600/40 text-blue-300 border border-blue-500/50'
+                    : 'bg-gray-700 text-gray-400 border border-gray-600 hover:text-white'
+                }`}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Diagnostics toggles */}
+      <div>
+        <span className="text-xs text-gray-400 block mb-1">Diagnostyka</span>
+        <span className="text-xs text-slate-500 block mb-2">Testy statystyczne wykonywane po estymacji modelu.</span>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { key: 'run_moran', label: "Moran's I", desc: PARAM_HINTS.run_moran, implemented: true },
+            { key: 'run_lm_tests', label: 'Testy LM', desc: PARAM_HINTS.run_lm_tests, implemented: true },
+            { key: 'run_lisa', label: 'LISA', desc: PARAM_HINTS.run_lisa, implemented: false },
+            { key: 'run_eta', label: 'ETA', desc: PARAM_HINTS.run_eta, implemented: true, voronoiOnly: true },
+          ].map(({ key, label, desc, implemented, voronoiOnly }) => {
+            const isVoronoi = form.geometry_type === 'voronoi';
+            const isDisabled = !implemented || (voronoiOnly && !isVoronoi);
+            const disabledReason = !implemented ? '(N/A)' : (voronoiOnly && !isVoronoi) ? '(tylko Voronoi)' : null;
+
+            return (
+              <label
+                key={key}
+                className={`flex flex-col p-2 rounded border ${
+                  !isDisabled
+                    ? 'border-gray-600 bg-gray-800/50 cursor-pointer hover:border-gray-500'
+                    : 'border-gray-700 bg-gray-900/30 cursor-not-allowed opacity-60'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form[key]}
+                    onChange={() => !isDisabled && set(key)(!form[key])}
+                    disabled={isDisabled}
+                    className={`rounded bg-gray-700 border-gray-600 focus:ring-0 ${
+                      !isDisabled ? 'text-blue-500' : 'text-gray-600 cursor-not-allowed'
+                    }`}
+                  />
+                  <span className={`text-xs font-medium ${!isDisabled ? 'text-gray-200' : 'text-gray-500'}`}>
+                    {label}
+                    {disabledReason && <span className="text-gray-600 ml-1">{disabledReason}</span>}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 mt-1 ml-5">{desc}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Regime model - merged: regime_type controls use_regime_model */}
+      <div>
+        <span className="text-xs text-gray-400 block mb-2">Model rezimowy</span>
+        <div className="mb-3">
+          <SelectField
+            label="Rezim przestrzenny"
+            value={form.regime_type}
+            onChange={(val) => {
+              set('regime_type')(val);
+              // Auto-sync use_regime_model based on regime_type
+              set('use_regime_model')(val !== 'none');
+            }}
+            options={REGIME_TYPE_CHOICES}
+          />
+        </div>
+
+        {/* Interactive threshold sliders with histograms */}
+        {form.regime_type !== 'none' && (
+          <RegimeThresholdControl
+            forestThreshold={form.regime_threshold}
+            urbanThreshold={form.regime_threshold_urban}
+            onForestChange={set('regime_threshold')}
+            onUrbanChange={set('regime_threshold_urban')}
+            geometryType={form.geometry_type}
+            disabled={form.regime_type === 'none'}
+          />
+        )}
+      </div>
+
+      {/* Validation warnings */}
+      {hasWarnings && (
+        <div className="text-amber-400 text-xs bg-amber-900/20 border border-amber-700/30 rounded p-2 space-y-1">
+          <div className="font-medium">Nieprawidłowa kombinacja:</div>
+          {warnings.map((w, i) => (
+            <div key={i} className="pl-2">- {w}</div>
+          ))}
+        </div>
+      )}
+
+      {error && <div className="text-red-400 text-xs bg-red-900/20 rounded p-2">{error}</div>}
+
+      <button
+        onClick={handleSubmit}
+        disabled={saving || hasWarnings}
+        className={`w-full py-2 rounded text-white text-sm font-medium transition-colors ${
+          hasWarnings
+            ? 'bg-gray-600 cursor-not-allowed'
+            : 'bg-blue-600 hover:bg-blue-500 disabled:opacity-50'
+        }`}
+        title={hasWarnings ? 'Napraw ostrzeżenia przed zapisaniem' : undefined}
+      >
+        {saving ? 'Zapisywanie...' : hasWarnings ? 'Napraw ostrzeżenia' : isEdit ? 'Zapisz zmiany' : 'Utwórz konfigurację'}
+      </button>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// SECTION: Config List
+// ─────────────────────────────────────────────────────────────
+
+function ConfigList({ configs, activeConfigId, onActivate, onEdit, activating }) {
+  if (!configs || configs.length === 0) {
+    return <div className="text-gray-500 text-sm">Brak konfiguracji. Utwórz pierwszą.</div>;
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {configs.map((c) => (
+        <div
+          key={c.id}
+          className={`flex items-center gap-2 p-2.5 rounded-lg border transition-colors ${
+            c.is_active
+              ? 'bg-green-900/20 border-green-700/50'
+              : 'bg-gray-800/50 border-gray-700/50 hover:bg-gray-800'
+          }`}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-white truncate">{c.name}</span>
+              {c.is_active && (
+                <span className="text-xs bg-green-600/30 text-green-400 px-1.5 py-0.5 rounded">aktywna</span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">
+              {c.geometry_type} / {c.y_formula} / {c.model_type}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => onEdit(c)}
+              className="px-2 py-1 text-xs text-gray-400 hover:text-white bg-gray-700 rounded transition-colors"
+            >
+              Edytuj
+            </button>
+            {!c.is_active && (
+              <button
+                onClick={() => onActivate(c.id)}
+                disabled={activating}
+                className="px-2 py-1 text-xs text-green-400 hover:text-green-300 bg-green-900/30 rounded disabled:opacity-50 transition-colors"
+              >
+                Aktywuj
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// SECTION: Run Button + Progress
+// ─────────────────────────────────────────────────────────────
+
+function RunSection({ hasActiveConfig, onRun, runResult, isRunning, wsProgress, currentRunId }) {
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={onRun}
+        disabled={!hasActiveConfig || isRunning}
+        className={`w-full py-3 rounded-lg font-medium text-sm transition-colors ${
+          isRunning
+            ? 'bg-blue-800 text-blue-300 cursor-wait'
+            : hasActiveConfig
+              ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+        }`}
+      >
+        {isRunning ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="animate-spin inline-block w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full" />
+            Pipeline uruchomiony...
+          </span>
+        ) : hasActiveConfig ? (
+          'Uruchom pipeline'
+        ) : (
+          'Brak aktywnej konfiguracji'
+        )}
+      </button>
+
+      {/* Live WebSocket progress */}
+      {isRunning && currentRunId && (
+        <LiveStepsProgress progress={wsProgress} />
+      )}
+
+      {/* Step results (after completion) */}
+      {!isRunning && runResult && runResult.status !== 'running' && (
+        <RunStepsList run={runResult} />
+      )}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// SECTION: Step List (reused for live run + history)
+// ─────────────────────────────────────────────────────────────
+
+function RunStepsList({ run }) {
+  const [expandedStep, setExpandedStep] = useState(null);
+
+  const statusIcon = {
+    success: '✓',
+    failed: '✗',
+    skipped: '−',
+    running: '…',
+  };
+  const statusColor = {
+    success: 'text-green-400',
+    failed: 'text-red-400',
+    skipped: 'text-gray-500',
+    running: 'text-blue-400',
+  };
+
+  return (
+    <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+        <div className="flex items-center gap-2">
+          <StatusBadge status={run.status} />
+          <span className="text-xs text-gray-400">
+            {run.config_name && <span>{run.config_name} / </span>}
+            {run.n_sightings != null && <span>{run.n_sightings} obs</span>}
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">{formatDate(run.started_at)}</span>
+      </div>
+
+      {run.error_message && (
+        <div className="px-3 py-2 text-xs text-red-400 bg-red-900/10 border-b border-gray-700">
+          {run.error_message}
+        </div>
+      )}
+
+      {(run.steps || []).map((step) => (
+        <div key={step.step_order}>
+          <button
+            onClick={() => setExpandedStep(expandedStep === step.step_order ? null : step.step_order)}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-700/50 transition-colors"
+          >
+            <span className="w-4 text-center font-mono text-gray-600">{step.step_order}</span>
+            <span className={`w-4 text-center ${statusColor[step.status] || ''}`}>
+              {statusIcon[step.status] || '?'}
+            </span>
+            <span className="flex-1 text-left text-gray-300 font-mono">{step.step_name}</span>
+            <span className="text-gray-500">{formatDuration(step.duration_seconds)}</span>
+            {step.exit_code != null && step.exit_code !== 0 && (
+              <span className="text-red-400">exit={step.exit_code}</span>
+            )}
+          </button>
+
+          <AnimatePresence>
+            {expandedStep === step.step_order && (step.stdout || step.stderr) && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="overflow-hidden"
+              >
+                <div className="px-3 pb-2 ml-8">
+                  {step.stdout && (
+                    <pre className="text-xs text-gray-400 bg-gray-950 rounded p-2 overflow-x-auto max-h-32 overflow-y-auto font-mono">
+                      {step.stdout}
+                    </pre>
+                  )}
+                  {step.stderr && (
+                    <pre className="text-xs text-red-400/80 bg-red-950/30 rounded p-2 mt-1 overflow-x-auto max-h-32 overflow-y-auto font-mono">
+                      {step.stderr}
+                    </pre>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// SIMPLE VIEW (dla laików)
+// ─────────────────────────────────────────────────────────────
+
+function SimpleView({ diagnostics, configSnapshot }) {
+  const model = diagnostics?.model || {};
+  const coefficients = model.coefficients || {};
+  const isVoronoi = configSnapshot?.geometry_type === 'voronoi';
+
+  // Filtruj tylko predyktory (bez Intercept)
+  const predictors = Object.entries(coefficients).filter(([name]) => name !== '(Intercept)');
+
+  // Znajdź max dla paska siły
+  const maxEstimate = predictors.length > 0
+    ? Math.max(...predictors.map(([, c]) => Math.abs(c.estimate)))
+    : 1;
+
+  // Sortuj: najpierw istotne (p < 0.05), potem po sile wpływu
+  const sorted = [...predictors].sort((a, b) => {
+    const aSignificant = a[1].p < 0.05;
+    const bSignificant = b[1].p < 0.05;
+    if (aSignificant !== bSignificant) return aSignificant ? -1 : 1;
+    return Math.abs(b[1].estimate) - Math.abs(a[1].estimate);
+  });
+
+  return (
+    <div className="space-y-3">
+      {/* MODEL INFO */}
+      <div className="text-xs">
+        <span className="bg-gray-800 px-2 py-1 rounded text-gray-300">
+          Model: <span className="text-white font-medium">{model.selected?.toUpperCase() || '?'}</span>
+        </span>
+      </div>
+
+      {/* TABELA CZYNNIKÓW */}
+      {sorted.length > 0 ? (
+        <div className="bg-gray-800 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-700 bg-gray-800/80">
+                <th className="text-left px-3 py-2 text-gray-400 font-medium">Czynnik</th>
+                <th className="text-left px-3 py-2 text-gray-400 font-medium w-28">Siła</th>
+                <th className="text-center px-3 py-2 text-gray-400 font-medium">Wpływ</th>
+                <th className="text-center px-2 py-2 text-gray-400 font-medium w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(([name, coef]) => {
+                const isSignificant = coef.p < 0.05;
+                const isPositive = coef.estimate > 0;
+                const displayName = FACTOR_NAMES[name] || name.replace('_z', '');
+                const icon = FACTOR_ICONS[name] || '';
+                const strength = Math.round((Math.abs(coef.estimate) / maxEstimate) * 100);
+                const barColor = isPositive ? 'bg-red-500' : 'bg-green-500';
+
+                return (
+                  <tr key={name} className="border-b border-gray-700/50 last:border-0">
+                    <td className="px-3 py-2 text-gray-200">
+                      {icon && <span className="mr-1.5">{icon}</span>}
+                      {displayName}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="w-20 h-2 bg-gray-700 rounded overflow-hidden">
+                        <div className={`h-full ${barColor}`} style={{ width: `${strength}%` }} />
+                      </div>
+                    </td>
+                    <td className="text-center px-3 py-2">
+                      <span className={isPositive ? 'text-red-400' : 'text-green-400'}>
+                        {isPositive ? '↑ zwiększa' : '↓ zmniejsza'}
+                      </span>
+                    </td>
+                    <td className="text-center px-2 py-2">
+                      {isSignificant && <span className="text-yellow-400">✓</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="text-gray-500 text-sm p-3 bg-gray-800 rounded-lg">
+          Brak danych o czynnikach ryzyka.
+        </div>
+      )}
+
+      {/* ETA - uproszczona wersja (tylko dla Voronoi) */}
+      {isVoronoi && diagnostics?.eta?.h_rel != null ? (
+        <div className="flex items-center gap-2 text-xs bg-gray-800 rounded-lg p-2">
+          <span className="text-gray-400">Skupienie punktów:</span>
+          <span className={`font-medium ${
+            diagnostics.eta.h_rel > 0.9 ? 'text-green-400' :
+            diagnostics.eta.h_rel > 0.7 ? 'text-yellow-400' :
+            'text-red-400'
+          }`}>
+            {diagnostics.eta.h_rel > 0.9 ? 'Równomierne' :
+             diagnostics.eta.h_rel > 0.7 ? 'Umiarkowane skupienie' :
+             'Silne skupienie (klastry)'}
+          </span>
+          <span className="text-gray-600 ml-auto">
+            ETA={diagnostics.eta.h_rel?.toFixed(2)}
+          </span>
+        </div>
+      ) : !isVoronoi && (
+        <div className="flex items-center gap-2 text-xs bg-gray-800/50 rounded-lg p-2 opacity-50">
+          <span className="text-gray-500">Skupienie punktów:</span>
+          <span className="text-gray-500 italic">n/d (tylko Voronoi)</span>
+        </div>
+      )}
+
+      {/* LEGENDA */}
+      <div className="text-[10px] text-gray-500 flex gap-4">
+        <span><span className="text-yellow-400">✓</span> = statystycznie istotny (p &lt; 0.05)</span>
+      </div>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// FULL DEBUG VIEW (interactive steps with expandable stdout/stderr)
+// ─────────────────────────────────────────────────────────────
+
+function FullDebugView({ diagnostics, steps, configSnapshot }) {
+  const [expandedStep, setExpandedStep] = useState(null);
+
+  const statusIcon = {
+    success: '✓',
+    failed: '✗',
+    skipped: '−',
+    running: '…',
+  };
+  const statusColor = {
+    success: 'text-green-400',
+    failed: 'text-red-400',
+    skipped: 'text-gray-500',
+    running: 'text-blue-400',
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Debug info */}
+      <div className="bg-gray-800 p-3 rounded text-xs">
+        <h4 className="font-medium text-gray-300 mb-2">Debug info</h4>
+        <ul className="space-y-1 text-gray-400">
+          <li>LISA HH: {diagnostics?.lisa?.hh ?? 'brak danych'}</li>
+          <li>LISA LL: {diagnostics?.lisa?.ll ?? 'brak danych'}</li>
+          <li>VIF: {diagnostics?.vif?.results ? 'dostępne' : 'brak danych'}</li>
+          <li>k_selected: {diagnostics?.w_metrics?.k_selected ?? 'brak danych'}</li>
+          <li>impacts: {diagnostics?.impacts ? `TAK (${Object.keys(diagnostics.impacts.direct || {}).length} predyktorów)` : 'NIE (SEM/OLS lub brak danych)'}</li>
+        </ul>
+      </div>
+
+      {/* Macierz W */}
+      <div className="bg-gray-800 p-3 rounded text-xs">
+        <h4 className="font-medium text-gray-300 mb-2">Macierz W</h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-400">
+          <span>Metoda:</span>
+          <span className="text-white">{configSnapshot?.w_method || '?'}</span>
+          <span>Zakres k:</span>
+          <span className="text-white">{configSnapshot?.k_range_min || '?'} - {configSnapshot?.k_range_max || '?'}</span>
+          <span>k wybrane:</span>
+          <span className="text-white">{diagnostics?.w_metrics?.k_selected ?? '—'}</span>
+          <span>Średnia sąsiadów:</span>
+          <span className="text-white">{diagnostics?.w_metrics?.mean_neighbors?.toFixed(1) ?? '—'}</span>
+        </div>
+      </div>
+
+      {/* Interactive steps list */}
+      {steps && steps.length > 0 && (
+        <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="px-3 py-2 border-b border-gray-700 bg-gray-800">
+            <h4 className="text-xs font-medium text-gray-300">Pipeline Steps ({steps.length})</h4>
+          </div>
+
+          {steps.map((step) => (
+            <div key={step.step_order}>
+              <button
+                onClick={() => setExpandedStep(expandedStep === step.step_order ? null : step.step_order)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-700/50 transition-colors"
+              >
+                <span className="w-5 text-center font-mono text-gray-600">{step.step_order}</span>
+                <span className={`w-4 text-center ${statusColor[step.status] || ''}`}>
+                  {statusIcon[step.status] || '?'}
+                </span>
+                <span className="flex-1 text-left text-gray-300 font-mono truncate">{step.step_name}</span>
+                <span className="text-gray-500 text-[10px]">
+                  {step.duration_seconds != null ? `${step.duration_seconds.toFixed(1)}s` : '-'}
+                </span>
+                {step.exit_code != null && step.exit_code !== 0 && (
+                  <span className="text-red-400 text-[10px]">exit={step.exit_code}</span>
+                )}
+                <span className={`text-gray-500 transition-transform ${expandedStep === step.step_order ? 'rotate-180' : ''}`}>
+                  ▼
+                </span>
+              </button>
   );
 }
 function ConfigList({ configs, activeConfigId, onActivate, onEdit, activating }) {
