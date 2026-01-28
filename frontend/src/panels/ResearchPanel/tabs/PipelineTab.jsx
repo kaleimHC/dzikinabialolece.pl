@@ -1228,7 +1228,376 @@ function FullDebugView({ diagnostics, steps, configSnapshot }) {
 // SECTION: Diagnostics Report
 // ─────────────────────────────────────────────────────────────
 
-function DiagnosticsReport() { return null; }
+function DiagnosticsReport({ diagnostics, configSnapshot, steps }) {
+  // Tryb raportu (domyślnie prosty!)
+  const [reportMode, setReportMode] = useState('simple');
+
+  if (!diagnostics) {
+    return (
+      <div className="text-xs text-gray-500 italic p-3">
+        Brak diagnostyki dla tego uruchomienia.
+      </div>
+    );
+  }
+
+  const { model, moran, lm_tests, vif } = diagnostics;
+
+  // Format p-value with significance stars
+  const formatPValue = (p, alpha = 0.05) => {
+    if (p == null) return '-';
+    const stars = p < 0.001 ? '***' : p < 0.01 ? '**' : p < alpha ? '*' : '';
+    return `${p.toFixed(4)}${stars ? ` ${stars}` : ''}`;
+  };
+
+  // Format coefficient value
+  const formatCoef = (val) => {
+    if (val == null) return '-';
+    return val >= 0 ? `+${val.toFixed(4)}` : val.toFixed(4);
+  };
+
+  return (
+    <div className="space-y-3 p-3 bg-gray-900/50 rounded-lg">
+      {/* TABS - tryb raportu */}
+      <div className="flex border-b border-gray-700 mb-2">
+        {[
+          { id: 'simple', label: 'Ogólny', desc: 'dla wszystkich' },
+          { id: 'technical', label: 'Techniczny', desc: 'dla analityków' },
+          { id: 'full', label: 'Dogłębny', desc: 'dla debuggingu' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setReportMode(tab.id)}
+            className={`px-3 py-2 text-xs transition-colors ${
+              reportMode === tab.id
+                ? 'border-b-2 border-blue-500 text-white'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <span className="block">{tab.label}</span>
+            <span className="block text-[10px] text-gray-500">{tab.desc}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* SIMPLE VIEW */}
+      {reportMode === 'simple' && (
+        <SimpleView diagnostics={diagnostics} configSnapshot={configSnapshot} />
+      )}
+
+      {/* TECHNICAL VIEW */}
+      {reportMode === 'technical' && (
+        <>
+          {/* MODEL SUMMARY */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Model</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-gray-800 rounded p-2">
+                <span className="text-gray-500">Typ:</span>{' '}
+                <span className="text-white font-mono">{model?.selected?.toUpperCase() || '-'}</span>
+              </div>
+              <div className="bg-gray-800 rounded p-2">
+                <span className="text-gray-500">AIC:</span>{' '}
+                <span className="text-white font-mono">{model?.aic?.toFixed(2) || '-'}</span>
+              </div>
+              <div className="bg-gray-800 rounded p-2">
+                <span className="text-gray-500">Pseudo R²:</span>{' '}
+                <span className="text-white font-mono">
+                  {model?.r_squared != null ? `${(model.r_squared * 100).toFixed(1)}%` : '-'}
+                </span>
+              </div>
+              <div className="bg-gray-800 rounded p-2">
+                <span className="text-gray-500">
+                  {model?.selected === 'sem' ? 'λ (SEM):' : 'ρ (SAR):'}
+                </span>{' '}
+                <span className="text-white font-mono">
+                  {(model?.selected === 'sem' ? model?.lambda : model?.rho)?.toFixed(4) || '-'}
+                </span>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1">
+              Wybrano {model?.selected?.toUpperCase() || '?'} na podstawie najniższego AIC. Porównanie modeli w logach R.
+            </p>
+          </div>
+
+          {/* COEFFICIENTS */}
+          {model?.coefficients && Object.keys(model.coefficients).length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Współczynniki</h4>
+              <div className="bg-gray-800 rounded overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left px-2 py-1 text-gray-500 font-normal">Zmienna</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Estimate</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Std.Err</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">p-value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(model.coefficients).map(([name, coef]) => {
+                      const isSignificant = coef.p != null && coef.p < 0.05;
+                      const isPositive = coef.estimate > 0;
+                      return (
+                        <tr key={name} className="border-b border-gray-700/50 last:border-0">
+                          <td className="px-2 py-1 text-gray-300 font-mono">{name}</td>
+                          <td className={`text-right px-2 py-1 font-mono ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                            {formatCoef(coef.estimate)}
+                          </td>
+                          <td className="text-right px-2 py-1 text-gray-400 font-mono">
+                            {coef.std_error?.toFixed(4) || '-'}
+                          </td>
+                          <td className={`text-right px-2 py-1 font-mono ${isSignificant ? 'text-yellow-400' : 'text-gray-500'}`}>
+                            {formatPValue(coef.p)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] text-gray-600 mt-1">
+                *** p&lt;0.001, ** p&lt;0.01, * p&lt;0.05
+              </p>
+            </div>
+          )}
+
+          {/* VIF */}
+          {vif?.results && Object.keys(vif.results).length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                VIF (prog: {configSnapshot?.vif_threshold || 5.0})
+              </h4>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(vif.results).map(([name, val]) => {
+                  const isHigh = val != null && val > (configSnapshot?.vif_threshold || 5.0);
+                  return (
+                    <span
+                      key={name}
+                      className={`px-2 py-0.5 rounded text-xs font-mono ${
+                        isHigh
+                          ? 'bg-red-900/40 text-red-400 border border-red-700/50'
+                          : 'bg-gray-800 text-gray-400'
+                      }`}
+                    >
+                      {name}: {val?.toFixed(2) || 'NA'}
+                    </span>
+                  );
+                })}
+              </div>
+              {vif.dropped && vif.dropped.length > 0 && (
+                <p className="text-xs text-red-400 mt-1">
+                  Usunięte: {vif.dropped.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* MORAN'S I */}
+          {moran?.i != null && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Moran's I (residua)</h4>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-gray-800 rounded p-2">
+                  <span className="text-gray-500">I:</span>{' '}
+                  <span className="text-white font-mono">{moran.i?.toFixed(4)}</span>
+                </div>
+                <div className="bg-gray-800 rounded p-2">
+                  <span className="text-gray-500">z:</span>{' '}
+                  <span className="text-white font-mono">{moran.z?.toFixed(2)}</span>
+                </div>
+                <div className="bg-gray-800 rounded p-2">
+                  <span className="text-gray-500">p:</span>{' '}
+                  <span className={`font-mono ${moran.p < 0.05 ? 'text-red-400' : 'text-green-400'}`}>
+                    {formatPValue(moran.p)}
+                  </span>
+                </div>
+              </div>
+              <p className={`text-xs mt-1 ${moran.p < 0.05 ? 'text-red-400' : 'text-green-400'}`}>
+                {moran.p < 0.05
+                  ? '⚠️ Istotna autokorelacja reszt — model nie wyczyścił zależności przestrzennej'
+                  : '✓ Brak istotnej autokorelacji reszt'}
+              </p>
+            </div>
+          )}
+
+          {/* LM TESTS */}
+          {lm_tests && (lm_tests.lm_lag?.stat != null || lm_tests.lm_error?.stat != null) && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Testy LM</h4>
+              <div className="bg-gray-800 rounded overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left px-2 py-1 text-gray-500 font-normal">Test</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Stat</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">p-value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { name: 'LM-lag (SAR)', data: lm_tests.lm_lag },
+                      { name: 'LM-error (SEM)', data: lm_tests.lm_error },
+                      { name: 'Robust LM-lag', data: lm_tests.rlm_lag },
+                      { name: 'Robust LM-error', data: lm_tests.rlm_error },
+                    ].map(({ name, data }) => (
+                      data?.stat != null && (
+                        <tr key={name} className="border-b border-gray-700/50 last:border-0">
+                          <td className="px-2 py-1 text-gray-300">{name}</td>
+                          <td className="text-right px-2 py-1 text-white font-mono">
+                            {data.stat?.toFixed(2)}
+                          </td>
+                          <td className={`text-right px-2 py-1 font-mono ${data.p < 0.05 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                            {formatPValue(data.p)}
+                          </td>
+                        </tr>
+                      )
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* IMPACTS (SAR/SDM only) - LeSage & Pace 2009 */}
+          {diagnostics?.impacts && diagnostics.impacts.direct && Object.keys(diagnostics.impacts.direct).length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                Impacts (SAR/SDM)
+                <span className="text-gray-600 font-normal ml-2">LeSage & Pace 2009</span>
+              </h4>
+              <div className="bg-gray-800 rounded overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left px-2 py-1 text-gray-500 font-normal">Zmienna</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Direct</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Indirect</th>
+                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(diagnostics.impacts.direct || {}).map((name) => {
+                      const direct = diagnostics.impacts.direct[name];
+                      const indirect = diagnostics.impacts.indirect[name];
+                      const total = diagnostics.impacts.total[name];
+                      const isPositive = total > 0;
+                      return (
+                        <tr key={name} className="border-b border-gray-700/50 last:border-0">
+                          <td className="px-2 py-1 text-gray-300 font-mono">{name}</td>
+                          <td className="text-right px-2 py-1 text-gray-400 font-mono">
+                            {direct?.toFixed(4) || '-'}
+                          </td>
+                          <td className="text-right px-2 py-1 text-blue-400 font-mono">
+                            {indirect?.toFixed(4) || '-'}
+                          </td>
+                          <td className={`text-right px-2 py-1 font-mono font-medium ${isPositive ? 'text-red-400' : 'text-green-400'}`}>
+                            {total?.toFixed(4) || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] text-gray-600 mt-1">
+                Direct = wpływ X_i na Y_i (z feedbackiem) | Indirect = spillover na sąsiadów | Total = Direct + Indirect
+              </p>
+              {model?.rho > 0.5 && (
+                <p className="text-[10px] text-amber-400 mt-1">
+                  ⚠️ Wysokie ρ ({model.rho?.toFixed(3)}) — indirect effects mogą dominować nad direct
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Info gdy brak impacts (SEM/OLS lub brak danych) */}
+          {(!diagnostics?.impacts || !diagnostics.impacts.direct || Object.keys(diagnostics.impacts.direct).length === 0) && model?.selected && (
+            <div className="opacity-50">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Impacts</h4>
+              <p className="text-xs text-gray-500 italic">
+                {['sem', 'ols'].includes(model.selected?.toLowerCase())
+                  ? `Niedostępne dla ${model.selected.toUpperCase()}. Impacts są potrzebne tylko dla SAR/SDM (mnożnik przestrzenny (I - ρW)⁻¹).`
+                  : 'Brak danych — uruchom pipeline ponownie z modelem SAR lub SDM.'}
+              </p>
+            </div>
+          )}
+
+          {/* ETA - Aglomeracja (entropia tessellacji) */}
+          {configSnapshot?.geometry_type === 'voronoi' && diagnostics?.eta?.h_rel != null ? (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">ETA (Aglomeracja)</h4>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-gray-800 rounded p-2">
+                  <span className="text-gray-500">H emp:</span>{' '}
+                  <span className="text-white font-mono">{diagnostics.eta.h_emp?.toFixed(4)}</span>
+                </div>
+                <div className="bg-gray-800 rounded p-2">
+                  <span className="text-gray-500">H max:</span>{' '}
+                  <span className="text-white font-mono">{diagnostics.eta.h_max?.toFixed(4)}</span>
+                </div>
+                <div className="bg-gray-800 rounded p-2">
+                  <span className="text-gray-500">ETA:</span>{' '}
+                  <span className={`font-mono font-medium ${
+                    diagnostics.eta.h_rel > 0.9 ? 'text-green-400' :
+                    diagnostics.eta.h_rel > 0.7 ? 'text-yellow-400' :
+                    'text-red-400'
+                  }`}>
+                    {diagnostics.eta.h_rel?.toFixed(4)}
+                  </span>
+                </div>
+              </div>
+              <p className={`text-xs mt-1 ${
+                diagnostics.eta.h_rel > 0.9 ? 'text-green-400' :
+                diagnostics.eta.h_rel > 0.7 ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {diagnostics.eta.h_rel > 0.9
+                  ? '✓ Rozkład równomierny (brak aglomeracji)'
+                  : diagnostics.eta.h_rel > 0.7
+                    ? '~ Umiarkowane skupienie punktów'
+                    : '⚠️ Silna aglomeracja (punkty w klastrach)'}
+              </p>
+            </div>
+          ) : configSnapshot?.geometry_type !== 'voronoi' && (
+            <div className="opacity-50">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">ETA (Aglomeracja)</h4>
+              <p className="text-xs text-gray-500 italic">
+                Niedostępne dla siatki regularnej. ETA mierzy entropię rozkładu powierzchni komórek - ma sens tylko dla Voronoi, gdzie komórki mają różne kształty i rozmiary.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* FULL VIEW - Debug only */}
+      {reportMode === 'full' && (
+        <FullDebugView diagnostics={diagnostics} steps={steps} configSnapshot={configSnapshot} />
+      )}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// SECTION: Expanded Run Tabs (Steps + Report)
+// ─────────────────────────────────────────────────────────────
+
+function ExpandedRunTabs({ run }) {
+  // Simplified: just show DiagnosticsReport directly (steps are in "Dogłębny" view)
+  return (
+    <DiagnosticsReport
+      diagnostics={run.diagnostics}
+      configSnapshot={run.config_snapshot}
+      steps={run.steps}
+    />
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// SECTION: Run History
+// ─────────────────────────────────────────────────────────────
+
 function RunHistory() { return null; }
 export default function PipelineTab() {
   return <div className="p-6 text-gray-400 text-sm">Pipeline — initializing</div>;
