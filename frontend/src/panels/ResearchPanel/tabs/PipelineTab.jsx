@@ -1598,7 +1598,388 @@ function ExpandedRunTabs({ run }) {
 // SECTION: Run History
 // ─────────────────────────────────────────────────────────────
 
-function RunHistory() { return null; }
+function RunHistory({ runs, onSelectRun, selectedRunId, selectedRunDetail }) {
+  if (!runs || runs.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      {runs.map((r) => (
+        <div key={r.id}>
+          <button
+            onClick={() => onSelectRun(r.id)}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
+              selectedRunId === r.id
+                ? 'bg-gray-700 border border-gray-600 rounded-b-none'
+                : 'bg-gray-800/30 border border-transparent hover:bg-gray-800/60'
+            }`}
+          >
+            <StatusBadge status={r.status} />
+            <span className="text-gray-300 truncate">{r.config_name || '?'}</span>
+            <span className="text-gray-500 ml-auto flex-shrink-0">{formatDate(r.started_at)}</span>
+            <span className="text-gray-600">{r.n_sightings} obs</span>
+            {/* Expand indicator */}
+            <span className={`text-gray-500 transition-transform ${selectedRunId === r.id ? 'rotate-180' : ''}`}>
+              {'\u25BC'}
+            </span>
+          </button>
+
+          {/* Expanded details directly under this run */}
+          <AnimatePresence>
+            {selectedRunId === r.id && selectedRunDetail && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="border border-t-0 border-gray-600 rounded-b-lg bg-gray-800/30">
+                  {/* Tabs: Steps / Report */}
+                  <ExpandedRunTabs run={selectedRunDetail} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// MAIN: PipelineTab
+// ─────────────────────────────────────────────────────────────
+
 export default function PipelineTab() {
-  return <div className="p-6 text-gray-400 text-sm">Pipeline — initializing</div>;
+  // --- store ---
+  const { setDisplayMode, setResearchGeometry, researchGeometry } = useSightingsStore();
+
+  // --- data state ---
+  const [status, setStatus] = useState(null);
+  const [configs, setConfigs] = useState([]);
+  const [availablePredictors, setAvailablePredictors] = useState([]);
+  const [runs, setRuns] = useState([]);
+
+  // --- UI state ---
+  const [showForm, setShowForm] = useState(false);
+  const [editingConfig, setEditingConfig] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [runResult, setRunResult] = useState(null);
+  const [selectedRunId, setSelectedRunId] = useState(null);
+  const [selectedRunDetail, setSelectedRunDetail] = useState(null);
+  const [currentRunId, setCurrentRunId] = useState(null);
+
+  // --- WebSocket progress hook ---
+  const wsProgress = usePipelineProgress(currentRunId);
+
+  // --- Fetch all data ---
+  const refresh = useCallback(async () => {
+    try {
+      const [statusData, configData, runData] = await Promise.all([
+        apiFetch('/status/'),
+        apiFetch('/configs/'),
+        apiFetch('/runs/'),
+      ]);
+      setStatus(statusData);
+      setConfigs(configData.configs || []);
+      setAvailablePredictors(configData.available_predictors || []);
+      setRuns(runData.runs || []);
+      // Update researchGeometry based on LAST SUCCESSFUL RUN (not selected config)
+      // This ensures map shows computed results, not pending selection
+      const lastSuccess = statusData?.last_run?.status === 'success' ? statusData.last_run : null;
+      if (lastSuccess) {
+        // Find config geometry from the successful run
+        const successConfig = (configData.configs || []).find(c => c.id === lastSuccess.config_id);
+        if (successConfig?.geometry_type) {
+          setResearchGeometry(successConfig.geometry_type);
+        }
+      }
+    } catch (e) {
+      console.error('PipelineTab refresh error:', e);
+    }
+  }, [setResearchGeometry]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // --- Config CRUD ---
+  const handleSaveConfig = async (form, isEdit) => {
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await apiFetch(`/configs/${form.id}/`, {
+          method: 'PUT',
+          body: JSON.stringify(form),
+        });
+      } else {
+        await apiFetch('/configs/', {
+          method: 'POST',
+          body: JSON.stringify(form),
+        });
+      }
+      setShowForm(false);
+      setEditingConfig(null);
+      await refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Activation error state ---
+  const [activateError, setActivateError] = useState(null);
+
+  const handleActivate = async (configId) => {
+    setActivating(true);
+    setActivateError(null);
+    try {
+      await apiFetch(`/configs/${configId}/activate/`, { method: 'POST' });
+      // NOTE: Don't change researchGeometry here - it should only change after pipeline runs
+      await refresh();
+    } catch (e) {
+      console.error('Activate error:', e);
+      setActivateError(e.message);
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const handleEdit = (config) => {
+    setEditingConfig(config);
+    setShowForm(true);
+  };
+
+  // --- Run pipeline (ASYNC with polling) ---
+  const handleRun = async () => {
+    setIsRunning(true);
+    setRunResult(null);
+    setCurrentRunId(null); // Reset WebSocket connection
+    try {
+      const data = await apiFetch('/run/', { method: 'POST' });
+      console.log('[Pipeline] Started:', data);
+
+      // NEW: Handle async response (status: 'pending')
+      if (data.status === 'pending') {
+        // Set run_id to connect WebSocket for live progress
+        if (data.run_id) {
+          setCurrentRunId(data.run_id);
+          console.log('[Pipeline] WebSocket connecting to run_id:', data.run_id);
+        }
+
+        setRunResult({ status: 'running', message: 'Pipeline uruchomiony...', task_id: data.task_id, run_id: data.run_id });
+
+        // Poll for completion (fallback if WebSocket doesn't work)
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusData = await apiFetch('/status/');
+            const lastRun = statusData.last_run;
+            console.log('[Polling] Status:', lastRun?.status);
+
+            if (lastRun?.status === 'success') {
+              clearInterval(pollInterval);
+              setIsRunning(false);
+              setCurrentRunId(null); // Close WebSocket
+              setRunResult({ status: 'success', ...lastRun });
+              await refresh();  // This sets researchGeometry based on successful run
+
+              // Switch to RESEARCH mode and refresh map
+              setDisplayMode('research');
+              // NOTE: researchGeometry already set by refresh() based on last successful run
+              setTimeout(() => window.dispatchEvent(new CustomEvent('voronoi-refresh')), 600);
+
+            } else if (lastRun?.status === 'error' || lastRun?.status === 'failed') {
+              clearInterval(pollInterval);
+              setIsRunning(false);
+              setCurrentRunId(null); // Close WebSocket
+              setRunResult({ status: 'failed', error_message: lastRun?.error_message || 'Pipeline failed', steps: [] });
+            } else {
+              // Still running - update progress message (WebSocket provides live updates)
+              setRunResult(prev => ({ ...prev, message: `Pipeline w toku... (${lastRun?.status || 'running'})` }));
+            }
+          } catch (pollErr) {
+            console.error('[Polling] Error:', pollErr);
+          }
+        }, 3000); // Poll every 3 seconds
+
+        // Timeout after 10 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (isRunning) {
+            setIsRunning(false);
+            setCurrentRunId(null);
+            setRunResult({ status: 'failed', error_message: 'Pipeline timeout (10 min)', steps: [] });
+          }
+        }, 600000);
+
+      } else {
+        // Legacy: synchronous response (shouldn't happen anymore)
+        setRunResult(data);
+        await refresh();
+        if (data.status === 'success') {
+          setDisplayMode('research');
+          setTimeout(() => window.dispatchEvent(new CustomEvent('voronoi-refresh')), 600);
+        }
+        setIsRunning(false);
+      }
+    } catch (e) {
+      setRunResult({ status: 'failed', error_message: e.message, steps: [] });
+      setIsRunning(false);
+      setCurrentRunId(null);
+    }
+  };
+
+  // --- Run detail ---
+  const handleSelectRun = async (runId) => {
+    // Toggle: if same run clicked, close it
+    if (runId === null || runId === selectedRunId) {
+      setSelectedRunId(null);
+      setSelectedRunDetail(null);
+      return;
+    }
+
+    setSelectedRunId(runId);
+    try {
+      const [detail, stepsData, diagData] = await Promise.all([
+        apiFetch(`/runs/${runId}/`),
+        apiFetch(`/runs/${runId}/steps/`),
+        apiFetch(`/runs/${runId}/diagnostics/`).catch(() => ({ diagnostics: null })),
+      ]);
+      setSelectedRunDetail({
+        ...detail,
+        steps: stepsData.steps || [],
+        diagnostics: diagData.diagnostics || null,
+      });
+    } catch (e) {
+      console.error('Run detail error:', e);
+      setSelectedRunDetail(null);
+    }
+  };
+
+  // --- Clear history ---
+  const handleClearHistory = async () => {
+    if (!window.confirm('Czy na pewno chcesz wyczyścić całą historię uruchomień?')) {
+      return;
+    }
+    try {
+      await apiFetch('/runs/clear/', { method: 'DELETE' });
+      setRuns([]);
+      setSelectedRunId(null);
+      setSelectedRunDetail(null);
+      setRunResult(null);
+    } catch (e) {
+      console.error('Clear history error:', e);
+    }
+  };
+
+  // --- active config id ---
+  const activeConfigId = status?.active_config?.id;
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+
+      {/* ── STATUS ── */}
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Status</h2>
+          <button onClick={refresh} className="text-xs text-gray-500 hover:text-white transition-colors">
+            Odśwież
+          </button>
+        </div>
+        <StatusSection status={status} onRefresh={refresh} researchGeometry={researchGeometry} />
+      </section>
+
+      {/* ── CONFIGS ── */}
+      <section>
+        {activateError && (
+          <div className="mb-3 text-xs text-red-400 bg-red-900/20 border border-red-700/30 rounded p-2">
+            Błąd aktywacji: {activateError}
+          </div>
+        )}
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Konfiguracje</h2>
+          {!showForm && (
+            <button
+              onClick={() => { setEditingConfig(null); setShowForm(true); }}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              + Nowa
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence mode="wait">
+          {showForm ? (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              <ConfigForm
+                config={editingConfig}
+                availablePredictors={availablePredictors}
+                onSave={handleSaveConfig}
+                onCancel={() => { setShowForm(false); setEditingConfig(null); }}
+                saving={saving}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="list"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+            >
+              <ConfigList
+                configs={configs}
+                activeConfigId={activeConfigId}
+                onActivate={handleActivate}
+                onEdit={handleEdit}
+                activating={activating}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* ── RUN PIPELINE ── */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">Uruchomienie</h2>
+        <RunSection
+          hasActiveConfig={!!activeConfigId}
+          onRun={handleRun}
+          runResult={runResult}
+          isRunning={isRunning}
+          wsProgress={wsProgress}
+          currentRunId={currentRunId}
+        />
+      </section>
+
+      {/* ── HISTORY ── */}
+      {runs.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+              Historia ({runs.length})
+            </h2>
+            <button
+              onClick={handleClearHistory}
+              className="text-xs text-red-400 hover:text-red-300 transition-colors"
+            >
+              Wyczyść
+            </button>
+          </div>
+          <RunHistory
+            runs={runs}
+            onSelectRun={handleSelectRun}
+            selectedRunId={selectedRunId}
+            selectedRunDetail={selectedRunDetail}
+          />
+        </section>
+      )}
+    </div>
+  );
 }
