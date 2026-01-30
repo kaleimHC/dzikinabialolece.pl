@@ -10,6 +10,7 @@ import {
 import { useGridTransition } from "../hooks/useGridTransition";
 import { useOsmLayerTransition } from "../hooks/useOsmLayerTransition";
 import { getTokens } from "../tokens/colors";
+import { hookMapLibre } from "../utils/qaLogger";
 
 const MAP_STYLE = "/styles/dark-wildlife.json?v=1766865415694";
 
@@ -39,6 +40,7 @@ export default function MapContainer() {
   } = useSightingsStore();
   const currentTheme = useSightingsStore((s) => s.currentTheme);
 
+  // Grid transition (crossfade animation FAST <-> PUB <-> RESEARCH)
   useGridTransition(
     mapRef,
     mapReady,
@@ -49,6 +51,7 @@ export default function MapContainer() {
     researchGeometry,
   );
 
+  // OSM layer transition (fade in/out animation)
   useOsmLayerTransition(mapRef, mapReady, visibleLayers);
 
   const updateCircleSizes = useCallback((map, n, zoom) => {
@@ -67,7 +70,8 @@ export default function MapContainer() {
 
     ["encounters-hover-ring", "ryjowisko-hover-ring"].forEach((layer) => {
       if (map.getLayer(layer)) {
-        const hoverRadius = getPointRadius(n, zoom) * 2.5;
+        // Hover ring is ~2.5x the point radius
+        const hoverRadius = baseRadius * 2.5;
         map.setPaintProperty(layer, "circle-radius", hoverRadius);
       }
     });
@@ -84,15 +88,18 @@ export default function MapContainer() {
       fadeDuration: 0,
     });
     mapRef.current = map;
+    hookMapLibre(map);
+
+    // Attribution in Header, zoom buttons removed - scroll zoom is enough
 
     map.on("load", () => {
       const tk = getTokens(currentTheme);
-
+      // Boundaries layer (Białołęka district + Wisła river)
       map.addSource("boundaries", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
-
+      // OSM Layers - UNDER grid (order matters!)
       map.addSource("forests", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -123,7 +130,11 @@ export default function MapContainer() {
         id: "waterways-line",
         type: "line",
         source: "waterways",
-        paint: { "line-color": tk.osm.waterways, "line-width": 2, "line-opacity": 0.8 },
+        paint: {
+          "line-color": tk.osm.waterways,
+          "line-width": 2,
+          "line-opacity": 0.8,
+        },
       });
 
       map.addSource("buildings", {
@@ -145,7 +156,81 @@ export default function MapContainer() {
         id: "roads-line",
         type: "line",
         source: "roads",
-        paint: { "line-color": tk.osm.roads, "line-width": 2, "line-opacity": 0.8 },
+        paint: {
+          "line-color": tk.osm.roads,
+          "line-width": 2,
+          "line-opacity": 0.8,
+        },
+      });
+
+      map.addSource("barriers", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "barriers-line",
+        type: "line",
+        source: "barriers",
+        paint: {
+          "line-color": tk.osm.barriers,
+          "line-width": 2,
+          "line-opacity": 0.8,
+        },
+      });
+
+      map.addSource("allotments", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "allotments-fill",
+        type: "fill",
+        source: "allotments",
+        paint: { "fill-color": tk.osm.allotments, "fill-opacity": 0.5 },
+      });
+
+      map.addSource("meadows", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "meadows-fill",
+        type: "fill",
+        source: "meadows",
+        paint: { "fill-color": tk.osm.meadows, "fill-opacity": 0.5 },
+      });
+
+      map.addSource("farmland", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "farmland-fill",
+        type: "fill",
+        source: "farmland",
+        paint: { "fill-color": tk.osm.farmland, "fill-opacity": 0.4 },
+      });
+
+      map.addSource("parks", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "parks-fill",
+        type: "fill",
+        source: "parks",
+        paint: { "fill-color": tk.osm.parks, "fill-opacity": 0.5 },
+      });
+
+      map.addSource("scrub", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "scrub-fill",
+        type: "fill",
+        source: "scrub",
+        paint: { "fill-color": tk.osm.scrub, "fill-opacity": 0.5 },
       });
 
       map.addSource("railway", {
@@ -174,18 +259,42 @@ export default function MapContainer() {
         source: "population",
         paint: {
           "fill-color": [
-            "interpolate", ["linear"], ["get", "tot"],
-            0,    tk.heatmap.population.s0,
-            10,   tk.heatmap.population.s1,
-            100,  tk.heatmap.population.s2,
-            300,  tk.heatmap.population.s3,
-            700,  tk.heatmap.population.s4,
-            1500, tk.heatmap.population.s5,
-            3000, tk.heatmap.population.s6,
+            "interpolate",
+            ["linear"],
+            ["get", "tot"],
+            0,
+            tk.heatmap.population.s0,
+            10,
+            tk.heatmap.population.s1,
+            100,
+            tk.heatmap.population.s2,
+            300,
+            tk.heatmap.population.s3,
+            700,
+            tk.heatmap.population.s4,
+            1500,
+            tk.heatmap.population.s5,
+            3000,
+            tk.heatmap.population.s6,
           ],
           "fill-opacity": [
-            "interpolate", ["linear"], ["get", "tot"],
-            0, 0.3, 10, 0.4, 100, 0.5, 300, 0.55, 700, 0.6, 1500, 0.65, 3000, 0.7,
+            "interpolate",
+            ["linear"],
+            ["get", "tot"],
+            0,
+            0.3,
+            10,
+            0.4,
+            100,
+            0.5,
+            300,
+            0.55,
+            700,
+            0.6,
+            1500,
+            0.65,
+            3000,
+            0.7,
           ],
         },
       });
@@ -227,15 +336,25 @@ export default function MapContainer() {
         source: "risk",
         paint: {
           "fill-color": [
-            "interpolate", ["linear"], ["get", "risk"],
-            0.0,  tk.heatmap.risk.s0,
-            0.1,  tk.heatmap.risk.s1,
-            0.25, tk.heatmap.risk.s2,
-            0.4,  tk.heatmap.risk.s3,
-            0.55, tk.heatmap.risk.s4,
-            0.7,  tk.heatmap.risk.s5,
-            0.85, tk.heatmap.risk.s6,
-            1.0,  tk.heatmap.risk.s7,
+            "interpolate",
+            ["linear"],
+            ["get", "risk"],
+            0.0,
+            tk.heatmap.risk.s0,
+            0.1,
+            tk.heatmap.risk.s1,
+            0.25,
+            tk.heatmap.risk.s2,
+            0.4,
+            tk.heatmap.risk.s3,
+            0.55,
+            tk.heatmap.risk.s4,
+            0.7,
+            tk.heatmap.risk.s5,
+            0.85,
+            tk.heatmap.risk.s6,
+            1.0,
+            tk.heatmap.risk.s7,
           ],
           "fill-opacity": riskOpacity(tk.riskLowTransparent),
         },
@@ -263,10 +382,14 @@ export default function MapContainer() {
         layout: { visibility: "none" },
         paint: {
           "line-color": [
-            "match", ["get", "trajectory_type"],
-            "riparian",    "#0066ff",
-            "forest_edge", "#00aa00",
-            "urban_green", "#ff9900",
+            "match",
+            ["get", "trajectory_type"],
+            "riparian",
+            "#0066ff",
+            "forest_edge",
+            "#00aa00",
+            "urban_green",
+            "#ff9900",
             "#E879F9",
           ],
           "line-width": 3,
@@ -274,7 +397,6 @@ export default function MapContainer() {
         },
       });
 
-      // Sightings cluster sources
       map.addSource("encounters", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -296,7 +418,15 @@ export default function MapContainer() {
         source: "encounters",
         filter: ["has", "point_count"],
         paint: {
-          "circle-color": ["step", ["get", "point_count"], tk.encounter, 5, tk.encounterCluster, 15, tk.encounterLarge],
+          "circle-color": [
+            "step",
+            ["get", "point_count"],
+            tk.encounter,
+            5,
+            tk.encounterCluster,
+            15,
+            tk.encounterLarge,
+          ],
           "circle-radius": ["step", ["get", "point_count"], 18, 5, 25, 15, 35],
           "circle-stroke-width": 2,
           "circle-stroke-color": "#ffffff",
@@ -323,14 +453,24 @@ export default function MapContainer() {
         type: "circle",
         source: "encounters",
         filter: ["!", ["has", "point_count"]],
-        paint: { "circle-color": tk.encounter, "circle-radius": 6, "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+        paint: {
+          "circle-color": tk.encounter,
+          "circle-radius": 6,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
       });
       map.addLayer({
         id: "encounters-hover-ring",
         type: "circle",
         source: "encounters",
         filter: ["==", ["get", "id"], ""],
-        paint: { "circle-radius": 16, "circle-color": "transparent", "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+        paint: {
+          "circle-radius": 16,
+          "circle-color": "transparent",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
       });
 
       map.addLayer({
@@ -339,7 +479,15 @@ export default function MapContainer() {
         source: "ryjowisko",
         filter: ["has", "point_count"],
         paint: {
-          "circle-color": ["step", ["get", "point_count"], tk.ryjowisko, 5, tk.ryjowiskoCluster, 15, tk.ryjowiskoLarge],
+          "circle-color": [
+            "step",
+            ["get", "point_count"],
+            tk.ryjowisko,
+            5,
+            tk.ryjowiskoCluster,
+            15,
+            tk.ryjowiskoLarge,
+          ],
           "circle-radius": ["step", ["get", "point_count"], 18, 5, 25, 15, 35],
           "circle-stroke-width": 2,
           "circle-stroke-color": "#ffffff",
@@ -366,16 +514,27 @@ export default function MapContainer() {
         type: "circle",
         source: "ryjowisko",
         filter: ["!", ["has", "point_count"]],
-        paint: { "circle-color": tk.ryjowisko, "circle-radius": 6, "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+        paint: {
+          "circle-color": tk.ryjowisko,
+          "circle-radius": 6,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
       });
       map.addLayer({
         id: "ryjowisko-hover-ring",
         type: "circle",
         source: "ryjowisko",
         filter: ["==", ["get", "id"], ""],
-        paint: { "circle-radius": 16, "circle-color": "transparent", "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" },
+        paint: {
+          "circle-radius": 16,
+          "circle-color": "transparent",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
       });
 
+      // Boundaries on top of everything
       map.addLayer({
         id: "bialoleka-outline",
         type: "line",
@@ -393,7 +552,11 @@ export default function MapContainer() {
         type: "line",
         source: "boundaries",
         filter: ["==", ["get", "name"], "wisla"],
-        paint: { "line-color": "#3b82f6", "line-width": 5, "line-opacity": 0.8 },
+        paint: {
+          "line-color": "#3b82f6",
+          "line-width": 5,
+          "line-opacity": 0.8,
+        },
       });
 
       // Hide base map buildings (overlap with grid)
@@ -412,7 +575,11 @@ export default function MapContainer() {
           .getSource(src)
           .getClusterExpansionZoom(f[0].properties.cluster_id, (err, z) => {
             if (!err)
-              map.flyTo({ center: f[0].geometry.coordinates, zoom: z, speed: 0.8 });
+              map.flyTo({
+                center: f[0].geometry.coordinates,
+                zoom: z,
+                speed: 0.8,
+              });
           });
       }
     };
@@ -434,7 +601,11 @@ export default function MapContainer() {
     map.on("mouseenter", "encounters-point", (e) => {
       map.getCanvas().style.cursor = "pointer";
       if (e.features && e.features[0])
-        map.setFilter("encounters-hover-ring", ["==", ["get", "id"], e.features[0].properties.id || ""]);
+        map.setFilter("encounters-hover-ring", [
+          "==",
+          ["get", "id"],
+          e.features[0].properties.id || "",
+        ]);
     });
     map.on("mouseleave", "encounters-point", () => {
       map.getCanvas().style.cursor = "";
@@ -443,7 +614,11 @@ export default function MapContainer() {
     map.on("mouseenter", "ryjowisko-point", (e) => {
       map.getCanvas().style.cursor = "pointer";
       if (e.features && e.features[0])
-        map.setFilter("ryjowisko-hover-ring", ["==", ["get", "id"], e.features[0].properties.id || ""]);
+        map.setFilter("ryjowisko-hover-ring", [
+          "==",
+          ["get", "id"],
+          e.features[0].properties.id || "",
+        ]);
     });
     map.on("mouseleave", "ryjowisko-point", () => {
       map.getCanvas().style.cursor = "";
@@ -475,9 +650,9 @@ export default function MapContainer() {
     const rykSrc = mapRef.current.getSource("ryjowisko");
     if (encSrc) encSrc.setData({ type: "FeatureCollection", features: enc });
     if (rykSrc) rykSrc.setData({ type: "FeatureCollection", features: ryk });
+
     updateCircleSizes(mapRef.current, sightings.length, currentZoom);
   }, [mapReady, sightings, currentZoom, updateCircleSizes]);
-
   // Fetch boundaries (Białołęka + Wisła)
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -490,62 +665,57 @@ export default function MapContainer() {
       .catch((err) => console.warn("Boundaries fetch failed:", err));
   }, [mapReady]);
 
-  // Theme change: update sightings + risk layer paint properties
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const m = mapRef.current;
     const tk = getTokens(currentTheme);
-
     if (m.getLayer("encounters-point"))
       m.setPaintProperty("encounters-point", "circle-color", tk.encounter);
     if (m.getLayer("encounters-clusters"))
       m.setPaintProperty("encounters-clusters", "circle-color", [
-        "step", ["get", "point_count"], tk.encounter, 5, tk.encounterCluster, 15, tk.encounterLarge,
+        "step",
+        ["get", "point_count"],
+        tk.encounter,
+        5,
+        tk.encounterCluster,
+        15,
+        tk.encounterLarge,
       ]);
     if (m.getLayer("ryjowisko-point"))
       m.setPaintProperty("ryjowisko-point", "circle-color", tk.ryjowisko);
     if (m.getLayer("ryjowisko-clusters"))
       m.setPaintProperty("ryjowisko-clusters", "circle-color", [
-        "step", ["get", "point_count"], tk.ryjowisko, 5, tk.ryjowiskoCluster, 15, tk.ryjowiskoLarge,
+        "step",
+        ["get", "point_count"],
+        tk.ryjowisko,
+        5,
+        tk.ryjowiskoCluster,
+        15,
+        tk.ryjowiskoLarge,
       ]);
 
-    if (m.getLayer("risk-fill")) {
-      m.setPaintProperty("risk-fill", "fill-color", [
-        "interpolate", ["linear"], ["get", "risk"],
-        0.0, tk.heatmap.risk.s0, 0.1, tk.heatmap.risk.s1,
-        0.25, tk.heatmap.risk.s2, 0.4, tk.heatmap.risk.s3,
-        0.55, tk.heatmap.risk.s4, 0.7, tk.heatmap.risk.s5,
-        0.85, tk.heatmap.risk.s6, 1.0, tk.heatmap.risk.s7,
-      ]);
-      if (m.getPaintProperty("risk-fill", "fill-opacity") !== 0) {
-        m.setPaintProperty("risk-fill", "fill-opacity", riskOpacity(tk.riskLowTransparent));
-      }
-    }
-  }, [currentTheme, mapReady]);
-
-  // Toggle base map buildings based on displayMode
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
-    const map = mapRef.current;
-    const isPubMode = displayMode === "publication";
-    const buildingVis = isPubMode && showHeatmap ? "none" : "visible";
-    if (map.getLayer("building"))
-      map.setLayoutProperty("building", "visibility", buildingVis);
-  }, [mapReady, showHeatmap, displayMode]);
-
-  // Track cursor position in add mode
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !isAddMode) return;
-    const update = () => {
-      const c = mapRef.current.getCenter();
-      setPendingLocation(c.lat, c.lng);
-    };
-    update();
-    mapRef.current.on("moveend", update);
-    return () => {
-      if (mapRef.current) mapRef.current.off("moveend", update);
-    };
-  }, [mapReady, isAddMode]);
-
-  return <div ref={containerRef} className="absolute inset-0" />;
-}
+    const paintCalls = [
+      // OSM custom (12)
+      ["forests-fill", "fill-color", tk.osm.forests],
+      ["water-fill", "fill-color", tk.osm.water],
+      ["waterways-line", "line-color", tk.osm.waterways],
+      ["buildings-fill", "fill-color", tk.osm.buildings],
+      ["roads-line", "line-color", tk.osm.roads],
+      ["barriers-line", "line-color", tk.osm.barriers],
+      ["allotments-fill", "fill-color", tk.osm.allotments],
+      ["meadows-fill", "fill-color", tk.osm.meadows],
+      ["farmland-fill", "fill-color", tk.osm.farmland],
+      ["parks-fill", "fill-color", tk.osm.parks],
+      ["scrub-fill", "fill-color", tk.osm.scrub],
+      ["railway-line", "line-color", tk.osm.railway],
+      // Basemap fills (9)
+      ["background", "background-color", tk.basemap.background],
+      ["water", "fill-color", tk.basemap.water],
+      ["landcover-grass", "fill-color", tk.basemap.landcoverGrass],
+      ["landcover-wood", "fill-color", tk.basemap.landcoverWood],
+      ["landuse-park", "fill-color", tk.basemap.landusePark],
+      ["landuse-residential", "fill-color", tk.basemap.landuseResidential],
+      ["building", "fill-color", tk.basemap.building],
+      ["building-3d", "fill-extrusion-color", tk.basemap.building],
+      // Basemap lines (8)
+      ["waterway", "line-color", tk.basemap.waterway],
