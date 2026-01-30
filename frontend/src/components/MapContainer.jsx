@@ -719,3 +719,143 @@ export default function MapContainer() {
       ["building-3d", "fill-extrusion-color", tk.basemap.building],
       // Basemap lines (8)
       ["waterway", "line-color", tk.basemap.waterway],
+      ["road-service", "line-color", tk.basemap.roadService],
+      ["road-minor", "line-color", tk.basemap.roadMinor],
+      ["road-secondary", "line-color", tk.basemap.roadSecondary],
+      ["road-primary", "line-color", tk.basemap.roadPrimary],
+      ["road-trunk", "line-color", tk.basemap.roadTrunk],
+      ["road-motorway", "line-color", tk.basemap.roadMotorway],
+      ["railway", "line-color", tk.basemap.railway],
+      // Basemap admin boundary (1)
+      ["boundary-country", "line-color", tk.basemap.boundaryCountry],
+      // Basemap symbols — text-color (5)
+      ["place-city", "text-color", tk.basemap.placeText],
+      ["place-town", "text-color", tk.basemap.placeText],
+      ["place-village", "text-color", tk.basemap.placeText],
+      ["place-suburb", "text-color", tk.basemap.placeSuburbText],
+      ["road-label", "text-color", tk.basemap.roadLabelText],
+      // Basemap symbols — text-halo-color (5)
+      ["place-city", "text-halo-color", tk.basemap.placeHalo],
+      ["place-town", "text-halo-color", tk.basemap.placeHalo],
+      ["place-village", "text-halo-color", tk.basemap.placeHalo],
+      ["place-suburb", "text-halo-color", tk.basemap.placeHalo],
+      ["road-label", "text-halo-color", tk.basemap.roadLabelHalo],
+      // W-matrix (1)
+      ["w-matrix-lines", "line-color", tk.wmatrix],
+      // Boundaries (2)
+      ["bialoleka-outline", "line-color", tk.boundary],
+      ["wisla-line", "line-color", tk.river],
+    ];
+    paintCalls.forEach(([id, prop, val]) => {
+      if (m.getLayer(id)) m.setPaintProperty(id, prop, val);
+    });
+
+    if (m.getLayer("risk-fill")) {
+      m.setPaintProperty("risk-fill", "fill-color", [
+        "interpolate",
+        ["linear"],
+        ["get", "risk"],
+        0.0,
+        tk.heatmap.risk.s0,
+        0.1,
+        tk.heatmap.risk.s1,
+        0.25,
+        tk.heatmap.risk.s2,
+        0.4,
+        tk.heatmap.risk.s3,
+        0.55,
+        tk.heatmap.risk.s4,
+        0.7,
+        tk.heatmap.risk.s5,
+        0.85,
+        tk.heatmap.risk.s6,
+        1.0,
+        tk.heatmap.risk.s7,
+      ]);
+      // Guard: don't overwrite opacity=0 managed by useGridTransition when toggle is OFF.
+      // Population-fill has the same guard (see below). Both: colour can always change,
+      // opacity must not resurrect a layer the user explicitly hid.
+      if (m.getPaintProperty("risk-fill", "fill-opacity") !== 0) {
+        m.setPaintProperty("risk-fill", "fill-opacity", riskOpacity(tk.riskLowTransparent));
+      }
+    }
+
+    if (m.getLayer("population-fill")) {
+      m.setPaintProperty("population-fill", "fill-color", [
+        "interpolate",
+        ["linear"],
+        ["get", "tot"],
+        0,
+        tk.heatmap.population.s0,
+        10,
+        tk.heatmap.population.s1,
+        100,
+        tk.heatmap.population.s2,
+        300,
+        tk.heatmap.population.s3,
+        700,
+        tk.heatmap.population.s4,
+        1500,
+        tk.heatmap.population.s5,
+        3000,
+        tk.heatmap.population.s6,
+      ]);
+      // Only restore data-driven opacity expression when layer is visible.
+      // If toggle is OFF, scalar 0 set by useOsmLayerTransition must not be overwritten.
+      if (visibleLayers?.population) {
+        m.setPaintProperty("population-fill", "fill-opacity", [
+          "interpolate",
+          ["linear"],
+          ["get", "tot"],
+          0,
+          0.3,
+          10,
+          0.4,
+          100,
+          0.5,
+          300,
+          0.55,
+          700,
+          0.6,
+          1500,
+          0.65,
+          3000,
+          0.7,
+        ]);
+      }
+    }
+
+  }, [currentTheme, mapReady]);
+
+  // NOTE: Grid fetch moved to useGridTransition hook (with crossfade animation)
+  // NOTE: OSM layer fetch + animation moved to useOsmLayerTransition hook
+
+  // Toggle base map visibility based on displayMode
+  // NOTE: Risk layers (risk-fill, risk-outline) controlled by useGridTransition via opacity
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+
+    const isPubMode = displayMode === "publication";
+
+    // Hide base map buildings when in PUB mode with heatmap on
+    const buildingVis = isPubMode && showHeatmap ? "none" : "visible";
+    if (map.getLayer("building"))
+      map.setLayoutProperty("building", "visibility", buildingVis);
+  }, [mapReady, showHeatmap, displayMode]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !isAddMode) return;
+    const update = () => {
+      const c = mapRef.current.getCenter();
+      setPendingLocation(c.lat, c.lng);
+    };
+    update();
+    mapRef.current.on("moveend", update);
+    return () => {
+      if (mapRef.current) mapRef.current.off("moveend", update);
+    };
+  }, [mapReady, isAddMode]);
+
+  return <div ref={containerRef} className="absolute inset-0" />;
+}
