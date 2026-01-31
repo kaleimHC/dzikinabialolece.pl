@@ -87,6 +87,24 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-0">
+          {/* Macierz W — tylko w trybie research/spatialWarsaw */}
+          <AnimatePresence>
+            {!isMobile && displayMode === 'research' && (
+              <motion.button
+                key="w-matrix-toggle"
+                initial={{ opacity: 0, width: 0, marginRight: 0 }}
+                animate={{ opacity: 1, width: 'auto', marginRight: 8 }}
+                exit={{ opacity: 0, width: 0, marginRight: 0 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                onClick={() => toggleLayer('wMatrix')}
+                title="Macierz W z Dzikow — sąsiedztwo przestrzenne komórek"
+                className={`btn-hdr btn-hdr-animated ${isWMatrixVisible ? 'btn-on-wmatrix' : 'btn-off'}`}
+              >
+                <span style={{ fontSize: '13px' }}>🕸️</span>
+                <span>Macierz W</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
 
           {/* Risk Map + Link + Population group */}
           <div className="flex items-center gap-0">
