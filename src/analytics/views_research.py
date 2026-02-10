@@ -16,9 +16,11 @@ Endpoints:
 import logging
 
 from django.db import connection
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+from .permissions import IsBearerAuthenticated
+from .sql_injection_patch import validate_geometry_type
 from .models_research import (
     ResearchConfig,
     ResearchRun,
@@ -214,7 +216,9 @@ def config_list(request):
             'available_predictors': ALL_PREDICTORS,
         })
 
-    # POST — create
+    # POST — create (requires authentication)
+    if not (request.user and request.user.is_authenticated):
+        return Response({'detail': 'Authentication required.'}, status=401)
     data = request.data
     if not data.get('name'):
         return Response({'error': 'name is required'}, status=400)
@@ -256,6 +260,7 @@ def config_detail(request, config_id):
 
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def config_activate(request, config_id):
     """POST /api/research/configs/{id}/activate/ — set as active config."""
     try:
@@ -281,6 +286,7 @@ def config_activate(request, config_id):
 # =============================================================================
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def run_pipeline(request):
     """
     POST /api/research/run/ — execute pipeline with active config.
@@ -368,6 +374,7 @@ def run_list(request):
 
 
 @api_view(['DELETE'])
+@permission_classes([IsBearerAuthenticated])
 def run_clear_all(request):
     """DELETE /api/research/runs/clear/ — delete all run history."""
     count, _ = ResearchRun.objects.all().delete()
@@ -480,9 +487,12 @@ def distributions(request):
         forest_threshold (float): threshold for forest regime (default 0.3)
         building_threshold (float): threshold for urban regime (default 0.15)
     """
-    # Parse geometry_type
+    # Parse geometry_type — validated against allowlist to prevent SQL injection
     geometry_type = request.query_params.get('geometry_type', 'grid_500')
-    table = GEOMETRY_TABLE_MAP.get(geometry_type, 'research_grid_500m')
+    try:
+        table = validate_geometry_type(geometry_type)
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
 
     # Parse threshold params (for regime preview calculation)
     try:
@@ -674,59 +684,71 @@ def distributions(request):
 # =============================================================================
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def generate_preview(request):
     """
     POST /api/research/generate-preview/
 
-    SYNCHRONOUSLY runs geometry generation (01_geometry) and OSM features
-    (03_osm_features) scripts (~5s total). Returns distributions data directly.
+    Queues geometry generation (01_generate_voronoi.R) and OSM features
+    (research/03_osm_features.R) as a Celery task to avoid blocking the
+    ASGI worker.
 
     Request body:
         geometry_type (str): 'grid_500' or 'voronoi'
 
     Returns:
-        Same format as GET /distributions/ endpoint
+        202 Accepted with task_id and poll_url
     """
-    from .orchestrator_research import run_r_script
+    from .tasks_research import run_preview_pipeline
 
     geometry_type = request.data.get('geometry_type', 'grid_500')
-    target_table = GEOMETRY_TABLE_MAP.get(geometry_type, 'research_grid_500m')
+    try:
+        target_table = validate_geometry_type(geometry_type)
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
 
-    logger.info(f"generate_preview: geometry_type={geometry_type}, table={target_table}")
+    logger.info(f"generate_preview: queuing task for geometry_type={geometry_type}, table={target_table}")
 
-    # Build environment for R scripts
-    env = {
-        'RESEARCH_GEOMETRY_TYPE': geometry_type,
-        'RESEARCH_TARGET_TABLE': target_table,
-    }
+    task = run_preview_pipeline.delay(geometry_type, target_table)
 
-    # Step 1: Geometry generation (~2s)
-    logger.info(f"Running 01_generate_voronoi.R for {geometry_type}...")
-    exit_code, stdout, stderr = run_r_script('01_generate_voronoi.R', extra_env=env)
+    return Response(
+        {
+            'task_id': task.id,
+            'status': 'queued',
+            'poll_url': f'/api/research/preview-status/{task.id}/',
+        },
+        status=202,
+    )
 
-    if exit_code != 0:
-        logger.error(f"Geometry generation failed: {stderr[:500]}")
-        return Response({
-            'error': f'Geometry generation failed (exit {exit_code})',
-            'stderr': stderr[:500],
-        }, status=500)
 
-    # Step 2: OSM features (~3s)
-    logger.info(f"Running research/03_osm_features.R...")
-    exit_code, stdout, stderr = run_r_script('research/03_osm_features.R', extra_env=env)
+@api_view(['GET'])
+@permission_classes([IsBearerAuthenticated])
+def preview_status(request, task_id):
+    """
+    GET /api/research/preview-status/<task_id>/
 
-    if exit_code != 0:
-        logger.error(f"OSM features failed: {stderr[:500]}")
-        return Response({
-            'error': f'OSM features calculation failed (exit {exit_code})',
-            'stderr': stderr[:500],
-        }, status=500)
+    Poll the state of a queued generate_preview task.
 
-    # Success - return distributions data
-    logger.info(f"Preview generation complete for {geometry_type}")
+    Returns:
+        {
+            "task_id": "...",
+            "state": "PENDING" | "STARTED" | "SUCCESS" | "FAILURE",
+            "result": {...}   # only when SUCCESS or FAILURE
+        }
+    """
+    from celery.result import AsyncResult
 
-    # Query distributions data directly
-    return _get_distributions_data(geometry_type, 0.3, 0.15)
+    result = AsyncResult(task_id)
+    state = result.state
+
+    payload = {'task_id': task_id, 'state': state}
+
+    if state == 'SUCCESS':
+        payload['result'] = result.result
+    elif state == 'FAILURE':
+        payload['result'] = {'error': str(result.result)}
+
+    return Response(payload)
 
 
 # =============================================================================
@@ -779,7 +801,10 @@ def _get_distributions_data(geometry_type: str, forest_threshold: float, buildin
     Helper function to get distributions data.
     Used by both distributions() and generate_preview() endpoints.
     """
-    table = GEOMETRY_TABLE_MAP.get(geometry_type, 'research_grid_500m')
+    try:
+        table = validate_geometry_type(geometry_type)
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
     n_buckets = 20
     bucket_width = 1.0 / n_buckets
 

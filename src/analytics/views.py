@@ -4,10 +4,11 @@ Views for Analytics app.
 
 import json
 from datetime import date
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.db import connection
 from analytics.sql_injection_patch import validate_grid_type, validate_limit
+from analytics.permissions import IsBearerAuthenticated
 from django.core.cache import cache
 from django_celery_results.models import TaskResult
 
@@ -380,6 +381,7 @@ ALLOWED_RECALC_MODES = {'fast', 'full'}
 
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def recalculate(request):
     """
     Trigger R pipeline recalculation via Celery (dev only).
@@ -921,6 +923,7 @@ def samples_current(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def samples_switch(request):
     """
     Switch to a different sample database.
@@ -1358,6 +1361,7 @@ def presets_list(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def apply_preset(request):
     """
     Apply a preset profile to create/update configuration.
@@ -1476,6 +1480,7 @@ def active_config(request):
 # =============================================================================
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def bayesian_run(request):
     """
     Run the Bayesian pipeline.
@@ -1499,9 +1504,12 @@ def bayesian_run(request):
     import uuid
 
     # Get parameters from request or use defaults
-    h_rel = float(request.data.get('h_rel', 0.5))
-    ari = float(request.data.get('ari', 0.7))
-    bandwidth = float(request.data.get('bandwidth', 400.0))
+    try:
+        h_rel = float(request.data.get('h_rel', 0.5))
+        ari = float(request.data.get('ari', 0.7))
+        bandwidth = float(request.data.get('bandwidth', 400.0))
+    except (TypeError, ValueError):
+        return Response({'error': 'h_rel, ari and bandwidth must be numeric'}, status=400)
 
     # Validate inputs
     errors = []
@@ -1514,6 +1522,20 @@ def bayesian_run(request):
 
     if errors:
         return Response({'error': '; '.join(errors)}, status=400)
+
+    # Atomic lock — prevents concurrent 4-hour pipeline runs exhausting workers.
+    # cache.add() is atomic: returns True only when the key did NOT exist.
+    BAYESIAN_LOCK_KEY = 'bayesian_pipeline_lock'
+    BAYESIAN_LOCK_TIMEOUT = 14400  # 4 hours max (matches task time_limit)
+
+    if not cache.add(BAYESIAN_LOCK_KEY, 'running', BAYESIAN_LOCK_TIMEOUT):
+        return Response(
+            {
+                'status': 'already_running',
+                'message': 'Bayesian pipeline already in progress. Check /api/analytics/bayesian/status/',
+            },
+            status=409,
+        )
 
     # Get active config for MCMC settings
     config = ParameterConfiguration.get_active_or_defaults()
@@ -1557,6 +1579,8 @@ def bayesian_run(request):
         })
 
     except Exception as e:
+        # Dispatch failed — release the lock so a retry is possible.
+        cache.delete(BAYESIAN_LOCK_KEY)
         return Response({'error': str(e)}, status=500)
 
 
@@ -1784,6 +1808,7 @@ def export_results_csv(request):
 # =============================================================================
 
 @api_view(['POST'])
+@permission_classes([IsBearerAuthenticated])
 def run_mode_pipeline(request):
     """
     Run analytics pipeline with specified mode.

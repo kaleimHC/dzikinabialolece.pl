@@ -29,8 +29,9 @@ urlpatterns = [
     # Distributions (for regime threshold UI)
     path('distributions/', views.distributions, name='research-distributions'),
 
-    # Generate preview (sync geometry + OSM features for regime threshold preview)
+    # Generate preview (async geometry + OSM features for regime threshold preview)
     path('generate-preview/', views.generate_preview, name='research-generate-preview'),
+    path('preview-status/<str:task_id>/', views.preview_status, name='research-preview-status'),
 
     # Spatial impacts (SAR/SDM only) - LeSage & Pace (2009)
     path('impacts/', views.spatial_impacts, name='research-impacts'),

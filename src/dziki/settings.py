@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     
     # Django REST Framework (NotebookLM Q10)
     'rest_framework',
+    'rest_framework.authtoken',
     'rest_framework_gis',  # drf-gis for GeoJSON
     
     # Celery (NotebookLM Q10)
@@ -245,8 +246,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
-    # No authentication required for public API - disables CSRF requirement
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],

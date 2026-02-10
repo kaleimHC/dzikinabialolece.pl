@@ -1019,6 +1019,8 @@ def run_bayesian_pipeline(
     )
     run_id = str(run.task_id)
 
+    BAYESIAN_LOCK_KEY = 'bayesian_pipeline_lock'
+
     try:
         # Step 1: Elicit priors
         prior_result = elicit_priors(
@@ -1080,3 +1082,8 @@ def run_bayesian_pipeline(
         run.error_message = str(exc)
         run.save()
         raise
+
+    finally:
+        # Release the concurrency lock set in bayesian_run() regardless of outcome.
+        from django.core.cache import cache as _cache
+        _cache.delete(BAYESIAN_LOCK_KEY)
