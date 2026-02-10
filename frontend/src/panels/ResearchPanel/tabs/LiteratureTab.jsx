@@ -139,7 +139,7 @@ const PAPERS = [
    - Test: if relH_empir not in CI_1-α(relH_csr) → reject CSR hypothesis
    - Report w analytics_researchdiagnostics: relH_csr_mean, relH_csr_lower, relH_csr_upper, csr_p_value`,
       sources:
-        "Paper Eq (1), (3), (4) s. 6-7; Eq (12) s. 13; Appendix s. 21. NotebookLM 3-way dialog tura 3.",
+        "Paper Eq (1), (3), (4) s. 6-7; Eq (12) s. 13; Appendix s. 21.",
     },
   },
   {
