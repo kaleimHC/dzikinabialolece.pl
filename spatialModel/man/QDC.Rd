@@ -37,7 +37,7 @@ This is approximately 5 km for points in the WGS84 projection.}
 \item{knndist1.scaled}{spatial variable knndist1 after normalisation}
 \item{frnn1.scaled}{spatial variable frnn1 after normalisation}
 \item{km.set1}{cluster ID of the observation, from the K-means algorithm}
-\item{outcome.set1}{cluster labels, only if k=3}
+\item{outcome.set1}{cluster labels, only if nclust=3}
 }
 \description{
 Quick Density Clustering (QDC) uses two spatial variables - the total distance to k nearest neighbours

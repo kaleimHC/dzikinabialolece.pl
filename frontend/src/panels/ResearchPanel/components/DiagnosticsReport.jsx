@@ -502,10 +502,15 @@ export default function DiagnosticsReport({ diagnostics, configSnapshot, steps }
                 })}
               </div>
               {vif.dropped && vif.dropped.length > 0 && (
-                <p className="text-xs text-red-400 mt-1">
-                  Usunięte: {vif.dropped.join(", ")}
+                <p className="text-xs text-amber-400 mt-1">
+                  Oznaczone (informacyjnie, NIE usuwane z modelu):{" "}
+                  {vif.dropped.join(", ")}
                 </p>
               )}
+              <p className="text-[10px] text-gray-500 mt-1">
+                VIF jest informacyjny: zmienne powyżej progu są tylko oznaczane,
+                nie usuwane z modelu.
+              </p>
             </div>
           )}
 

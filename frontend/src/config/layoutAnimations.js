@@ -83,25 +83,3 @@ export const desktopChildVariants = {
   },
 };
 
-/**
- * Mobile child variants - slide z dołu
- */
-export const mobileChildVariants = {
-  initial: { opacity: 0, y: 30 },
-  animate: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: DURATION, ease: EASE },
-  },
-  exit: {
-    opacity: 0,
-    y: 30,
-    transition: { duration: DURATION, ease: EASE },
-  },
-};
-
-/**
- * Eksport stałych dla spójności
- */
-export const ANIMATION_DURATION = DURATION;
-export const ANIMATION_EASE = EASE;

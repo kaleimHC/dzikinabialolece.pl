@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatDuration } from "../../../utils/pipelineHelpers";
 
 const STATUS_ICONS = {
   success: { icon: "\u2713", color: "text-green-400" },
@@ -18,15 +19,6 @@ const STATUS_ICONS = {
   pending: { icon: "\u25CB", color: "text-gray-600" },
   skipped: { icon: "\u2014", color: "text-gray-500" },
 };
-
-function formatDuration(seconds) {
-  if (seconds == null) return "";
-  if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
-  if (seconds < 60) return `${seconds.toFixed(1)}s`;
-  const mins = Math.floor(seconds / 60);
-  const secs = (seconds % 60).toFixed(0);
-  return `${mins}m ${secs}s`;
-}
 
 function StepRow({ step, isExpanded, onToggle, isLast }) {
   const { icon, color } = STATUS_ICONS[step.status] || STATUS_ICONS.pending;

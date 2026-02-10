@@ -32,13 +32,10 @@
  *
  * USAGE:
  * ```javascript
- * import { getPointRadius, getClusterConfig } from './utils/clusterConfig';
+ * import { getPointRadius } from './utils/clusterConfig';
  *
  * // For individual points
  * const radius = getPointRadius(sightings.length, currentZoom);
- *
- * // For cluster configuration
- * const config = getClusterConfig(sightings.length, currentZoom);
  * ```
  *
  * @module clusterConfig
@@ -131,63 +128,6 @@ export function getStrokeWidth(radius) {
 }
 
 /**
- * Get complete cluster configuration for MapLibre.
- * Returns all parameters needed for source and layer setup.
- *
- * @param {number} n - Total number of sightings
- * @param {number} zoom - Current zoom level
- * @returns {Object} Configuration object with all cluster parameters
- *
- * @example
- * const config = getClusterConfig(3500, 12);
- * // → {
- * //     pointRadius: 5.0,
- * //     strokeWidth: 1.25,
- * //     clusterRadius: 45,
- * //     clusterMaxZoom: 14,
- * //     clusterSizes: { small: 16, medium: 22, large: 30 },
- * //     clusterThresholds: { medium: 5, large: 15 }
- * //   }
- */
-export function getClusterConfig(n, zoom) {
-  const pointRadius = getPointRadius(n, zoom);
-  const strokeWidth = getStrokeWidth(pointRadius);
-
-  // Cluster radius: smaller when many points to create more clusters
-  // Range: 35-60 pixels
-  const clusterRadius = Math.max(
-    35,
-    Math.min(60, 70 - Math.log10(n + 10) * 10),
-  );
-
-  // Cluster bubble sizes scale with point size
-  const scaleFactor = pointRadius / 6; // 6 is the "base" radius
-
-  return {
-    // Individual point styling
-    pointRadius,
-    strokeWidth,
-
-    // Cluster source settings
-    clusterRadius: Math.round(clusterRadius),
-    clusterMaxZoom: 14,
-
-    // Cluster bubble sizes (proportional to point size)
-    clusterSizes: {
-      small: Math.round(18 * scaleFactor),
-      medium: Math.round(25 * scaleFactor),
-      large: Math.round(35 * scaleFactor),
-    },
-
-    // Thresholds for size steps
-    clusterThresholds: {
-      medium: 5, // 5+ points → medium size
-      large: 15, // 15+ points → large size
-    },
-  };
-}
-
-/**
  * Generate MapLibre paint expression for adaptive circle radius.
  * Can be used directly in layer paint property.
  *
@@ -223,81 +163,3 @@ export function getRadiusExpression(n) {
   ];
 }
 
-/**
- * Generate MapLibre paint expression for cluster bubble radius.
- * Adapts cluster sizes based on dataset size.
- *
- * @param {number} n - Total number of sightings
- * @param {number} zoom - Current zoom level
- * @returns {Array} MapLibre step expression for cluster sizing
- */
-export function getClusterRadiusExpression(n, zoom) {
-  const config = getClusterConfig(n, zoom);
-  const { clusterSizes, clusterThresholds } = config;
-
-  return [
-    "step",
-    ["get", "point_count"],
-    clusterSizes.small,
-    clusterThresholds.medium,
-    clusterSizes.medium,
-    clusterThresholds.large,
-    clusterSizes.large,
-  ];
-}
-
-// DEBUG / CALIBRATION HELPERS
-
-/**
- * Print calibration table to console.
- * Useful for tuning constants.
- *
- * @param {number[]} nValues - Array of dataset sizes to test
- * @param {number[]} zoomValues - Array of zoom levels to test
- */
-export function printCalibrationTable(
-  nValues = [50, 100, 500, 1000, 3500, 5000, 10000],
-  zoomValues = [10, 12, 14, 16],
-) {
-  console.log("\n📊 Circle Radius Calibration Table");
-  console.log("═".repeat(50));
-
-  // Header
-  let header = "     n    │";
-  zoomValues.forEach((z) => {
-    header += ` zoom=${z} │`;
-  });
-  console.log(header);
-  console.log("─".repeat(50));
-
-  // Rows
-  nValues.forEach((n) => {
-    let row = String(n).padStart(8) + " │";
-    zoomValues.forEach((z) => {
-      const r = getPointRadius(n, z).toFixed(1);
-      row += ` ${r.padStart(5)}px │`;
-    });
-    console.log(row);
-  });
-
-  console.log("═".repeat(50));
-}
-
-// Export default configuration for quick access
-export default {
-  getPointRadius,
-  getStrokeWidth,
-  getClusterConfig,
-  getRadiusExpression,
-  getClusterRadiusExpression,
-  printCalibrationTable,
-
-  // Expose constants for external tuning if needed
-  constants: {
-    K_BASE,
-    MIN_RADIUS,
-    MAX_RADIUS,
-    BASE_ZOOM,
-    ZOOM_SENSITIVITY,
-  },
-};

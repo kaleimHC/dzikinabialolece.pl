@@ -5,7 +5,6 @@ Adds spatial predictor fields and ensemble score fields.
 RunSQL populates geometry_2180 from geometry (EPSG:4326 → EPSG:2180).
 """
 
-from django.contrib.gis.db.backends.postgis.operations import PostGISOperations
 from django.db import migrations, models
 import django.contrib.gis.db.models.fields
 

@@ -3,19 +3,7 @@ import { motion } from "framer-motion";
 import { useSightingsStore } from "../stores/sightingsStore";
 import SampleSlider from "./SampleSlider";
 import { getTokens } from "../tokens/colors";
-
-function contrastColor(hex) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128 ? "#1a1a1a" : "#ffffff";
-}
-
-function contrastColorRgb(rgbStr) {
-  const clean = rgbStr.replace(/^rgb\(\s*|\s*\)$/g, "");
-  const [r, g, b] = clean.trim().split(/\s+/).map(Number);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128 ? "#1a1a1a" : "#ffffff";
-}
+import { contrastColor, contrastColorRgb } from "../utils/contrastColor";
 
 function getModeStyle(modeId, tk) {
   if (modeId === "fast")

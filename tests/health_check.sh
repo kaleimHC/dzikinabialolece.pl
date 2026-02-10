@@ -41,10 +41,10 @@ check_service "PostgreSQL" "docker-compose exec -T db pg_isready -U dziki"
 check_service "PgBouncer" "docker-compose exec -T pgbouncer pg_isready -h 127.0.0.1 -p 6432"
 
 # 3. Redis Broker
-check_service "Redis (broker)" "docker-compose exec -T redis-broker redis-cli -a \$REDIS_BROKER_PASSWORD ping"
+check_service "Redis (broker)" "docker-compose exec -T redis-broker redis-cli -a \$REDIS_PASSWORD ping"
 
 # 4. Redis Cache
-check_service "Redis (cache)" "docker-compose exec -T redis-cache redis-cli -a \$REDIS_CACHE_PASSWORD ping"
+check_service "Redis (cache)" "docker-compose exec -T redis-cache redis-cli -a \$REDIS_PASSWORD ping"
 
 # 5. Django API
 check_service "Django API" "curl -sf http://localhost:8000/api/sightings/"

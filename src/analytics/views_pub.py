@@ -6,10 +6,12 @@ import json
 import logging
 
 from django.core.cache import cache
-from django.db import connection
-from rest_framework.decorators import api_view
+from django.db import OperationalError, ProgrammingError, connection
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from analytics.permissions import PipelineRunThrottle
 from analytics.sql_injection_patch import validate_grid_type, validate_limit
 
 logger = logging.getLogger(__name__)
@@ -289,6 +291,8 @@ def research_grid_500(request):
 
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([PipelineRunThrottle])
 def calculate_voronoi_features(request):
     results = {
         "distance_to_forest": {"updated": 0, "error": None},
@@ -340,9 +344,9 @@ def calculate_voronoi_features(request):
                 """)
                 results["distance_to_forest"]["updated"] = cursor.rowcount
                 logger.info(f"  distance_to_forest: {cursor.rowcount} updated")
-        except Exception as e:
-            results["distance_to_forest"]["error"] = str(e)
-            logger.error(f"  distance_to_forest ERROR: {e}")
+        except Exception:
+            results["distance_to_forest"]["error"] = "computation failed"
+            logger.exception("  distance_to_forest ERROR")
 
         try:
             cursor.execute("SELECT COUNT(*) FROM osm_water")
@@ -372,9 +376,9 @@ def calculate_voronoi_features(request):
                 """)
                 results["distance_to_water"]["updated"] = cursor.rowcount
                 logger.info(f"  distance_to_water: {cursor.rowcount} updated")
-        except Exception as e:
-            results["distance_to_water"]["error"] = str(e)
-            logger.error(f"  distance_to_water ERROR: {e}")
+        except Exception:
+            results["distance_to_water"]["error"] = "computation failed"
+            logger.exception("  distance_to_water ERROR")
 
         try:
             cursor.execute("""
@@ -393,9 +397,9 @@ def calculate_voronoi_features(request):
             """)
             results["forest_cover"]["updated"] = cursor.rowcount
             logger.info(f"  forest_cover: {cursor.rowcount} updated")
-        except Exception as e:
-            results["forest_cover"]["error"] = str(e)
-            logger.error(f"  forest_cover ERROR: {e}")
+        except Exception:
+            results["forest_cover"]["error"] = "computation failed"
+            logger.exception("  forest_cover ERROR")
 
         try:
             cursor.execute("""
@@ -414,9 +418,9 @@ def calculate_voronoi_features(request):
             """)
             results["building_density"]["updated"] = cursor.rowcount
             logger.info(f"  building_density: {cursor.rowcount} updated")
-        except Exception as e:
-            results["building_density"]["error"] = str(e)
-            logger.error(f"  building_density ERROR: {e}")
+        except Exception:
+            results["building_density"]["error"] = "computation failed"
+            logger.exception("  building_density ERROR")
 
         try:
             cursor.execute("""
@@ -435,9 +439,9 @@ def calculate_voronoi_features(request):
             """)
             results["road_density"]["updated"] = cursor.rowcount
             logger.info(f"  road_density: {cursor.rowcount} updated")
-        except Exception as e:
-            results["road_density"]["error"] = str(e)
-            logger.error(f"  road_density ERROR: {e}")
+        except Exception:
+            results["road_density"]["error"] = "computation failed"
+            logger.exception("  road_density ERROR")
 
         cursor.execute("UPDATE sightings_gridcell_voronoi SET updated_at = NOW()")
 
@@ -466,25 +470,33 @@ def combined_results(request):
     except ValueError:
         return Response({"error": f"Invalid grid_type: {grid_type}"}, status=400)
 
+    if min_risk is not None:
+        try:
+            min_risk = float(min_risk)
+        except (TypeError, ValueError):
+            return Response({"error": f"Invalid min_risk: {min_risk}"}, status=400)
+
     gwr_select = (
         "COALESCE(gc.spatial_risk, gc.gwr_score, 0)"
         if grid_type == "voronoi"
         else "gc.gwr_score"
     )
+    # research_grid_500m has no area_rank_score column (dropped in migration 0014)
+    eta_select = "NULL" if grid_type == "grid_500" else "gc.area_rank_score"
     query = f"""
         SELECT
             gc.id as cell_id,
             {gwr_select} as gwr,
-            gc.area_rank_score as eta,
+            {eta_select} as eta,
             gc.ensemble_risk as ensemble
         FROM {grid_table} gc
         WHERE gc.ensemble_risk IS NOT NULL
     """
     params = []
 
-    if min_risk:
+    if min_risk is not None:
         query += " AND gc.ensemble_risk >= %s"
-        params.append(float(min_risk))
+        params.append(min_risk)
 
     query += f" ORDER BY gc.ensemble_risk DESC LIMIT {limit}"  # limit already validated
 
@@ -534,11 +546,13 @@ def export_results_csv(request):
         if grid_type == "voronoi"
         else "gc.gwr_score"
     )
+    # research_grid_500m has no area_rank_score column (dropped in migration 0014)
+    eta_select = "NULL" if grid_type == "grid_500" else "gc.area_rank_score"
     query = f"""
         SELECT
             gc.id as cell_id,
             {gwr_select} as gwr,
-            gc.area_rank_score as eta,
+            {eta_select} as eta,
             gc.ensemble_risk as ensemble
         FROM {grid_table} gc
         WHERE gc.ensemble_risk IS NOT NULL
@@ -680,22 +694,32 @@ def eta_current(request):
 
 @api_view(["GET"])
 def spatial_current(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT
-                id,
-                computed_at,
-                model_type,
-                n_cells,
-                rho,
-                lambda,
-                aic,
-                formula
-            FROM analytics_spatial_result
-            ORDER BY computed_at DESC
-            LIMIT 1
-        """)
-        row = cursor.fetchone()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    id,
+                    computed_at,
+                    model_type,
+                    n_cells,
+                    rho,
+                    lambda,
+                    aic,
+                    formula
+                FROM analytics_spatial_result
+                ORDER BY computed_at DESC
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+    except (ProgrammingError, OperationalError):
+        logger.warning("spatial_current: analytics_spatial_result not initialized")
+        return Response(
+            {
+                "error": "No spatial model results available. Run 02_spatial_models.R first.",
+                "source": "spatialreg::lagsarlm/errorsarlm",
+            },
+            status=404,
+        )
 
     if not row:
         return Response(
@@ -767,7 +791,7 @@ def w_matrix_edges(request):
             "metadata": {
                 "n_edges": n_edges,
                 "description": "Spatial neighbor connections (W matrix edges)",
-                "source": "research_W.rds via export_w_edges.R",
+                "source": "research_W.rds",
             },
             "features": geojson_data.get("features", []),
         }

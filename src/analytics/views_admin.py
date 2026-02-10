@@ -6,14 +6,17 @@ import json
 import logging
 
 from django.core.cache import cache
-from django.db import connection
+from django.db import OperationalError, ProgrammingError, connection
 from django_celery_results.models import TaskResult
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from analytics.permissions import PipelineRunThrottle, SamplesSwitchThrottle
-from analytics.sql_injection_patch import validate_grid_type
+from analytics.permissions import (
+    IsBearerAuthenticated,
+    PipelineRunThrottle,
+    SamplesSwitchThrottle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,22 +25,26 @@ logger = logging.getLogger(__name__)
 def boundaries(request):
     name = request.query_params.get("name")
 
-    with connection.cursor() as cursor:
-        if name:
-            cursor.execute(
-                """
-                SELECT name, ST_AsGeoJSON(geom) as geojson
-                FROM boundaries
-                WHERE name = %s
-            """,
-                [name],
-            )
-        else:
-            cursor.execute("""
-                SELECT name, ST_AsGeoJSON(geom) as geojson
-                FROM boundaries
-            """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            if name:
+                cursor.execute(
+                    """
+                    SELECT name, ST_AsGeoJSON(geom) as geojson
+                    FROM boundaries
+                    WHERE name = %s
+                """,
+                    [name],
+                )
+            else:
+                cursor.execute("""
+                    SELECT name, ST_AsGeoJSON(geom) as geojson
+                    FROM boundaries
+                """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("boundaries: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for name, geojson in rows:
@@ -98,28 +105,32 @@ def task_status(request):
 def buildings(request):
     bbox = request.query_params.get("bbox")
 
-    with connection.cursor() as cursor:
-        if bbox:
-            try:
-                minx, miny, maxx, maxy = map(float, bbox.split(","))
-                cursor.execute(
-                    """
+    try:
+        with connection.cursor() as cursor:
+            if bbox:
+                try:
+                    minx, miny, maxx, maxy = map(float, bbox.split(","))
+                    cursor.execute(
+                        """
+                        SELECT osm_id, ST_AsGeoJSON(geom) as geojson
+                        FROM osm_buildings
+                        WHERE geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+                        LIMIT 50000
+                    """,
+                        [minx, miny, maxx, maxy],
+                    )
+                except (ValueError, TypeError):
+                    return Response({"error": "Invalid bbox format"}, status=400)
+            else:
+                cursor.execute("""
                     SELECT osm_id, ST_AsGeoJSON(geom) as geojson
                     FROM osm_buildings
-                    WHERE geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
                     LIMIT 50000
-                """,
-                    [minx, miny, maxx, maxy],
-                )
-            except (ValueError, TypeError):
-                return Response({"error": "Invalid bbox format"}, status=400)
-        else:
-            cursor.execute("""
-                SELECT osm_id, ST_AsGeoJSON(geom) as geojson
-                FROM osm_buildings
-                LIMIT 50000
-            """)
-        rows = cursor.fetchall()
+                """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("buildings: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, geojson in rows:
@@ -136,13 +147,17 @@ def buildings(request):
 
 @api_view(["GET"])
 def forests(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, ST_AsGeoJSON(geom) as geojson
-            FROM osm_forests
-            LIMIT 10000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, ST_AsGeoJSON(geom) as geojson
+                FROM osm_forests
+                LIMIT 10000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("forests: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, geojson in rows:
@@ -159,13 +174,17 @@ def forests(request):
 
 @api_view(["GET"])
 def population(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT code, tot, ST_AsGeoJSON(geom) as geojson
-            FROM gus_population_grid_500m
-            ORDER BY tot DESC
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT code, tot, ST_AsGeoJSON(geom) as geojson
+                FROM gus_population_grid_500m
+                ORDER BY tot DESC
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("population: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for code, tot, geojson in rows:
@@ -182,14 +201,18 @@ def population(request):
 
 @api_view(["GET"])
 def water(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
-            FROM osm_water
-            WHERE ST_GeometryType(geom) = 'ST_Polygon'
-            LIMIT 5000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
+                FROM osm_water
+                WHERE ST_GeometryType(geom) = 'ST_Polygon'
+                LIMIT 5000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("water: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, name, geojson in rows:
@@ -206,14 +229,18 @@ def water(request):
 
 @api_view(["GET"])
 def waterways(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, name, waterway, ST_AsGeoJSON(geom) as geojson
-            FROM osm_water
-            WHERE ST_GeometryType(geom) = 'ST_LineString'
-            LIMIT 5000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, name, waterway, ST_AsGeoJSON(geom) as geojson
+                FROM osm_water
+                WHERE ST_GeometryType(geom) = 'ST_LineString'
+                LIMIT 5000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("waterways: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, name, waterway, geojson in rows:
@@ -230,14 +257,18 @@ def waterways(request):
 
 @api_view(["GET"])
 def barriers(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, barrier_type, permeability, ST_AsGeoJSON(geom) as geojson
-            FROM osm_barriers
-            WHERE barrier_type IN ('fence', 'wall', 'retaining_wall', 'guard_rail')
-            LIMIT 20000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, barrier_type, permeability, ST_AsGeoJSON(geom) as geojson
+                FROM osm_barriers
+                WHERE barrier_type IN ('fence', 'wall', 'retaining_wall', 'guard_rail')
+                LIMIT 20000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("barriers: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, barrier_type, permeability, geojson in rows:
@@ -258,13 +289,17 @@ def barriers(request):
 
 @api_view(["GET"])
 def roads(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, highway, name, ST_AsGeoJSON(geom) as geojson
-            FROM osm_roads
-            LIMIT 25000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, highway, name, ST_AsGeoJSON(geom) as geojson
+                FROM osm_roads
+                LIMIT 25000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("roads: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, highway, name, geojson in rows:
@@ -281,13 +316,17 @@ def roads(request):
 
 @api_view(["GET"])
 def allotments(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
-            FROM osm_allotments
-            LIMIT 5000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
+                FROM osm_allotments
+                LIMIT 5000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("allotments: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, name, geojson in rows:
@@ -304,13 +343,17 @@ def allotments(request):
 
 @api_view(["GET"])
 def meadows(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, ST_AsGeoJSON(geom) as geojson
-            FROM osm_meadow
-            LIMIT 5000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, ST_AsGeoJSON(geom) as geojson
+                FROM osm_meadow
+                LIMIT 5000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("meadows: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, geojson in rows:
@@ -327,13 +370,17 @@ def meadows(request):
 
 @api_view(["GET"])
 def farmland(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, ST_AsGeoJSON(geom) as geojson
-            FROM osm_farmland
-            LIMIT 5000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, ST_AsGeoJSON(geom) as geojson
+                FROM osm_farmland
+                LIMIT 5000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("farmland: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, geojson in rows:
@@ -350,13 +397,17 @@ def farmland(request):
 
 @api_view(["GET"])
 def parks(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
-            FROM osm_parks
-            LIMIT 5000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
+                FROM osm_parks
+                LIMIT 5000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("parks: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, name, geojson in rows:
@@ -373,13 +424,17 @@ def parks(request):
 
 @api_view(["GET"])
 def scrub(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, ST_AsGeoJSON(geom) as geojson
-            FROM osm_scrub
-            LIMIT 10000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, ST_AsGeoJSON(geom) as geojson
+                FROM osm_scrub
+                LIMIT 10000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("scrub: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, geojson in rows:
@@ -396,13 +451,17 @@ def scrub(request):
 
 @api_view(["GET"])
 def railway(request):
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
-            FROM osm_railway
-            LIMIT 5000
-        """)
-        rows = cursor.fetchall()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
+                FROM osm_railway
+                LIMIT 5000
+            """)
+            rows = cursor.fetchall()
+    except (ProgrammingError, OperationalError):
+        logger.warning("railway: source table not initialized")
+        return Response({"type": "FeatureCollection", "features": []})
 
     features = []
     for osm_id, name, geojson in rows:
@@ -446,6 +505,10 @@ def samples_current(request):
     )
 
 
+# Public portfolio sandbox: visitors may switch the active sample dataset.
+# switch_sample_task TRUNCATEs and reloads SYNTHETIC demo data (not real
+# crowdsourced reports), so anonymous access is intentional and resetting the
+# sample is a feature, not a vulnerability. Throttled to deter abuse.
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([SamplesSwitchThrottle])
@@ -552,7 +615,7 @@ def presets_list(request):
 
 
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsBearerAuthenticated])
 def apply_preset(request):
     from .models_config import PRESET_PROFILES, ParameterConfiguration
 
@@ -600,8 +663,6 @@ def apply_preset(request):
                     "name": config.name,
                     "description": config.description,
                     "is_active": config.is_active,
-                    "mcmc_iterations": config.mcmc_iterations,
-                    "mcmc_chains": config.mcmc_chains,
                 },
             }
         )

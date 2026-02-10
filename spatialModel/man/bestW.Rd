@@ -20,9 +20,10 @@ to the number of points in the dataset.}
 \item{knn}{The vector of alternative k nearest neighbours used in the subsequent spatial econometric models for the spatial weight matrix.}
 }
 \value{
-\code{bestW()} returns a spatial weight matrix that minimises the AIC of the models for the given equation.
-It defines the best number of knn. It displays two line plots with AIC and spatial parameter (rho or lambda),
-both depending on the user-defined knn.
+\code{bestW()} returns a \code{data.frame} comparing the candidate models across the user-defined knn values,
+with the AIC and the spatial parameter (rho or lambda) for each knn. The knn that minimises the AIC identifies
+the best spatial weight matrix. It also displays two line plots with AIC and spatial parameter, both depending
+on the user-defined knn.
 
 \emph{\strong{Will be available soon}}: In addition, if the value of \code{sample_size} is less than the number of observations in the dataset, the function will return which observations were used in the modelling.
 }

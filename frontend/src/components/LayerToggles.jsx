@@ -1,13 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useSightingsStore } from "../stores/sightingsStore";
 import { getTokens } from "../tokens/colors";
-
-function contrastColor(hex) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128 ? "#1a1a1a" : "#ffffff";
-}
+import { contrastColor } from "../utils/contrastColor";
 
 const LAYERS = [
   { key: "forests", label: "Lasy", description: "Siedliska" },

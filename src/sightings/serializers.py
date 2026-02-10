@@ -39,7 +39,7 @@ class SightingSerializer(GeoFeatureModelSerializer):
             "description",
             "created_at",
         ]
-        read_only_fields = ["id", "status", "ip_hash", "created_at", "updated_at"]
+        read_only_fields = ["id", "status", "created_at"]
 
 
 class SightingCreateSerializer(serializers.Serializer):
@@ -115,9 +115,6 @@ class SightingCreateSerializer(serializers.Serializer):
             ip_hash=ip_hash,
         )
 
-        # Assign to grid cell (async would be better for production)
-        self._assign_grid_cell(sighting)
-
         return sighting
 
     def _get_client_ip(self, request):
@@ -141,16 +138,6 @@ class SightingCreateSerializer(serializers.Serializer):
             secret = "dev-secret-change-in-production"
         return hmac.new(secret.encode(), ip.encode(), hashlib.sha256).hexdigest()
 
-    def _assign_grid_cell(self, sighting: Sighting):
-        try:
-            grid_cell = GridCell.objects.filter(
-                geometry__contains=sighting.location
-            ).first()
-            if grid_cell:
-                sighting.grid_cell = grid_cell
-                sighting.save(update_fields=["grid_cell"])
-        except Exception:
-            pass  # Graceful degradation
 
 
 class GridCellSerializer(GeoFeatureModelSerializer):

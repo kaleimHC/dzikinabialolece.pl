@@ -367,33 +367,6 @@ export default function MapContainer() {
         },
       });
 
-      // TRAJECTORY LAYER (migration corridors)
-      map.addSource("trajectories", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addLayer({
-        id: "trajectory-lines",
-        type: "line",
-        source: "trajectories",
-        layout: { visibility: "none" },
-        paint: {
-          "line-color": [
-            "match",
-            ["get", "trajectory_type"],
-            "riparian",
-            "#0066ff",
-            "forest_edge",
-            "#00aa00",
-            "urban_green",
-            "#ff9900",
-            "#E879F9",
-          ],
-          "line-width": 3,
-          "line-opacity": 0.8,
-        },
-      });
-
       map.addSource("encounters", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },

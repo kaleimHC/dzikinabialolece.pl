@@ -95,7 +95,7 @@ QDC<-function(data_sf, sample_size, nclust=3, k=10, eps=0.05){
   data.d$knndist1<-apply(knn.dist,1,sum)
 
   # spatial variable - number of points in fixed radius
-  agg.radius<-frNN(as.matrix(data.d), eps=0.05)
+  agg.radius<-frNN(as.matrix(data.d), eps=eps)
   data.d$frnn1<-unlist(lapply(agg.radius$id, length))
 
   # normalization of spatial variables

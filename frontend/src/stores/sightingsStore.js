@@ -33,7 +33,9 @@ export const useSightingsStore = create(
       set({ currentTheme: name });
       try {
         localStorage.setItem("dziki-theme", name);
-      } catch {}
+      } catch {
+        /* localStorage unavailable (private mode / disabled) - non-fatal */
+      }
       _applyTheme(name);
     },
 

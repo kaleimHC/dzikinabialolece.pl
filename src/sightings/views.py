@@ -39,7 +39,7 @@ class SightingViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Sighting model.
 
-    POST is rate-limited (10/hour per IP).
+    POST is rate-limited (100/hour per IP).
     GET supports spatial and temporal filters.
     """
 
@@ -78,9 +78,10 @@ class SightingViewSet(viewsets.ModelViewSet):
         # Spatial filter: ?lat=52.2&lng=21.0&radius=5
         lat = self.request.query_params.get("lat")
         lng = self.request.query_params.get("lng")
-        radius = min(
-            float(self.request.query_params.get("radius", 5)), 50
-        )  # cap at 50 km
+        try:
+            radius = min(float(self.request.query_params.get("radius", 5)), 50)  # cap at 50 km
+        except (ValueError, TypeError):
+            radius = 5  # invalid radius -> default
 
         if lat and lng:
             try:
@@ -113,7 +114,7 @@ class SightingViewSet(viewsets.ModelViewSet):
         """
         Create new sighting.
 
-        Rate limited: 10/hour per IP.
+        Rate limited: 100/hour per IP.
         Validates location is within Warsaw boundaries.
         """
         serializer = self.get_serializer(data=request.data)

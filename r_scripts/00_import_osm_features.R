@@ -18,9 +18,9 @@ cat("Connecting to database...\n")
 conn <- dbConnect(
   RPostgres::Postgres(),
   dbname = Sys.getenv("DB_NAME", "dziki_db"),
-  host = "db",
-  port = 5432,
-  user = Sys.getenv("DB_USER", "dziki_user"),
+  host = Sys.getenv("DB_HOST", "db"),
+  port = as.integer(Sys.getenv("DB_PORT", "5432")),
+  user = Sys.getenv("DB_USER", "dziki"),
   password = Sys.getenv("DB_PASSWORD", "dziki_dev_password")
 )
 
@@ -42,7 +42,7 @@ cat(sprintf("Bbox: [%.4f, %.4f, %.4f, %.4f]\n",
             BBOX$xmin, BBOX$ymin, BBOX$xmax, BBOX$ymax))
 
 # 3. Overpass API function (uses 'out geom' for direct geometry)
-fetch_osm <- function(query, timeout = 180) {
+fetch_osm <- function(query, timeout = 180, attempt = 1, max_attempts = 5) {
   url <- "https://overpass.kumi.systems/api/interpreter"
 
   tryCatch({
@@ -52,9 +52,15 @@ fetch_osm <- function(query, timeout = 180) {
     if (httr::status_code(r) == 200) {
       return(jsonlite::fromJSON(httr::content(r, "text", encoding = "UTF-8")))
     } else if (httr::status_code(r) == 429) {
-      cat("    Rate limited, waiting 30s...\n")
-      Sys.sleep(30)
-      return(fetch_osm(query, timeout))
+      if (attempt >= max_attempts) {
+        cat(sprintf("    Rate limited: giving up after %d attempts\n", max_attempts))
+        return(NULL)
+      }
+      wait <- 30 * attempt  # linear backoff
+      cat(sprintf("    Rate limited (attempt %d/%d), waiting %ds...\n",
+                  attempt, max_attempts, wait))
+      Sys.sleep(wait)
+      return(fetch_osm(query, timeout, attempt = attempt + 1, max_attempts = max_attempts))
     } else {
       cat(sprintf("    API error: %d\n", httr::status_code(r)))
       return(NULL)

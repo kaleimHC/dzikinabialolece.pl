@@ -27,7 +27,7 @@ and link function to be used in the model. The default value is \code{binomial} 
 \item{cluster}{Provides a clustering vector that assigns all point data to density clusters.}
 \item{type}{provides the type of clustering based on the \code{clusters} argument, one of "ClustDisjoint" or "ClustConti".}
 \item{models}{privides the basic models (without significance tests) in each density cluster.}
-The output also includes a \code{texreg} table which summarises the models in density groups and the size of density clusters.
+The output also includes a \code{stargazer} table which summarises the models in density groups and the size of density clusters.
 }
 \description{
 The \code{ssr()} function works on geolocated point data. It uses input from the \code{\link[=ClustConti]{ClustConti()}} or \code{\link[=ClustDisjoint]{ClustDisjoint()}} functions from the \code{spatialWarsaw} package to divide points

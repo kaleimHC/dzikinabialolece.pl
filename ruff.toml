@@ -1,0 +1,14 @@
+# Ruff configuration - conservative ruleset for CI.
+# Only pyflakes (F): undefined names, unused imports, redefinitions.
+# Style/formatting rules are intentionally NOT enabled to keep the gate green
+# and the scope of CI failures limited to genuine correctness issues.
+
+line-length = 100
+
+[lint]
+select = ["F"]
+
+[lint.per-file-ignores]
+# Django settings override module legitimately relies on `from .settings import *`.
+# F405 (name may be from star import) is a false positive for this canonical pattern.
+"src/dziki/test_settings.py" = ["F405"]

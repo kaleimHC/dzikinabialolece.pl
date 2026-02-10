@@ -199,7 +199,7 @@ RESEARCH_PRESETS = {
                 "barriers",
                 "scrub",
                 "parks",
-                "meadows",
+                "meadow",
                 "farmland",
                 "allotments",
                 "railway",

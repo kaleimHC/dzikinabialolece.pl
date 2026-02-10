@@ -4,7 +4,6 @@ Celery Tasks for Analytics app.
 Queues: q_r (R spatial), q_cpu (Python ML), q_io (I/O)
 """
 
-import os
 from celery import shared_task
 from django.core.cache import cache
 from django.db import connection
@@ -75,40 +74,6 @@ def warmup_cache():
     except Exception as exc:
         logger.exception(f"Cache warmup error: {exc}")
         raise
-
-
-
-@shared_task(
-    bind=True,
-    queue="q_cpu",  # Runs on worker-py with docker socket access
-    soft_time_limit=1800,  # 30 min total
-    time_limit=2100,  # 35 min hard limit
-)
-def run_r_pipeline_dev(self):
-    # DISABLED 2026-01-18: under rewrite per spatialWarsaw methodology
-    from django.core.cache import cache
-
-    cache.set(
-        "r_pipeline_progress",
-        {
-            "running": False,
-            "current_step": 0,
-            "total_steps": 5,
-            "current_script": "",
-            "error": "PUB pipeline wyłączony - w trakcie przepisywania według metodologii Kopczewskiej. Użyj trybu FAST.",
-            "completed": False,
-            "disabled": True,
-        },
-        timeout=3600,
-    )
-    cache.delete("recalculate_lock")
-    return {
-        "status": "disabled",
-        "message": "PUB pipeline wyłączony - w trakcie przepisywania według metodologii Kopczewskiej. Użyj trybu FAST.",
-        "redirect": "fast",
-        "disabled_at": "2026-01-18",
-        "reason": "Rewrite in progress",
-    }
 
 
 

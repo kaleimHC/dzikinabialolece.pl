@@ -69,7 +69,6 @@ class Command(BaseCommand):
         if counts["voronoi"] == 0:
             self.stdout.write(self.style.WARNING("\nVoronoi grid is EMPTY!"))
             self.stdout.write("  Run: Rscript r_scripts/01_generate_voronoi.R")
-            self.stdout.write("  Or:  POST /api/analytics/recalculate/?mode=full")
 
         if counts["square"] > 0 and counts["voronoi"] > 0:
             self.stdout.write(self.style.SUCCESS("\nAll grids initialized!"))

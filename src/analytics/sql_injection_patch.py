@@ -14,13 +14,14 @@ Usage:
 
 # Allowlists - add new values here when the schema changes
 
-# Maps user-supplied grid_type string -> exact DB table name suffix
-# Pattern: sightings_gridcell_{suffix}
+# Maps user-supplied grid_type string -> exact DB table name.
+# Most grid types follow the sightings_gridcell_{suffix} pattern, but grid_500
+# lives in research_grid_500m, so map to full table names rather than suffixes.
 _VALID_GRID_TYPES: dict[str, str] = {
-    "voronoi": "voronoi",
-    "square": "square",
-    "research": "research",
-    "grid_500": "grid_500",
+    "voronoi": "sightings_gridcell_voronoi",
+    "square": "sightings_gridcell_square",
+    "research": "sightings_gridcell_research",
+    "grid_500": "research_grid_500m",
 }
 
 # Maps user-supplied geometry_type string -> exact DB table name
@@ -36,16 +37,16 @@ _LIMIT_DEFAULT = 100
 
 def validate_grid_type(grid_type: str) -> str:
     """
-    Validate grid_type and return the safe table name suffix.
+    Validate grid_type and return the exact DB table name.
 
-    Returns: suffix string (e.g. 'voronoi') for use as sightings_gridcell_{suffix}
+    Returns: full table name (e.g. 'sightings_gridcell_voronoi', 'research_grid_500m')
     Raises: ValueError if grid_type is not in the allowlist
     """
-    suffix = _VALID_GRID_TYPES.get(str(grid_type))
-    if suffix is None:
+    table = _VALID_GRID_TYPES.get(str(grid_type))
+    if table is None:
         allowed = ", ".join(sorted(_VALID_GRID_TYPES.keys()))
         raise ValueError(f"Invalid grid_type {grid_type!r}. Allowed values: {allowed}")
-    return f"sightings_gridcell_{suffix}"
+    return table
 
 
 def validate_geometry_type(geometry_type: str) -> str:

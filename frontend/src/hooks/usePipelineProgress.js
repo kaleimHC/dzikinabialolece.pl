@@ -38,7 +38,6 @@ const INITIAL_STATE = {
 export function usePipelineProgress(runId) {
   const [progress, setProgress] = useState(INITIAL_STATE);
   const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
   const fallbackToPollingRef = useRef(false);
 
   // Reset state when runId changes
@@ -62,13 +61,10 @@ export function usePipelineProgress(runId) {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/research/run/${runId}/`;
 
-    console.log("[WS] Connecting to:", wsUrl);
-
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("[WS] Connected");
       setProgress((prev) => ({
         ...prev,
         connected: true,
@@ -81,7 +77,6 @@ export function usePipelineProgress(runId) {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log("[WS] Message:", data.event, data);
         handleProgressEvent(data);
       } catch (e) {
         console.error("[WS] Parse error:", e);
@@ -98,7 +93,6 @@ export function usePipelineProgress(runId) {
     };
 
     ws.onclose = (event) => {
-      console.log("[WS] Closed:", event.code, event.reason);
       setProgress((prev) => ({
         ...prev,
         connected: false,
@@ -108,7 +102,6 @@ export function usePipelineProgress(runId) {
       // Set fallback flag if connection was never established
       if (!fallbackToPollingRef.current && event.code !== 1000) {
         fallbackToPollingRef.current = true;
-        console.log("[WS] Will use polling fallback");
       }
     };
 
@@ -116,9 +109,6 @@ export function usePipelineProgress(runId) {
       if (wsRef.current) {
         wsRef.current.close(1000, "Component unmount");
         wsRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, [runId]);
@@ -224,7 +214,6 @@ export function usePipelineProgress(runId) {
           return prev;
 
         default:
-          console.log("[WS] Unknown event:", data.event);
           return prev;
       }
     });

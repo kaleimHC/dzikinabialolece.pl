@@ -10,7 +10,7 @@
 # ENV vars:
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 #   RESEARCH_TARGET_TABLE       (default: sightings_gridcell_voronoi)
-#   RESEARCH_POPULATION_METHOD  (only "points" supported)
+#   RESEARCH_POPULATION_METHOD  (default "points" [Voronoi]; "spatial_join" [GUS-aligned grids])
 #   RESEARCH_SEED               (for reproducibility)
 
 library(sf)
