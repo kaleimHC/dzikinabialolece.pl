@@ -135,7 +135,7 @@ services:
       - ./src:/app:ro
       - ./fixtures:/fixtures:ro
       # DEV ONLY: Docker socket for Bayesian MCMC execution
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock  # R pipeline execution only — scope: container run+wait
       # Shared R data volume (W matrix, RDS files)
       - r_data:/r_data:ro
     networks:
@@ -159,6 +159,8 @@ services:
       dziki.asgi:application
 
   worker-py:
+    security_opt:
+      - no-new-privileges:true
     build:
       context: .
       dockerfile: Dockerfile.api

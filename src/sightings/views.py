@@ -30,7 +30,7 @@ from .serializers import (
 
 class SightingThrottle(AnonRateThrottle):
     """Custom throttle for sighting submissions: 1000/hour per IP (dev), 10/hour (prod)."""
-    rate = '1000/hour'  # DEV: high limit for testing; TODO: reduce to 10/hour in production
+    rate = '10/hour'
 
 
 class SightingCursorPagination(CursorPagination):
@@ -57,6 +57,13 @@ class SightingViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return [SightingThrottle()]
         return []
+
+    def get_permissions(self):
+        """Restrict destructive actions to admin users."""
+        from rest_framework.permissions import IsAdminUser
+        if self.action in ('destroy', 'update', 'partial_update'):
+            return [IsAdminUser()]
+        return super().get_permissions()
     
     def get_serializer_class(self):
         """Use different serializer for create."""
@@ -78,7 +85,7 @@ class SightingViewSet(viewsets.ModelViewSet):
         # Spatial filter: ?lat=52.2&lng=21.0&radius=5
         lat = self.request.query_params.get('lat')
         lng = self.request.query_params.get('lng')
-        radius = self.request.query_params.get('radius', 5)  # km
+        radius = min(float(self.request.query_params.get('radius', 5)), 50)  # cap at 50 km
         
         if lat and lng:
             try:

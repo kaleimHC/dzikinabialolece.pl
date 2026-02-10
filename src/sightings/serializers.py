@@ -11,6 +11,7 @@ from django.contrib.gis.geos import Point
 from .models import Sighting, GridCell, WarsawBoundary
 import hashlib
 import hmac
+import math
 import os
 
 
@@ -68,6 +69,17 @@ class SightingCreateSerializer(serializers.Serializer):
         default=Sighting.SightingType.ENCOUNTER
     )
     
+
+    def validate_latitude(self, value):
+        if not math.isfinite(value):
+            raise serializers.ValidationError('Latitude must be a finite number.')
+        return value
+
+    def validate_longitude(self, value):
+        if not math.isfinite(value):
+            raise serializers.ValidationError('Longitude must be a finite number.')
+        return value
+
     def validate(self, data):
         """Validate location is within Warsaw."""
         point = Point(data['longitude'], data['latitude'], srid=4326)
@@ -126,7 +138,15 @@ class SightingCreateSerializer(serializers.Serializer):
     
     def _hash_ip(self, ip: str) -> str:
         """Hash IP with HMAC-SHA256 for privacy."""
-        secret = os.environ.get('IP_HASH_SECRET', 'dev-secret-change-in-production')
+        secret = os.environ.get('IP_HASH_SECRET', '')
+        if not secret:
+            from django.conf import settings as _s
+            if not _s.DEBUG:
+                from django.core.exceptions import ImproperlyConfigured
+                raise ImproperlyConfigured(
+                    'IP_HASH_SECRET environment variable must be set in production.'
+                )
+            secret = 'dev-secret-change-in-production'
         return hmac.new(
             secret.encode(),
             ip.encode(),

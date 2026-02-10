@@ -30,6 +30,12 @@ class PipelineProgressConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Handle WebSocket connection."""
+        # Reject unauthenticated connections — AuthMiddlewareStack populates scope['user']
+        # but does NOT enforce auth — we must check explicitly.
+        if not self.scope['user'].is_authenticated:
+            await self.close(code=4001)
+            return
+
         self.run_id = self.scope['url_route']['kwargs']['run_id']
         self.group_name = f'research_{self.run_id}'
 
