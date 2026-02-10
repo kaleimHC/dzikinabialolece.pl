@@ -7,6 +7,7 @@ from datetime import date
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import connection
+from analytics.sql_injection_patch import validate_grid_type, validate_limit
 from django.core.cache import cache
 from django_celery_results.models import TaskResult
 
@@ -1202,7 +1203,10 @@ def bayesian_results(request):
     run_id = request.GET.get('run_id')
     min_prob = request.GET.get('min_prob')
 
-    grid_table = f"sightings_gridcell_{grid_type}"
+    try:
+        grid_table = validate_grid_type(grid_type)
+    except ValueError:
+        return Response({'error': f'Invalid grid_type: {grid_type}'}, status=400)
 
     query = f"""
         SELECT
@@ -1650,10 +1654,13 @@ def combined_results(request):
     Returns aggregated predictions from RF, GWR, ETA, Bayesian.
     """
     grid_type = request.GET.get('grid_type', 'voronoi')
-    limit = int(request.GET.get('limit', 100))
+    limit = validate_limit(request.GET.get('limit', 100))
     min_risk = request.GET.get('min_risk')
 
-    grid_table = f"sightings_gridcell_{grid_type}"
+    try:
+        grid_table = validate_grid_type(grid_type)
+    except ValueError:
+        return Response({'error': f'Invalid grid_type: {grid_type}'}, status=400)
 
     # Query grid cells directly (they have ensemble_risk, gwr_score, area_rank_score)
     # spatial_risk only exists in voronoi table (SAR/SEM output)
@@ -1683,7 +1690,7 @@ def combined_results(request):
         query += " AND gc.ensemble_risk >= %s"
         params.append(float(min_risk))
 
-    query += f" ORDER BY gc.ensemble_risk DESC LIMIT {limit}"
+    query += f" ORDER BY gc.ensemble_risk DESC LIMIT {limit}"  # limit already validated by validate_limit
 
     with connection.cursor() as cursor:
         cursor.execute(query, params)
@@ -1729,9 +1736,11 @@ def export_results_csv(request):
 
     grid_type = request.GET.get('grid_type', 'voronoi')
 
-    # Get results from grid cells directly (they have ensemble_risk, gwr_score, area_rank_score)
+    try:
+        grid_table = validate_grid_type(grid_type)
+    except ValueError:
+        return HttpResponse(f'Invalid grid_type: {grid_type}', status=400)
     # spatial_risk only exists in voronoi table (SAR/SEM output)
-    grid_table = f"sightings_gridcell_{grid_type}"
     gwr_select = "COALESCE(gc.spatial_risk, gc.gwr_score, 0)" if grid_type == "voronoi" else "gc.gwr_score"
     query = f"""
         SELECT
