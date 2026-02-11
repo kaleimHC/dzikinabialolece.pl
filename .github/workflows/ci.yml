@@ -53,6 +53,58 @@ jobs:
         # Local Docker: same config, but dziki_db already exists → reuses it.
         run: PYTHONPATH=src pytest src/tests/test_smoke.py -v --tb=short
 
+      - name: Security regression tests
+        run: cd src && python -m pytest tests/test_security_regression.py -v --tb=short
+
+      - name: Bandit SAST (advisory)
+        run: |
+          pip install bandit[toml]
+          bandit -r src/ -ll -x src/analytics/tests,src/tests --format json -o bandit-report.json || true
+          python3 -c "
+          import json, sys
+          r = json.load(open('bandit-report.json'))
+          highs = [i for i in r['results'] if i['issue_severity'] == 'HIGH']
+          if highs:
+              print(f'[advisory] {len(highs)} HIGH severity finding(s) from bandit:')
+              for h in highs:
+                  print(f\"  {h['filename']}:{h['line_number']} — {h['test_id']} {h['issue_text']}\")
+          else:
+              print('[advisory] bandit: no HIGH severity issues found')
+          "
+
+  security-python:
+    name: Python security scan
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install security tools
+        run: pip install bandit[toml] safety
+
+      - name: Bandit SAST
+        run: bandit -r src/ -ll -x src/analytics/tests,src/tests --format json -o bandit-report.json || true
+
+      - name: Parse bandit results
+        run: |
+          HIGHS=$(python3 -c "import json; r=json.load(open('bandit-report.json')); print(sum(1 for i in r['results'] if i['issue_severity']=='HIGH'))")
+          echo "High severity issues: $HIGHS"
+          [ "$HIGHS" -eq 0 ] || (cat bandit-report.json && exit 1)
+
+      - name: Upload bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+      - name: Safety dependency check
+        run: safety check --json || echo "Safety check advisory (non-blocking)"
+
   frontend:
     runs-on: ubuntu-latest
     steps:

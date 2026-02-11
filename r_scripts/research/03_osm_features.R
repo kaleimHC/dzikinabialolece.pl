@@ -36,6 +36,13 @@ cat("============================================================\n")
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
 active_predictors_raw <- Sys.getenv("RESEARCH_ACTIVE_PREDICTORS", "")
 
+# Validate TARGET_TABLE against allowlist — prevents injection if env is compromised
+.allowed_tables <- c("research_grid_500m", "sightings_gridcell_voronoi")
+if (!TARGET_TABLE %in% .allowed_tables) {
+  stop(sprintf("Invalid TARGET_TABLE: '%s'. Allowed: %s",
+               TARGET_TABLE, paste(.allowed_tables, collapse = ", ")))
+}
+
 cat(sprintf("Target table: %s\n", TARGET_TABLE))
 
 # All available predictors

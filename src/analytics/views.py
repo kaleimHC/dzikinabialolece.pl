@@ -1425,10 +1425,8 @@ def apply_preset(request):
         })
 
     except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=500
-        )
+        logger.exception("apply_preset failed for preset=%s", preset_name)
+        return Response({'error': 'Internal server error applying preset'}, status=500)
 
 
 @api_view(['GET'])
@@ -1581,7 +1579,8 @@ def bayesian_run(request):
     except Exception as e:
         # Dispatch failed — release the lock so a retry is possible.
         cache.delete(BAYESIAN_LOCK_KEY)
-        return Response({'error': str(e)}, status=500)
+        logger.exception("bayesian_run dispatch failed")
+        return Response({'error': 'Internal server error starting Bayesian pipeline'}, status=500)
 
 
 @api_view(['GET'])
@@ -1871,10 +1870,11 @@ def run_mode_pipeline(request):
                 'result': result,
             })
         except Exception as e:
+            logger.exception("run_mode_pipeline sync execution failed for mode=%s", mode)
             return Response({
                 'status': 'error',
                 'mode': mode,
-                'message': str(e),
+                'message': 'Internal server error during pipeline execution',
             }, status=500)
 
 

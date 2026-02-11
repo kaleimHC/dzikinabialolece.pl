@@ -214,7 +214,7 @@ def _run_r_script_docker(
     time_limit=300,         # 5 min hard
     max_retries=2,
     default_retry_delay=30,
-    autoretry_for=(Exception,),
+    autoretry_for=(ConnectionError, TimeoutError, OSError),
     retry_backoff=True,
 )
 def elicit_priors(

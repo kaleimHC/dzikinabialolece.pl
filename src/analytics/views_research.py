@@ -319,16 +319,18 @@ def run_pipeline(request):
         cursor.execute(sql, params)
         n_sightings = cursor.fetchone()[0]
 
-    # Create ResearchRun upfront so we have run_id for WebSocket
-    run = ResearchRun.objects.create(
-        config=config,
-        config_snapshot=_snapshot_config(config),
-        status='pending',
-        n_sightings=n_sightings,
-    )
+    # Atomic: create run + dispatch task together — orphaned ResearchRun
+    # records (run exists but task never dispatched) corrupt WebSocket state.
+    from django.db import transaction
 
-    # Start Celery task with run_id (non-blocking)
-    task = run_research_pipeline.delay(str(run.id))
+    with transaction.atomic():
+        run = ResearchRun.objects.create(
+            config=config,
+            config_snapshot=_snapshot_config(config),
+            status='pending',
+            n_sightings=n_sightings,
+        )
+        task = run_research_pipeline.delay(str(run.id))
 
     return Response({
         'status': 'pending',

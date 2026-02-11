@@ -14,6 +14,7 @@ CRITICAL SETTINGS:
 - Dual Redis (broker: noeviction, cache: allkeys-lru) per C-06
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -279,6 +280,8 @@ REST_FRAMEWORK = {
 # =============================================================================
 # SECURITY SETTINGS (Production)
 # =============================================================================
+_settings_logger = logging.getLogger(__name__)
+
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -286,6 +289,11 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "False").lower() == "true"
+    if not SECURE_SSL_REDIRECT:
+        _settings_logger.warning(
+            "SECURE_SSL_REDIRECT=False in production — set SECURE_SSL_REDIRECT=True or ensure "
+            "SSL termination happens upstream (e.g. nginx/load balancer handles HTTPS)."
+        )
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
