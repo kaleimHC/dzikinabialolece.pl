@@ -1,0 +1,57 @@
+# =============================================================================
+# Requirements - Django + GeoDjango API
+# MASTER_SPEC v2.2 Architecture
+# =============================================================================
+
+# Django 5
+Django>=5.0,<6.0
+
+# GeoDjango dependencies
+psycopg2-binary>=2.9.9
+psycopg[binary]>=3.1
+
+# Django REST Framework + GIS
+djangorestframework>=3.14
+djangorestframework-gis>=1.0
+
+# Celery + Redis
+celery[redis]>=5.3
+django-celery-beat>=2.5
+django-celery-results>=2.5
+redis>=5.0
+
+# Django Redis cache
+django-redis>=5.4
+
+# Production server
+gunicorn>=21.0
+uvicorn[standard]>=0.24
+
+# Django Channels (WebSocket support)
+channels>=4.0
+daphne>=4.0
+channels-redis>=4.1
+
+# Security
+django-cors-headers>=4.3
+
+# Monitoring (optional but recommended)
+sentry-sdk>=1.35
+
+# Utilities
+python-dotenv>=1.0
+whitenoise>=6.6
+
+# GIS utilities (Python-side)
+geopandas>=0.14
+shapely>=2.0
+pyproj>=3.6
+
+# Data validation
+pydantic>=2.5
+
+# DEV: Docker SDK for R pipeline execution
+docker>=7.0
+
+# Machine Learning (RF model)
+scikit-learn>=1.5.0

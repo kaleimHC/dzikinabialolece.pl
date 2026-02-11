@@ -66,8 +66,6 @@ INSTALLED_APPS = [
     "django_celery_results",  # Task results in PostgreSQL
     # Security & CORS
     "corsheaders",
-    # Monitoring (NotebookLM Q10 - recommended)
-    # 'django_prometheus',
     # Project apps
     "sightings",
     "analytics",
