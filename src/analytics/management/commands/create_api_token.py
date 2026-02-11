@@ -12,43 +12,52 @@ from rest_framework.authtoken.models import Token
 
 
 class Command(BaseCommand):
-    help = 'Create (or retrieve) a DRF API token for a user and print it.'
+    help = "Create (or retrieve) a DRF API token for a user and print it."
 
     def add_arguments(self, parser):
-        parser.add_argument('--username', required=True, help='Username')
-        parser.add_argument('--create-superuser', action='store_true',
-                            help='Create superuser if it does not exist')
-        parser.add_argument('--password', default='changeme',
-                            help='Password for --create-superuser (default: changeme)')
+        parser.add_argument("--username", required=True, help="Username")
+        parser.add_argument(
+            "--create-superuser",
+            action="store_true",
+            help="Create superuser if it does not exist",
+        )
+        parser.add_argument(
+            "--password",
+            default="changeme",
+            help="Password for --create-superuser (default: changeme)",
+        )
 
     def handle(self, *args, **options):
         User = get_user_model()
-        username = options['username']
+        username = options["username"]
 
-        if options['create_superuser']:
+        if options["create_superuser"]:
             user, created = User.objects.get_or_create(
-                username=username,
-                defaults={'is_staff': True, 'is_superuser': True}
+                username=username, defaults={"is_staff": True, "is_superuser": True}
             )
             if created:
-                user.set_password(options['password'])
+                user.set_password(options["password"])
                 user.save()
-                self.stdout.write(self.style.SUCCESS(f'Superuser {username!r} created.'))
+                self.stdout.write(
+                    self.style.SUCCESS(f"Superuser {username!r} created.")
+                )
             else:
-                self.stdout.write(f'User {username!r} already exists.')
+                self.stdout.write(f"User {username!r} already exists.")
         else:
             try:
                 user = User.objects.get(username=username)
             except User.DoesNotExist:
                 raise CommandError(
                     f'User "{username}" does not exist. '
-                    f'Use --create-superuser to create one.'
+                    f"Use --create-superuser to create one."
                 )
 
         token, created = Token.objects.get_or_create(user=user)
-        verb = 'Created' if created else 'Existing'
-        self.stdout.write(self.style.SUCCESS(f'\n{verb} token for {username!r}:'))
-        self.stdout.write(f'  {token.key}\n')
-        self.stdout.write('Usage:')
+        verb = "Created" if created else "Existing"
+        self.stdout.write(self.style.SUCCESS(f"\n{verb} token for {username!r}:"))
+        self.stdout.write(f"  {token.key}\n")
+        self.stdout.write("Usage:")
         self.stdout.write(f'  curl -H "Authorization: Token {token.key}" \\')
-        self.stdout.write(f'       -X POST https://dzikinabialolece.pl/api/research/run/')
+        self.stdout.write(
+            "       -X POST https://dzikinabialolece.pl/api/research/run/"
+        )

@@ -6,23 +6,24 @@ Usage:
     docker exec dziki-api python manage.py init_grids --generate-square
     docker exec dziki-api python manage.py init_grids --generate-all
 """
+
 from django.core.management.base import BaseCommand
 from django.db import connection
 
 
 class Command(BaseCommand):
-    help = 'Check and initialize grid tables for FAST and PUB modes'
+    help = "Check and initialize grid tables for FAST and PUB modes"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--generate-square',
-            action='store_true',
-            help='Generate square grid if empty',
+            "--generate-square",
+            action="store_true",
+            help="Generate square grid if empty",
         )
         parser.add_argument(
-            '--generate-all',
-            action='store_true',
-            help='Generate both grids if empty',
+            "--generate-all",
+            action="store_true",
+            help="Generate both grids if empty",
         )
 
     def handle(self, *args, **options):
@@ -33,10 +34,10 @@ class Command(BaseCommand):
         self.stdout.write(f"Tables found: {tables}")
 
         missing = []
-        if 'sightings_gridcell_square' not in tables:
-            missing.append('sightings_gridcell_square')
-        if 'sightings_gridcell_voronoi' not in tables:
-            missing.append('sightings_gridcell_voronoi')
+        if "sightings_gridcell_square" not in tables:
+            missing.append("sightings_gridcell_square")
+        if "sightings_gridcell_voronoi" not in tables:
+            missing.append("sightings_gridcell_voronoi")
 
         if missing:
             self.stdout.write(self.style.ERROR(f"\nMISSING TABLES: {missing}"))
@@ -45,30 +46,32 @@ class Command(BaseCommand):
 
         # Check data counts
         counts = self._count_grids()
-        self.stdout.write(f"\nGrid counts:")
+        self.stdout.write("\nGrid counts:")
         self.stdout.write(f"  - square:  {counts['square']}")
         self.stdout.write(f"  - voronoi: {counts['voronoi']}")
 
         # Generate if requested
-        if options['generate_square'] or options['generate_all']:
-            if counts['square'] == 0:
+        if options["generate_square"] or options["generate_all"]:
+            if counts["square"] == 0:
                 self.stdout.write("\nGenerating square grid...")
                 self._generate_square_grid()
                 counts = self._count_grids()
-                self.stdout.write(self.style.SUCCESS(f"Created {counts['square']} square cells"))
+                self.stdout.write(
+                    self.style.SUCCESS(f"Created {counts['square']} square cells")
+                )
 
         # Status
-        if counts['square'] == 0:
+        if counts["square"] == 0:
             self.stdout.write(self.style.WARNING("\nSquare grid is EMPTY!"))
             self.stdout.write("  Run: python manage.py init_grids --generate-square")
             self.stdout.write("  Or:  POST /api/analytics/recalculate/?mode=fast")
 
-        if counts['voronoi'] == 0:
+        if counts["voronoi"] == 0:
             self.stdout.write(self.style.WARNING("\nVoronoi grid is EMPTY!"))
             self.stdout.write("  Run: Rscript r_scripts/01_generate_voronoi.R")
             self.stdout.write("  Or:  POST /api/analytics/recalculate/?mode=full")
 
-        if counts['square'] > 0 and counts['voronoi'] > 0:
+        if counts["square"] > 0 and counts["voronoi"] > 0:
             self.stdout.write(self.style.SUCCESS("\nAll grids initialized!"))
 
     def _check_tables(self):
@@ -81,16 +84,16 @@ class Command(BaseCommand):
             return [row[0] for row in cursor.fetchall()]
 
     def _count_grids(self):
-        results = {'square': 0, 'voronoi': 0}
+        results = {"square": 0, "voronoi": 0}
         with connection.cursor() as cursor:
             try:
-                cursor.execute('SELECT COUNT(*) FROM sightings_gridcell_square')
-                results['square'] = cursor.fetchone()[0]
+                cursor.execute("SELECT COUNT(*) FROM sightings_gridcell_square")
+                results["square"] = cursor.fetchone()[0]
             except:
                 pass
             try:
-                cursor.execute('SELECT COUNT(*) FROM sightings_gridcell_voronoi')
-                results['voronoi'] = cursor.fetchone()[0]
+                cursor.execute("SELECT COUNT(*) FROM sightings_gridcell_voronoi")
+                results["voronoi"] = cursor.fetchone()[0]
             except:
                 pass
         return results
@@ -99,10 +102,10 @@ class Command(BaseCommand):
         """Generate 100x100m square grid within Bialoleka."""
         with connection.cursor() as cursor:
             # Clear existing
-            cursor.execute('TRUNCATE TABLE sightings_gridcell_square RESTART IDENTITY')
+            cursor.execute("TRUNCATE TABLE sightings_gridcell_square RESTART IDENTITY")
 
             # Generate grid
-            cursor.execute('''
+            cursor.execute("""
                 WITH bialoleka AS (
                     SELECT geom FROM boundaries WHERE name = 'bialoleka'
                 ),
@@ -127,10 +130,10 @@ class Command(BaseCommand):
                     ST_Centroid(geom) as centroid
                 FROM grid_in_bialoleka
                 WHERE NOT ST_IsEmpty(geom) AND ST_Area(geom::geography) > 50;
-            ''')
+            """)
 
             # Count sightings
-            cursor.execute('''
+            cursor.execute("""
                 UPDATE sightings_gridcell_square g
                 SET sighting_count = COALESCE(subq.cnt, 0)
                 FROM (
@@ -141,16 +144,16 @@ class Command(BaseCommand):
                     GROUP BY gc.grid_id
                 ) subq
                 WHERE g.grid_id = subq.grid_id;
-            ''')
+            """)
 
             # Calculate risk
-            cursor.execute('''
+            cursor.execute("""
                 UPDATE sightings_gridcell_square
                 SET sighting_density = sighting_count / NULLIF(ST_Area(ST_Transform(geometry, 2180)) / 1000000.0, 0);
-            ''')
+            """)
 
             # Fixed thresholds based on data distribution (replaces PERCENT_RANK)
-            cursor.execute('''
+            cursor.execute("""
                 UPDATE sightings_gridcell_square
                 SET
                     ensemble_risk = CASE
@@ -178,4 +181,4 @@ class Command(BaseCommand):
                         ELSE 0.8
                     END,
                     updated_at = NOW();
-            ''')
+            """)

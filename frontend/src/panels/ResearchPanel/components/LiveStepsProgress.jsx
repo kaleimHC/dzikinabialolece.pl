@@ -8,19 +8,19 @@
  * - Connection status indicator
  */
 
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const STATUS_ICONS = {
-  success: { icon: '\u2713', color: 'text-green-400' },
-  failed: { icon: '\u2717', color: 'text-red-400' },
-  running: { icon: '\u2026', color: 'text-blue-400' },
-  pending: { icon: '\u25CB', color: 'text-gray-600' },
-  skipped: { icon: '\u2014', color: 'text-gray-500' },
+  success: { icon: "\u2713", color: "text-green-400" },
+  failed: { icon: "\u2717", color: "text-red-400" },
+  running: { icon: "\u2026", color: "text-blue-400" },
+  pending: { icon: "\u25CB", color: "text-gray-600" },
+  skipped: { icon: "\u2014", color: "text-gray-500" },
 };
 
 function formatDuration(seconds) {
-  if (seconds == null) return '';
+  if (seconds == null) return "";
   if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
   const mins = Math.floor(seconds / 60);
@@ -30,19 +30,19 @@ function formatDuration(seconds) {
 
 function StepRow({ step, isExpanded, onToggle, isLast }) {
   const { icon, color } = STATUS_ICONS[step.status] || STATUS_ICONS.pending;
-  const isRunning = step.status === 'running';
+  const isRunning = step.status === "running";
   const hasOutput = step.stdout || step.stderr;
-  const isCompleted = step.status === 'success' || step.status === 'failed';
+  const isCompleted = step.status === "success" || step.status === "failed";
 
   return (
-    <div className={!isLast ? 'border-b border-gray-800/50' : ''}>
+    <div className={!isLast ? "border-b border-gray-800/50" : ""}>
       <motion.button
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.2 }}
         onClick={() => hasOutput && onToggle()}
         className={`w-full flex items-center gap-2 text-sm py-1.5 px-1 rounded transition-colors ${
-          hasOutput ? 'hover:bg-gray-800/50 cursor-pointer' : 'cursor-default'
+          hasOutput ? "hover:bg-gray-800/50 cursor-pointer" : "cursor-default"
         }`}
       >
         {/* Step number */}
@@ -52,18 +52,19 @@ function StepRow({ step, isExpanded, onToggle, isLast }) {
 
         {/* Status icon */}
         <span className={`w-4 text-center ${color}`}>
-          {isRunning ? (
-            <span className="animate-pulse">{icon}</span>
-          ) : (
-            icon
-          )}
+          {isRunning ? <span className="animate-pulse">{icon}</span> : icon}
         </span>
 
         {/* Step name */}
-        <span className={`flex-1 text-left truncate ${
-          isRunning ? 'text-blue-300 font-medium' :
-          step.status === 'failed' ? 'text-red-300' : 'text-gray-400'
-        }`}>
+        <span
+          className={`flex-1 text-left truncate ${
+            isRunning
+              ? "text-blue-300 font-medium"
+              : step.status === "failed"
+                ? "text-red-300"
+                : "text-gray-400"
+          }`}
+        >
           {step.name}
         </span>
 
@@ -83,8 +84,10 @@ function StepRow({ step, isExpanded, onToggle, isLast }) {
 
         {/* Expand indicator */}
         {hasOutput && (
-          <span className={`text-xs text-gray-600 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
-            {'\u25B6'}
+          <span
+            className={`text-xs text-gray-600 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+          >
+            {"\u25B6"}
           </span>
         )}
       </motion.button>
@@ -94,7 +97,7 @@ function StepRow({ step, isExpanded, onToggle, isLast }) {
         {isExpanded && hasOutput && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.15 }}
             className="overflow-hidden"
@@ -136,7 +139,11 @@ export default function LiveStepsProgress({ progress }) {
   // Auto-expand the last completed step with output
   useEffect(() => {
     const completedWithOutput = steps
-      .filter(s => (s.status === 'success' || s.status === 'failed') && (s.stdout || s.stderr))
+      .filter(
+        (s) =>
+          (s.status === "success" || s.status === "failed") &&
+          (s.stdout || s.stderr),
+      )
       .pop();
 
     if (completedWithOutput) {
@@ -145,11 +152,11 @@ export default function LiveStepsProgress({ progress }) {
   }, [steps]);
 
   // Calculate completion percentage
-  const completedCount = steps.filter(s => s.status === 'success').length;
+  const completedCount = steps.filter((s) => s.status === "success").length;
   const percent = totalSteps > 0 ? (completedCount / totalSteps) * 100 : 0;
 
   // Find the currently running step
-  const runningStep = steps.find(s => s.status === 'running');
+  const runningStep = steps.find((s) => s.status === "running");
 
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
@@ -161,13 +168,23 @@ export default function LiveStepsProgress({ progress }) {
         <div className="flex items-center gap-2">
           {/* Connection indicator */}
           <span className="flex items-center gap-1.5 text-xs">
-            <span className={`w-1.5 h-1.5 rounded-full ${
-              connected ? 'bg-green-400' :
-              connecting ? 'bg-yellow-400 animate-pulse' :
-              'bg-gray-600'
-            }`} />
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                connected
+                  ? "bg-green-400"
+                  : connecting
+                    ? "bg-yellow-400 animate-pulse"
+                    : "bg-gray-600"
+              }`}
+            />
             <span className="text-gray-500">
-              {connected ? 'Live' : connecting ? 'Connecting...' : isUsingFallback ? 'Polling' : 'Offline'}
+              {connected
+                ? "Live"
+                : connecting
+                  ? "Connecting..."
+                  : isUsingFallback
+                    ? "Polling"
+                    : "Offline"}
             </span>
           </span>
         </div>
@@ -178,11 +195,15 @@ export default function LiveStepsProgress({ progress }) {
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">
-              {status === 'running' ? (
-                runningStep ? `Wykonywanie: ${runningStep.name}` : `Krok ${currentStep}/${totalSteps}`
-              ) :
-               status === 'success' ? 'Zakonczone pomyslnie' :
-               status === 'failed' ? 'Blad wykonania' : 'Oczekiwanie...'}
+              {status === "running"
+                ? runningStep
+                  ? `Wykonywanie: ${runningStep.name}`
+                  : `Krok ${currentStep}/${totalSteps}`
+                : status === "success"
+                  ? "Zakonczone pomyslnie"
+                  : status === "failed"
+                    ? "Blad wykonania"
+                    : "Oczekiwanie..."}
             </span>
             <span className="text-gray-500 tabular-nums">
               {completedCount}/{totalSteps}
@@ -191,13 +212,15 @@ export default function LiveStepsProgress({ progress }) {
           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <motion.div
               className={`h-full ${
-                status === 'failed' ? 'bg-red-500' :
-                status === 'success' ? 'bg-green-500' :
-                'bg-blue-500'
+                status === "failed"
+                  ? "bg-red-500"
+                  : status === "success"
+                    ? "bg-green-500"
+                    : "bg-blue-500"
               }`}
               initial={{ width: 0 }}
               animate={{ width: `${percent}%` }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
             />
           </div>
         </div>
@@ -210,16 +233,18 @@ export default function LiveStepsProgress({ progress }) {
                 key={step.number}
                 step={step}
                 isExpanded={expandedStep === step.number}
-                onToggle={() => setExpandedStep(
-                  expandedStep === step.number ? null : step.number
-                )}
+                onToggle={() =>
+                  setExpandedStep(
+                    expandedStep === step.number ? null : step.number,
+                  )
+                }
                 isLast={idx === steps.length - 1}
               />
             ))}
           </AnimatePresence>
 
           {/* Placeholder for remaining steps */}
-          {steps.length < totalSteps && status === 'running' && (
+          {steps.length < totalSteps && status === "running" && (
             <div className="text-xs text-gray-600 py-1 pl-9">
               + {totalSteps - steps.length} pozostalych krokow...
             </div>

@@ -12,25 +12,25 @@
  * - Toggle: useSightingsStore().toggleResearchPanel()
  */
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useSightingsStore } from '../../stores/sightingsStore';
-import DocsTab from './tabs/DocsTab';
-import PipelineTab from './tabs/PipelineTab';
-import CodeTab from './tabs/CodeTab';
-import LiteratureTab from './tabs/LiteratureTab';
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useSightingsStore } from "../../stores/sightingsStore";
+import DocsTab from "./tabs/DocsTab";
+import PipelineTab from "./tabs/PipelineTab";
+import CodeTab from "./tabs/CodeTab";
+import LiteratureTab from "./tabs/LiteratureTab";
 
 // Taby panelu badawczego
 const TABS = [
-  { id: 'pipeline', label: 'Konfiguracja', icon: '⚙️', status: 'active' },
-  { id: 'docs', label: 'Dokumentacja', icon: '📚', status: 'active' },
-  { id: 'code', label: 'Kod', icon: '💻', status: 'active' },
-  { id: 'literature', label: 'Literatura', icon: '📖', status: 'active' },
+  { id: "pipeline", label: "Konfiguracja", icon: "⚙️", status: "active" },
+  { id: "docs", label: "Dokumentacja", icon: "📚", status: "active" },
+  { id: "code", label: "Kod", icon: "💻", status: "active" },
+  { id: "literature", label: "Literatura", icon: "📖", status: "active" },
 ];
 
 const ResearchPanel = () => {
   const { showResearchPanel, toggleResearchPanel } = useSightingsStore();
-  const [activeTab, setActiveTab] = useState('pipeline');
+  const [activeTab, setActiveTab] = useState("pipeline");
 
   // Nie renderuj jeśli panel zamknięty
   if (!showResearchPanel) return null;
@@ -76,15 +76,16 @@ const ResearchPanel = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`
                 flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors
-                ${activeTab === tab.id
-                  ? 'bg-gray-700 text-white border-b-2 border-blue-500'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                ${
+                  activeTab === tab.id
+                    ? "bg-gray-700 text-white border-b-2 border-blue-500"
+                    : "text-gray-400 hover:text-white hover:bg-gray-700/50"
                 }
               `}
             >
               <span>{tab.icon}</span>
               <span>{tab.label}</span>
-              {tab.status === 'todo' && (
+              {tab.status === "todo" && (
                 <span className="text-xs bg-yellow-600/30 text-yellow-400 px-1.5 py-0.5 rounded">
                   TODO
                 </span>
@@ -97,12 +98,11 @@ const ResearchPanel = () => {
         {/* CONTENT AREA */}
         {/* ═══════════════════════════════════════════════════════════════ */}
         <main className="flex-1 overflow-auto p-6">
-          {activeTab === 'pipeline' && <PipelineTab />}
-          {activeTab === 'docs' && <DocsTab />}
-          {activeTab === 'code' && <CodeTab />}
-          {activeTab === 'literature' && <LiteratureTab />}
+          {activeTab === "pipeline" && <PipelineTab />}
+          {activeTab === "docs" && <DocsTab />}
+          {activeTab === "code" && <CodeTab />}
+          {activeTab === "literature" && <LiteratureTab />}
         </main>
-
       </motion.div>
     </AnimatePresence>
   );
@@ -117,7 +117,9 @@ const TabPlaceholder = ({ name }) => (
     <div className="text-center">
       <div className="text-6xl mb-4">🚧</div>
       <h2 className="text-xl font-semibold mb-2">{name}</h2>
-      <p className="text-gray-400">W budowie - zostanie zaimplementowane w kolejnych etapach</p>
+      <p className="text-gray-400">
+        W budowie - zostanie zaimplementowane w kolejnych etapach
+      </p>
     </div>
   </div>
 );

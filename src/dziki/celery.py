@@ -20,13 +20,13 @@ from celery import Celery
 from celery.schedules import crontab
 
 # Set the default Django settings module
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dziki.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "dziki.settings")
 
 # Create Celery app
-app = Celery('dziki')
+app = Celery("dziki")
 
 # Load config from Django settings (CELERY_ prefix)
-app.config_from_object('django.conf:settings', namespace='CELERY')
+app.config_from_object("django.conf:settings", namespace="CELERY")
 
 # Auto-discover tasks in all registered Django apps
 app.autodiscover_tasks()
@@ -35,7 +35,7 @@ app.autodiscover_tasks()
 @app.task(bind=True, ignore_result=True)
 def debug_task(self):
     """Debug task for testing Celery connectivity."""
-    print(f'Request: {self.request!r}')
+    print(f"Request: {self.request!r}")
 
 
 # =============================================================================
@@ -48,66 +48,60 @@ app.conf.beat_schedule = {
     # -------------------------------------------------------------------------
     # R SPATIAL TASKS (queue: q_r)
     # -------------------------------------------------------------------------
-    
     # Weekly GWR computation (Sunday 3:00 AM)
     # NotebookLM Q14: Weekly schedule confirmed
-    'compute-gwr-weekly': {
-        'task': 'analytics.tasks.compute_gwr_weekly',
-        'schedule': crontab(hour=3, minute=0, day_of_week=0),  # Sunday
-        'options': {
-            'queue': 'q_r',
-            'time_limit': 7200,       # 120 min hard limit
-            'soft_time_limit': 7080,  # 118 min soft limit (DR-9)
+    "compute-gwr-weekly": {
+        "task": "analytics.tasks.compute_gwr_weekly",
+        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sunday
+        "options": {
+            "queue": "q_r",
+            "time_limit": 7200,  # 120 min hard limit
+            "soft_time_limit": 7080,  # 118 min soft limit (DR-9)
         },
     },
-    
     # Daily ETA computation (every day at 2:00 AM)
     # NotebookLM Q14: Daily schedule confirmed
-    'compute-eta-daily': {
-        'task': 'analytics.tasks.compute_eta',
-        'schedule': crontab(hour=2, minute=0),
-        'options': {
-            'queue': 'q_r',
-            'time_limit': 7200,
-            'soft_time_limit': 7080,
+    "compute-eta-daily": {
+        "task": "analytics.tasks.compute_eta",
+        "schedule": crontab(hour=2, minute=0),
+        "options": {
+            "queue": "q_r",
+            "time_limit": 7200,
+            "soft_time_limit": 7080,
         },
     },
-    
     # Monthly STS computation (1st day of month at 5:00 AM)
     # NotebookLM Q14, Q15: Monthly schedule, 240 min timeout
-    'compute-sts-monthly': {
-        'task': 'analytics.tasks.compute_sts',
-        'schedule': crontab(hour=5, minute=0, day_of_month=1),
-        'options': {
-            'queue': 'q_r',
-            'time_limit': 14400,      # 240 min hard limit (STS specific)
-            'soft_time_limit': 14280, # 238 min soft limit
+    "compute-sts-monthly": {
+        "task": "analytics.tasks.compute_sts",
+        "schedule": crontab(hour=5, minute=0, day_of_month=1),
+        "options": {
+            "queue": "q_r",
+            "time_limit": 14400,  # 240 min hard limit (STS specific)
+            "soft_time_limit": 14280,  # 238 min soft limit
         },
     },
-    
     # -------------------------------------------------------------------------
     # I/O TASKS (queue: q_io)
     # -------------------------------------------------------------------------
-    
     # Daily materialized view refresh (every day at 4:00 AM)
-    'refresh-mv-daily': {
-        'task': 'analytics.tasks.refresh_materialized_views',
-        'schedule': crontab(hour=4, minute=0),
-        'options': {
-            'queue': 'q_io',
-            'time_limit': 600,
-            'soft_time_limit': 540,
+    "refresh-mv-daily": {
+        "task": "analytics.tasks.refresh_materialized_views",
+        "schedule": crontab(hour=4, minute=0),
+        "options": {
+            "queue": "q_io",
+            "time_limit": 600,
+            "soft_time_limit": 540,
         },
     },
-    
     # Hourly cache warmup (every hour at :05)
-    'warmup-cache-hourly': {
-        'task': 'analytics.tasks.warmup_cache',
-        'schedule': crontab(minute=5),
-        'options': {
-            'queue': 'q_io',
-            'time_limit': 300,
-            'soft_time_limit': 270,
+    "warmup-cache-hourly": {
+        "task": "analytics.tasks.warmup_cache",
+        "schedule": crontab(minute=5),
+        "options": {
+            "queue": "q_io",
+            "time_limit": 300,
+            "soft_time_limit": 270,
         },
     },
 }

@@ -19,16 +19,16 @@ Usage:
 # Maps user-supplied grid_type string -> exact DB table name suffix
 # Pattern: sightings_gridcell_{suffix}
 _VALID_GRID_TYPES: dict[str, str] = {
-    'voronoi':  'voronoi',
-    'square':   'square',
-    'research': 'research',
-    'grid_500': 'grid_500',
+    "voronoi": "voronoi",
+    "square": "square",
+    "research": "research",
+    "grid_500": "grid_500",
 }
 
 # Maps user-supplied geometry_type string -> exact DB table name
 _GEOMETRY_TABLE_MAP: dict[str, str] = {
-    'grid_500': 'research_grid_500m',
-    'voronoi':  'sightings_gridcell_voronoi',
+    "grid_500": "research_grid_500m",
+    "voronoi": "sightings_gridcell_voronoi",
 }
 
 # Absolute cap on LIMIT to prevent runaway queries
@@ -46,9 +46,7 @@ def validate_grid_type(grid_type: str) -> str:
     suffix = _VALID_GRID_TYPES.get(str(grid_type))
     if suffix is None:
         allowed = ", ".join(sorted(_VALID_GRID_TYPES.keys()))
-        raise ValueError(
-            f"Invalid grid_type {grid_type!r}. Allowed values: {allowed}"
-        )
+        raise ValueError(f"Invalid grid_type {grid_type!r}. Allowed values: {allowed}")
     return f"sightings_gridcell_{suffix}"
 
 
@@ -67,7 +65,9 @@ def validate_geometry_type(geometry_type: str) -> str:
     return table
 
 
-def validate_limit(limit_param, default: int = _LIMIT_DEFAULT, maximum: int = _LIMIT_MAX) -> int:
+def validate_limit(
+    limit_param, default: int = _LIMIT_DEFAULT, maximum: int = _LIMIT_MAX
+) -> int:
     """
     Parse and clamp a LIMIT query parameter to a safe integer.
 

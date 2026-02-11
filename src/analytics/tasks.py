@@ -15,16 +15,13 @@ CRITICAL for R tasks:
 import os
 import subprocess
 import tempfile
-import json
 from celery import shared_task
 from .tasks_bayesian import check_n_minimum
 from celery.exceptions import SoftTimeLimitExceeded
 from django.core.cache import cache
 from django.db import connection
 import logging
-import uuid
 
-from analytics.debug_mode import DebugLogger
 
 logger = logging.getLogger(__name__)
 
@@ -33,21 +30,22 @@ logger = logging.getLogger(__name__)
 # R SPATIAL TASKS (queue: q_r)
 # =============================================================================
 
+
 @shared_task(
     bind=True,
-    queue='q_r',
-    soft_time_limit=6900,   # 115 min (soft)
-    time_limit=7200,        # 120 min (hard)
+    queue="q_r",
+    soft_time_limit=6900,  # 115 min (soft)
+    time_limit=7200,  # 120 min (hard)
     max_retries=2,
     default_retry_delay=300,
 )
 def compute_gwr_weekly(self):
     """
     Compute Geographically Weighted Regression (GWR) weekly.
-    
+
     Calls R script via subprocess.
     Uses dziki_gwr pool (Session mode) for long-running queries.
-    
+
     Exit codes:
     - 0: Success
     - 1: General error
@@ -55,66 +53,69 @@ def compute_gwr_weekly(self):
     - 3: Convergence failed
     """
     logger.info(f"Starting GWR computation (task_id={self.request.id})")
-    
+
     # Check N minimum requirements (MASTER_SPEC v2.2)
     from django.db import connection
+
     with connection.cursor() as cursor:
-        cursor.execute("SELECT COUNT(*) FROM sightings_sighting WHERE status = 'verified'")
+        cursor.execute(
+            "SELECT COUNT(*) FROM sightings_sighting WHERE status = 'verified'"
+        )
         n_obs = cursor.fetchone()[0]
-    
-    n_check = check_n_minimum(n_obs, 'gwr')
-    if n_check['error']:
+
+    n_check = check_n_minimum(n_obs, "gwr")
+    if n_check["error"]:
         logger.warning(f"GWR: {n_check['message']}")
-        return {'status': 'skipped', 'reason': n_check['message']}
-    
+        return {"status": "skipped", "reason": n_check["message"]}
+
     try:
         # Prepare R script path
-        r_script = '/app/r_scripts/compute_gwr.R'
-        
+        r_script = "/app/r_scripts/compute_gwr.R"
+
         # Output file for results
-        with tempfile.NamedTemporaryFile(suffix='.geojson', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".geojson", delete=False) as f:
             output_path = f.name
-        
+
         # Run R script
         env = os.environ.copy()
-        env['OMP_NUM_THREADS'] = '1'  # Prevent thread contention
-        env['DB_POOL'] = 'dziki_gwr'  # Use session pool
-        
+        env["OMP_NUM_THREADS"] = "1"  # Prevent thread contention
+        env["DB_POOL"] = "dziki_gwr"  # Use session pool
+
         result = subprocess.run(
-            ['Rscript', r_script, '--output', output_path],
+            ["Rscript", r_script, "--output", output_path],
             env=env,
             capture_output=True,
             text=True,
             timeout=7000,  # Just under hard limit
         )
-        
+
         # Handle exit codes
         if result.returncode == 0:
             logger.info("GWR computation completed successfully")
             # TODO: Store results in database
-            return {'status': 'success', 'output': output_path}
-        
+            return {"status": "success", "output": output_path}
+
         elif result.returncode == 2:
             logger.warning("GWR: Insufficient data")
-            return {'status': 'skipped', 'reason': 'insufficient_data'}
-        
+            return {"status": "skipped", "reason": "insufficient_data"}
+
         elif result.returncode == 3:
             logger.warning("GWR: Convergence failed, retrying...")
             raise self.retry(exc=Exception("GWR convergence failed"))
-        
+
         else:
             logger.error(f"GWR failed: {result.stderr}")
             raise Exception(f"R script failed with code {result.returncode}")
-    
+
     except SoftTimeLimitExceeded:
         logger.error("GWR: Soft time limit exceeded, cleaning up...")
         # Cleanup logic here
         raise
-    
+
     except subprocess.TimeoutExpired:
         logger.error("GWR: Subprocess timeout")
         raise self.retry(exc=Exception("R subprocess timeout"))
-    
+
     except Exception as exc:
         logger.exception(f"GWR error: {exc}")
         raise
@@ -122,7 +123,7 @@ def compute_gwr_weekly(self):
 
 @shared_task(
     bind=True,
-    queue='q_r',
+    queue="q_r",
     soft_time_limit=6900,
     time_limit=7200,
     max_retries=2,
@@ -130,33 +131,36 @@ def compute_gwr_weekly(self):
 def compute_eta(self, grid_id: str = None):
     """
     Compute Entropy-Tessellation-Agglomeration (ETA).
-    
+
     Uses spatialWarsaw::ETA() via R subprocess.
     """
     logger.info(f"Starting ETA computation (grid_id={grid_id})")
-    
+
     # Check N minimum requirements (MASTER_SPEC v2.2)
     from django.db import connection
+
     with connection.cursor() as cursor:
-        cursor.execute("SELECT COUNT(*) FROM sightings_sighting WHERE status = 'verified'")
+        cursor.execute(
+            "SELECT COUNT(*) FROM sightings_sighting WHERE status = 'verified'"
+        )
         n_obs = cursor.fetchone()[0]
-    
-    n_check = check_n_minimum(n_obs, 'eta')
-    if n_check['error']:
+
+    n_check = check_n_minimum(n_obs, "eta")
+    if n_check["error"]:
         logger.warning(f"ETA: {n_check['message']}")
-        return {'status': 'skipped', 'reason': n_check['message']}
-    
+        return {"status": "skipped", "reason": n_check["message"]}
+
     try:
-        r_script = '/app/r_scripts/compute_eta.R'
-        
+        r_script = "/app/r_scripts/compute_eta.R"
+
         env = os.environ.copy()
-        env['OMP_NUM_THREADS'] = '1'
-        env['DB_POOL'] = 'dziki_gwr'
-        
-        cmd = ['Rscript', r_script]
+        env["OMP_NUM_THREADS"] = "1"
+        env["DB_POOL"] = "dziki_gwr"
+
+        cmd = ["Rscript", r_script]
         if grid_id:
-            cmd.extend(['--grid-id', grid_id])
-        
+            cmd.extend(["--grid-id", grid_id])
+
         result = subprocess.run(
             cmd,
             env=env,
@@ -164,12 +168,12 @@ def compute_eta(self, grid_id: str = None):
             text=True,
             timeout=7000,
         )
-        
+
         if result.returncode == 0:
-            return {'status': 'success'}
+            return {"status": "success"}
         else:
             raise Exception(f"ETA failed: {result.stderr}")
-    
+
     except Exception as exc:
         logger.exception(f"ETA error: {exc}")
         raise
@@ -177,30 +181,30 @@ def compute_eta(self, grid_id: str = None):
 
 @shared_task(
     bind=True,
-    queue='q_r',
+    queue="q_r",
     soft_time_limit=13800,  # 230 min (STS can run up to 240 min)
-    time_limit=14400,       # 240 min
+    time_limit=14400,  # 240 min
     max_retries=1,
 )
 def compute_sts(self, year: int = None):
     """
     Compute Spatio-Temporal Stability (STS).
-    
+
     Uses spatialWarsaw::STS() - can run up to 4 hours!
     """
     logger.info(f"Starting STS computation (year={year})")
-    
+
     try:
-        r_script = '/app/r_scripts/compute_sts.R'
-        
+        r_script = "/app/r_scripts/compute_sts.R"
+
         env = os.environ.copy()
-        env['OMP_NUM_THREADS'] = '1'
-        env['DB_POOL'] = 'dziki_gwr'
-        
-        cmd = ['Rscript', r_script]
+        env["OMP_NUM_THREADS"] = "1"
+        env["DB_POOL"] = "dziki_gwr"
+
+        cmd = ["Rscript", r_script]
         if year:
-            cmd.extend(['--year', str(year)])
-        
+            cmd.extend(["--year", str(year)])
+
         result = subprocess.run(
             cmd,
             env=env,
@@ -208,12 +212,12 @@ def compute_sts(self, year: int = None):
             text=True,
             timeout=14000,
         )
-        
+
         if result.returncode == 0:
-            return {'status': 'success'}
+            return {"status": "success"}
         else:
             raise Exception(f"STS failed: {result.stderr}")
-    
+
     except Exception as exc:
         logger.exception(f"STS error: {exc}")
         raise
@@ -223,28 +227,29 @@ def compute_sts(self, year: int = None):
 # PYTHON ML TASKS (queue: q_cpu)
 # =============================================================================
 
+
 @shared_task(
     bind=True,
-    queue='q_cpu',
-    soft_time_limit=1800,   # 30 min
-    time_limit=2100,        # 35 min
+    queue="q_cpu",
+    soft_time_limit=1800,  # 30 min
+    time_limit=2100,  # 35 min
     max_retries=3,
 )
 def train_random_forest(self):
     """
     Train Random Forest model for ensemble prediction.
-    
+
     Pure Python task using scikit-learn.
     """
     logger.info("Starting Random Forest training")
-    
+
     try:
         # TODO: Implement RF training
         # from sklearn.ensemble import RandomForestRegressor
         # ...
-        
-        return {'status': 'success', 'model': 'random_forest'}
-    
+
+        return {"status": "success", "model": "random_forest"}
+
     except Exception as exc:
         logger.exception(f"RF training error: {exc}")
         raise
@@ -252,7 +257,7 @@ def train_random_forest(self):
 
 @shared_task(
     bind=True,
-    queue='q_cpu',
+    queue="q_cpu",
     soft_time_limit=600,
     time_limit=900,
 )
@@ -261,11 +266,11 @@ def compute_ensemble(self, model_ids: list = None):
     Compute ensemble prediction from GWR + RF models.
     """
     logger.info(f"Starting ensemble computation (models={model_ids})")
-    
+
     try:
         # TODO: Implement ensemble logic
-        return {'status': 'success'}
-    
+        return {"status": "success"}
+
     except Exception as exc:
         logger.exception(f"Ensemble error: {exc}")
         raise
@@ -275,20 +280,21 @@ def compute_ensemble(self, model_ids: list = None):
 # I/O TASKS (queue: q_io)
 # =============================================================================
 
+
 @shared_task(
     bind=True,
-    queue='q_io',
+    queue="q_io",
     soft_time_limit=300,
     time_limit=600,
 )
 def refresh_materialized_views(self):
     """
     Refresh materialized views concurrently.
-    
+
     Uses: REFRESH MATERIALIZED VIEW CONCURRENTLY
     """
     logger.info("Starting MV refresh")
-    
+
     try:
         with connection.cursor() as cursor:
             # Refresh sighting stats MV
@@ -299,63 +305,63 @@ def refresh_materialized_views(self):
             cursor.execute(
                 "REFRESH MATERIALIZED VIEW CONCURRENTLY IF EXISTS mv_grid_stats;"
             )
-        
+
         # Invalidate related caches
-        cache.delete('sighting_stats')
-        cache.delete('grid_stats')
-        
+        cache.delete("sighting_stats")
+        cache.delete("grid_stats")
+
         logger.info("MV refresh completed")
-        return {'status': 'success'}
-    
+        return {"status": "success"}
+
     except Exception as exc:
         logger.exception(f"MV refresh error: {exc}")
         raise
 
 
-@shared_task(queue='q_io')
+@shared_task(queue="q_io")
 def generate_tiles(zoom_levels: list = None):
     """
     Generate vector tiles for map display.
     """
     logger.info(f"Starting tile generation (zoom={zoom_levels})")
-    
+
     try:
         # TODO: Implement tile generation (tippecanoe or similar)
-        return {'status': 'success'}
-    
+        return {"status": "success"}
+
     except Exception as exc:
         logger.exception(f"Tile generation error: {exc}")
         raise
 
 
-@shared_task(queue='q_io')
+@shared_task(queue="q_io")
 def warmup_cache():
     """
     Warm up frequently accessed cache entries.
     """
     logger.info("Starting cache warmup")
-    
+
     try:
         from sightings.models import Sighting
         from django.utils import timezone
         from datetime import timedelta
-        
+
         # Pre-compute and cache stats
         queryset = Sighting.objects.filter(status=Sighting.Status.VERIFIED)
         week_ago = timezone.now() - timedelta(days=7)
         month_ago = timezone.now() - timedelta(days=30)
-        
+
         stats = {
-            'total': queryset.count(),
-            'last_7_days': queryset.filter(observed_at__gte=week_ago).count(),
-            'last_30_days': queryset.filter(observed_at__gte=month_ago).count(),
+            "total": queryset.count(),
+            "last_7_days": queryset.filter(observed_at__gte=week_ago).count(),
+            "last_30_days": queryset.filter(observed_at__gte=month_ago).count(),
         }
-        
-        cache.set('sighting_stats', stats, timeout=3600)
-        
+
+        cache.set("sighting_stats", stats, timeout=3600)
+
         logger.info("Cache warmup completed")
-        return {'status': 'success', 'stats': stats}
-    
+        return {"status": "success", "stats": stats}
+
     except Exception as exc:
         logger.exception(f"Cache warmup error: {exc}")
         raise
@@ -365,11 +371,12 @@ def warmup_cache():
 # DEV: Full R Pipeline (on-demand recalculation)
 # =============================================================================
 
+
 @shared_task(
     bind=True,
-    queue='q_cpu',  # Runs on worker-py with docker socket access
+    queue="q_cpu",  # Runs on worker-py with docker socket access
     soft_time_limit=1800,  # 30 min total
-    time_limit=2100,       # 35 min hard limit
+    time_limit=2100,  # 35 min hard limit
 )
 def run_r_pipeline_dev(self):
     """
@@ -389,32 +396,37 @@ def run_r_pipeline_dev(self):
     # See: HANDOFF_03_IMPLEMENTATION_PLAN.md
     # ═══════════════════════════════════════════════════════════════
     from django.core.cache import cache
-    cache.set('r_pipeline_progress', {
-        'running': False,
-        'current_step': 0,
-        'total_steps': 5,
-        'current_script': '',
-        'error': 'PUB pipeline wyłączony - w trakcie przepisywania według metodologii Kopczewskiej. Użyj trybu FAST.',
-        'completed': False,
-        'disabled': True,
-    }, timeout=3600)
-    cache.delete('recalculate_lock')
+
+    cache.set(
+        "r_pipeline_progress",
+        {
+            "running": False,
+            "current_step": 0,
+            "total_steps": 5,
+            "current_script": "",
+            "error": "PUB pipeline wyłączony - w trakcie przepisywania według metodologii Kopczewskiej. Użyj trybu FAST.",
+            "completed": False,
+            "disabled": True,
+        },
+        timeout=3600,
+    )
+    cache.delete("recalculate_lock")
     return {
-        'status': 'disabled',
-        'message': 'PUB pipeline wyłączony - w trakcie przepisywania według metodologii Kopczewskiej. Użyj trybu FAST.',
-        'redirect': 'fast',
-        'disabled_at': '2026-01-18',
-        'reason': 'Rewrite in progress'
+        "status": "disabled",
+        "message": "PUB pipeline wyłączony - w trakcie przepisywania według metodologii Kopczewskiej. Użyj trybu FAST.",
+        "redirect": "fast",
+        "disabled_at": "2026-01-18",
+        "reason": "Rewrite in progress",
     }
 
     import docker
     from django.core.cache import cache
 
     scripts = [
-        ('01_generate_voronoi.R', 'Generowanie Voronoi tessellation'),
-        ('02_compute_tessw_eta.R', 'Obliczanie tessW + ETA'),
-        ('04_compute_gwr.R', 'Obliczanie GWR'),
-        ('05_ensemble_prediction.R', 'Ensemble prediction'),
+        ("01_generate_voronoi.R", "Generowanie Voronoi tessellation"),
+        ("02_compute_tessw_eta.R", "Obliczanie tessW + ETA"),
+        ("04_compute_gwr.R", "Obliczanie GWR"),
+        ("05_ensemble_prediction.R", "Ensemble prediction"),
     ]
 
     total_steps = len(scripts)
@@ -424,29 +436,37 @@ def run_r_pipeline_dev(self):
         client = docker.from_env()
         client.ping()
     except Exception as e:
-        error_msg = f'Docker not available: {str(e)}'
+        error_msg = f"Docker not available: {str(e)}"
         logger.error(error_msg)
-        cache.set('r_pipeline_progress', {
-            'running': False,
-            'current_step': 0,
-            'total_steps': total_steps,
-            'current_script': '',
-            'error': error_msg,
-            'completed': False,
-        }, timeout=3600)
-        cache.delete('recalculate_lock')  # Release lock on error
+        cache.set(
+            "r_pipeline_progress",
+            {
+                "running": False,
+                "current_step": 0,
+                "total_steps": total_steps,
+                "current_script": "",
+                "error": error_msg,
+                "completed": False,
+            },
+            timeout=3600,
+        )
+        cache.delete("recalculate_lock")  # Release lock on error
         raise Exception(error_msg)
 
     for i, (script, description) in enumerate(scripts, 1):
         # Update progress in cache
-        cache.set('r_pipeline_progress', {
-            'running': True,
-            'current_step': i,
-            'total_steps': total_steps,
-            'current_script': description,
-            'error': None,
-            'completed': False,
-        }, timeout=3600)
+        cache.set(
+            "r_pipeline_progress",
+            {
+                "running": True,
+                "current_step": i,
+                "total_steps": total_steps,
+                "current_script": description,
+                "error": None,
+                "completed": False,
+            },
+            timeout=3600,
+        )
 
         logger.info(f"Running {script} ({i}/{total_steps}): {description}")
 
@@ -454,19 +474,19 @@ def run_r_pipeline_dev(self):
             # Use Docker SDK to run R script in worker-r container
             # Connect to dziki-internal network for direct db access
             container = client.containers.run(
-                'dziki-worker-r:latest',
-                command=['Rscript', '--vanilla', f'/app/r_scripts/{script}'],
+                "dziki-worker-r:latest",
+                command=["Rscript", "--vanilla", f"/app/r_scripts/{script}"],
                 environment={
-                    'DB_HOST': 'db',
-                    'DB_PORT': '5432',
-                    'DB_NAME': os.environ.get('DB_NAME', 'dziki_db'),
-                    'DB_USER': os.environ.get('DB_USER', 'dziki'),
-                    'DB_PASSWORD': os.environ.get('DB_PASSWORD', 'dziki_dev_password'),
-                    'OMP_NUM_THREADS': '1',
+                    "DB_HOST": "db",
+                    "DB_PORT": "5432",
+                    "DB_NAME": os.environ.get("DB_NAME", "dziki_db"),
+                    "DB_USER": os.environ.get("DB_USER", "dziki"),
+                    "DB_PASSWORD": os.environ.get("DB_PASSWORD", "dziki_dev_password"),
+                    "OMP_NUM_THREADS": "1",
                 },
-                network='dziki_dziki-internal',
+                network="dziki_dziki-internal",
                 volumes={
-                    'dziki_r_data': {'bind': '/app/data', 'mode': 'rw'},
+                    "dziki_r_data": {"bind": "/app/data", "mode": "rw"},
                 },
                 remove=True,
                 detach=False,
@@ -474,58 +494,77 @@ def run_r_pipeline_dev(self):
                 stderr=True,
             )
 
-            output = container.decode('utf-8') if isinstance(container, bytes) else str(container)
+            output = (
+                container.decode("utf-8")
+                if isinstance(container, bytes)
+                else str(container)
+            )
             logger.info(f"Completed {script}")
             logger.debug(f"R output: {output[:500]}")
 
         except docker.errors.ContainerError as e:
-            error_msg = f'{script}: {e.stderr.decode("utf-8")[:500] if e.stderr else str(e)}'
+            error_msg = (
+                f"{script}: {e.stderr.decode('utf-8')[:500] if e.stderr else str(e)}"
+            )
             logger.error(f"R script failed: {error_msg}")
-            cache.set('r_pipeline_progress', {
-                'running': False,
-                'current_step': i,
-                'total_steps': total_steps,
-                'current_script': description,
-                'error': error_msg,
-                'completed': False,
-            }, timeout=3600)
-            cache.delete('recalculate_lock')  # Release lock on error
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": False,
+                    "current_step": i,
+                    "total_steps": total_steps,
+                    "current_script": description,
+                    "error": error_msg,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
+            cache.delete("recalculate_lock")  # Release lock on error
             raise Exception(error_msg)
 
         except Exception as e:
-            error_msg = f'{script}: {str(e)}'
+            error_msg = f"{script}: {str(e)}"
             logger.error(f"R script error: {error_msg}")
-            cache.set('r_pipeline_progress', {
-                'running': False,
-                'current_step': i,
-                'total_steps': total_steps,
-                'current_script': description,
-                'error': error_msg,
-                'completed': False,
-            }, timeout=3600)
-            cache.delete('recalculate_lock')  # Release lock on error
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": False,
+                    "current_step": i,
+                    "total_steps": total_steps,
+                    "current_script": description,
+                    "error": error_msg,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
+            cache.delete("recalculate_lock")  # Release lock on error
             raise Exception(error_msg)
 
     # Mark as completed
-    cache.set('r_pipeline_progress', {
-        'running': False,
-        'current_step': total_steps,
-        'total_steps': total_steps,
-        'current_script': 'Zakończono',
-        'error': None,
-        'completed': True,
-    }, timeout=3600)
-    cache.delete('recalculate_lock')  # Release lock on success
+    cache.set(
+        "r_pipeline_progress",
+        {
+            "running": False,
+            "current_step": total_steps,
+            "total_steps": total_steps,
+            "current_script": "Zakończono",
+            "error": None,
+            "completed": True,
+        },
+        timeout=3600,
+    )
+    cache.delete("recalculate_lock")  # Release lock on success
 
     logger.info("R pipeline completed successfully")
-    return {'status': 'success', 'steps_completed': total_steps}
+    return {"status": "success", "steps_completed": total_steps}
 
 
 # =============================================================================
 # RISK PREDICTION (simplified for MVP)
 # =============================================================================
 
-@shared_task(queue='q_cpu')
+
+@shared_task(queue="q_cpu")
 def generate_risk_predictions():
     """
     Generate simplified risk predictions for heatmap.
@@ -555,19 +594,19 @@ def generate_risk_predictions():
 
             ModelPrediction.objects.update_or_create(
                 grid_cell=cell,
-                model_type='ensemble',
+                model_type="ensemble",
                 prediction_date=today,
                 defaults={
-                    'prediction_value': risk,
-                    'confidence_lower': max(0, risk - 0.15),
-                    'confidence_upper': min(1, risk + 0.15),
-                    'model_version': 'heuristic-v1',
-                }
+                    "prediction_value": risk,
+                    "confidence_lower": max(0, risk - 0.15),
+                    "confidence_upper": min(1, risk + 0.15),
+                    "model_version": "heuristic-v1",
+                },
             )
             created += 1
 
         logger.info(f"Created/updated {created} predictions")
-        return {'status': 'success', 'predictions': created}
+        return {"status": "success", "predictions": created}
 
     except Exception as exc:
         logger.exception(f"Risk prediction error: {exc}")
@@ -578,7 +617,8 @@ def generate_risk_predictions():
 # RECALCULATE RISK MODEL (Python-based, no R required)
 # =============================================================================
 
-@shared_task(bind=True, queue='q_cpu', soft_time_limit=120, time_limit=180)
+
+@shared_task(bind=True, queue="q_cpu", soft_time_limit=120, time_limit=180)
 def recalculate_risk_model(self):
     """
     FAST risk recalculation - uses SQUARE GRID (sightings_gridcell_square).
@@ -590,10 +630,18 @@ def recalculate_risk_model(self):
 
     try:
         with connection.cursor() as cursor:
-            cache.set('r_pipeline_progress', {
-                'running': True, 'current_step': 1, 'total_steps': 4,
-                'current_script': 'Zliczanie obserwacji (SQUARE)', 'error': None, 'completed': False,
-            }, timeout=3600)
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": True,
+                    "current_step": 1,
+                    "total_steps": 4,
+                    "current_script": "Zliczanie obserwacji (SQUARE)",
+                    "error": None,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
 
             # FAST mode: count sightings per SQUARE grid cell
             cursor.execute("UPDATE sightings_gridcell_square SET sighting_count = 0;")
@@ -610,18 +658,36 @@ def recalculate_risk_model(self):
             """)
             new_assigned = cursor.rowcount
 
-            cache.set('r_pipeline_progress', {
-                'running': True, 'current_step': 2, 'total_steps': 4,
-                'current_script': 'Obliczanie gestosci', 'error': None, 'completed': False,
-            }, timeout=3600)
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": True,
+                    "current_step": 2,
+                    "total_steps": 4,
+                    "current_script": "Obliczanie gestosci",
+                    "error": None,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
 
-            cache.set('r_pipeline_progress', {
-                'running': True, 'current_step': 3, 'total_steps': 4,
-                'current_script': 'Obliczanie ryzyka', 'error': None, 'completed': False,
-            }, timeout=3600)
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": True,
+                    "current_step": 3,
+                    "total_steps": 4,
+                    "current_script": "Obliczanie ryzyka",
+                    "error": None,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
 
             # Fixed thresholds based on data distribution (replaces PERCENT_RANK)
-            cursor.execute("UPDATE sightings_gridcell_square SET sighting_density = sighting_count / NULLIF(ST_Area(ST_Transform(geometry, 2180)) / 1000000.0, 0);")
+            cursor.execute(
+                "UPDATE sightings_gridcell_square SET sighting_density = sighting_count / NULLIF(ST_Area(ST_Transform(geometry, 2180)) / 1000000.0, 0);"
+            )
             cursor.execute("""
                 UPDATE sightings_gridcell_square
                 SET ensemble_risk = CASE 
@@ -643,13 +709,23 @@ def recalculate_risk_model(self):
                         ELSE 0.65
                     END;
             """)
-            cursor.execute("UPDATE sightings_gridcell_square SET confidence = CASE WHEN sighting_count = 0 THEN 0.2 WHEN sighting_count < 3 THEN 0.4 WHEN sighting_count < 6 THEN 0.6 ELSE 0.8 END;")
+            cursor.execute(
+                "UPDATE sightings_gridcell_square SET confidence = CASE WHEN sighting_count = 0 THEN 0.2 WHEN sighting_count < 3 THEN 0.4 WHEN sighting_count < 6 THEN 0.6 ELSE 0.8 END;"
+            )
 
             # Spatial smoothing - row-standardized weights
-            cache.set('r_pipeline_progress', {
-                'running': True, 'current_step': 4, 'total_steps': 4,
-                'current_script': 'Smoothing row-standardized (W)', 'error': None, 'completed': False,
-            }, timeout=3600)
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": True,
+                    "current_step": 4,
+                    "total_steps": 4,
+                    "current_script": "Smoothing row-standardized (W)",
+                    "error": None,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
 
             cursor.execute("""
                 WITH hot_cells AS (
@@ -682,27 +758,49 @@ def recalculate_risk_model(self):
             # Update timestamp
             cursor.execute("UPDATE sightings_gridcell_square SET updated_at = NOW();")
 
-            cursor.execute("SELECT COUNT(*) FILTER (WHERE ensemble_risk >= 0.7) FROM sightings_gridcell_square;")
+            cursor.execute(
+                "SELECT COUNT(*) FILTER (WHERE ensemble_risk >= 0.7) FROM sightings_gridcell_square;"
+            )
             critical = cursor.fetchone()[0]
-            cache.delete('sighting_stats')
+            cache.delete("sighting_stats")
 
-        cache.set('r_pipeline_progress', {
-            'running': False, 'current_step': 4, 'total_steps': 4,
-            'current_script': 'Zakonczone', 'error': None, 'completed': True,
-        }, timeout=3600)
+        cache.set(
+            "r_pipeline_progress",
+            {
+                "running": False,
+                "current_step": 4,
+                "total_steps": 4,
+                "current_script": "Zakonczone",
+                "error": None,
+                "completed": True,
+            },
+            timeout=3600,
+        )
         # Release lock to allow new recalculation
-        cache.delete('recalculate_lock')
+        cache.delete("recalculate_lock")
 
         logger.info(f"Fast recalc (SQUARE): {new_assigned} new, {critical} critical")
-        return {'status': 'success', 'new_sightings': new_assigned, 'critical_cells': critical}
+        return {
+            "status": "success",
+            "new_sightings": new_assigned,
+            "critical_cells": critical,
+        }
 
     except Exception as exc:
-        cache.set('r_pipeline_progress', {
-            'running': False, 'current_step': 0, 'total_steps': 4,
-            'current_script': '', 'error': str(exc), 'completed': False,
-        }, timeout=3600)
+        cache.set(
+            "r_pipeline_progress",
+            {
+                "running": False,
+                "current_step": 0,
+                "total_steps": 4,
+                "current_script": "",
+                "error": str(exc),
+                "completed": False,
+            },
+            timeout=3600,
+        )
         # Release lock even on error
-        cache.delete('recalculate_lock')
+        cache.delete("recalculate_lock")
         raise
 
 
@@ -711,14 +809,14 @@ def recalculate_risk_model(self):
 # =============================================================================
 
 SAMPLE_FILES = {
-    'mala': 'baza_mala.json',
-    'srednia': 'baza_srednia.json',
-    'duza': 'baza_duza.json',
-    'pelna': 'baza_ogromna.json',
+    "mala": "baza_mala.json",
+    "srednia": "baza_srednia.json",
+    "duza": "baza_duza.json",
+    "pelna": "baza_ogromna.json",
 }
 
 
-@shared_task(bind=True, queue='q_io', soft_time_limit=120, time_limit=180)
+@shared_task(bind=True, queue="q_io", soft_time_limit=120, time_limit=180)
 def switch_sample_task(self, sample: str):
     """
     Switch to a different sample database.
@@ -734,35 +832,39 @@ def switch_sample_task(self, sample: str):
     if sample not in SAMPLE_FILES:
         raise ValueError(f"Invalid sample: {sample}")
 
-    fixture_file = f'/fixtures/samples/{SAMPLE_FILES[sample]}'
+    fixture_file = f"/fixtures/samples/{SAMPLE_FILES[sample]}"
     total_steps = 4
 
     def update_progress(step, message):
-        cache.set('sample_switch_progress', {
-            'running': True,
-            'task_id': self.request.id,
-            'sample': sample,
-            'current': step,
-            'total': total_steps,
-            'step': message,
-            'message': message,
-            'error': None,
-        }, timeout=600)
+        cache.set(
+            "sample_switch_progress",
+            {
+                "running": True,
+                "task_id": self.request.id,
+                "sample": sample,
+                "current": step,
+                "total": total_steps,
+                "step": message,
+                "message": message,
+                "error": None,
+            },
+            timeout=600,
+        )
 
     try:
         # Step 1: Truncate
-        update_progress(1, 'Czyszczenie danych...')
+        update_progress(1, "Czyszczenie danych...")
         logger.info(f"Switching to sample: {sample}")
 
         with connection.cursor() as cursor:
             cursor.execute("TRUNCATE sightings_sighting CASCADE;")
 
         # Step 2: Load fixture
-        update_progress(2, 'Ładowanie próby...')
-        call_command('loaddata', fixture_file, verbosity=0)
+        update_progress(2, "Ładowanie próby...")
+        call_command("loaddata", fixture_file, verbosity=0)
 
         # Step 3: Recalculate grid counts
-        update_progress(3, 'Przeliczanie siatki...')
+        update_progress(3, "Przeliczanie siatki...")
 
         with connection.cursor() as cursor:
             # Reset all counts
@@ -812,43 +914,52 @@ def switch_sample_task(self, sample: str):
             """)
 
         # Step 4: Verify
-        update_progress(4, 'Weryfikacja...')
+        update_progress(4, "Weryfikacja...")
 
         from sightings.models import Sighting
+
         final_count = Sighting.objects.count()
 
         # Clear caches
-        cache.delete('sighting_stats')
+        cache.delete("sighting_stats")
 
         # Mark completed
-        cache.set('sample_switch_progress', {
-            'running': False,
-            'task_id': self.request.id,
-            'sample': sample,
-            'current': total_steps,
-            'total': total_steps,
-            'step': 'completed',
-            'message': f'Załadowano {final_count} obserwacji',
-            'error': None,
-        }, timeout=600)
+        cache.set(
+            "sample_switch_progress",
+            {
+                "running": False,
+                "task_id": self.request.id,
+                "sample": sample,
+                "current": total_steps,
+                "total": total_steps,
+                "step": "completed",
+                "message": f"Załadowano {final_count} obserwacji",
+                "error": None,
+            },
+            timeout=600,
+        )
 
         logger.info(f"Sample switch complete: {sample} ({final_count} sightings)")
-        return {'status': 'success', 'sample': sample, 'sighting_count': final_count}
+        return {"status": "success", "sample": sample, "sighting_count": final_count}
 
     except Exception as exc:
         error_msg = str(exc)
         logger.exception(f"Sample switch error: {error_msg}")
 
-        cache.set('sample_switch_progress', {
-            'running': False,
-            'task_id': self.request.id,
-            'sample': sample,
-            'current': 0,
-            'total': total_steps,
-            'step': 'error',
-            'message': 'Błąd',
-            'error': error_msg,
-        }, timeout=600)
+        cache.set(
+            "sample_switch_progress",
+            {
+                "running": False,
+                "task_id": self.request.id,
+                "sample": sample,
+                "current": 0,
+                "total": total_steps,
+                "step": "error",
+                "message": "Błąd",
+                "error": error_msg,
+            },
+            timeout=600,
+        )
 
         raise
 

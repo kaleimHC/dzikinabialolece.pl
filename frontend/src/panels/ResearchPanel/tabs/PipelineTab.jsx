@@ -10,227 +10,297 @@
  * API: /api/research/status/, /configs/, /run/, /runs/
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useSightingsStore } from '../../../stores/sightingsStore';
-import { RESEARCH_PRESETS, PRESET_GROUPS, getPresetsByGroup } from '../presets';
-import RegimeThresholdControl from '../components/RegimeThresholdControl';
-import { usePipelineProgress } from '../../../hooks/usePipelineProgress';
-import LiveStepsProgress from '../components/LiveStepsProgress';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useSightingsStore } from "../../../stores/sightingsStore";
+import { RESEARCH_PRESETS, PRESET_GROUPS, getPresetsByGroup } from "../presets";
+import RegimeThresholdControl from "../components/RegimeThresholdControl";
+import { usePipelineProgress } from "../../../hooks/usePipelineProgress";
+import LiveStepsProgress from "../components/LiveStepsProgress";
 
-// ─────────────────────────────────────────────────────────────
 // SŁOWNIKI DLA TRYBU PROSTEGO
-// ─────────────────────────────────────────────────────────────
 
 const FACTOR_NAMES = {
-  'forests_z': 'Lasy',
-  'buildings_z': 'Zabudowa',
-  'roads_z': 'Drogi',
-  'water_z': 'Woda',
-  'parks_z': 'Parki',
-  'meadow_z': 'Łąki',
-  'farmland_z': 'Pola uprawne',
-  'allotments_z': 'Działki',
-  'scrub_z': 'Zarośla',
-  'railway_z': 'Kolej',
-  'barriers_z': 'Bariery',
+  forests_z: "Lasy",
+  buildings_z: "Zabudowa",
+  roads_z: "Drogi",
+  water_z: "Woda",
+  parks_z: "Parki",
+  meadow_z: "Łąki",
+  farmland_z: "Pola uprawne",
+  allotments_z: "Działki",
+  scrub_z: "Zarośla",
+  railway_z: "Kolej",
+  barriers_z: "Bariery",
 };
 
 const FACTOR_ICONS = {
-  'forests_z': '🌲',
-  'buildings_z': '🏢',
-  'roads_z': '🛣️',
-  'water_z': '💧',
-  'parks_z': '🌳',
-  'meadow_z': '🌿',
-  'farmland_z': '🌾',
-  'allotments_z': '🏡',
-  'scrub_z': '🌿',
-  'railway_z': '🚂',
-  'barriers_z': '🚧',
+  forests_z: "🌲",
+  buildings_z: "🏢",
+  roads_z: "🛣️",
+  water_z: "💧",
+  parks_z: "🌳",
+  meadow_z: "🌿",
+  farmland_z: "🌾",
+  allotments_z: "🏡",
+  scrub_z: "🌿",
+  railway_z: "🚂",
+  barriers_z: "🚧",
 };
 
-// ─────────────────────────────────────────────────────────────
 // OPISY PARAMETRÓW DLA KREATORA (inline hints)
-// ─────────────────────────────────────────────────────────────
 
 const PARAM_HINTS = {
   // Podstawowe
-  name: 'Unikalna nazwa konfiguracji do identyfikacji w historii.',
-  seed: 'Ziarno losowości',
+  name: "Unikalna nazwa konfiguracji do identyfikacji w historii.",
+  seed: "Ziarno losowości",
 
   // Macierz W
-  w_method: 'Metoda budowy macierzy sąsiedztwa przestrzennego.',
-  k_range_min: 'Minimalna liczba sąsiadów (k). AIC wybierze optymalną wartość z zakresu.',
-  k_range_max: 'Maksymalna liczba sąsiadów do przetestowania.',
+  w_method: "Metoda budowy macierzy sąsiedztwa przestrzennego.",
+  k_range_min:
+    "Minimalna liczba sąsiadów (k). AIC wybierze optymalną wartość z zakresu.",
+  k_range_max: "Maksymalna liczba sąsiadów do przetestowania.",
 
   // Model
-  geometry_type: 'Typ siatki przestrzennej. Grid = stała rozdzielczość, Voronoi = adaptacyjna.',
-  population_method: 'Metoda przypisania populacji do komórek siatki.',
-  y_formula: 'Zmienna zależna modelu. Transformacja danych wejściowych.',
-  model_type: 'Typ modelu przestrzennego. SAR = autoregresja, SEM = błędy przestrzenne, SDM = Durbin.',
+  geometry_type:
+    "Typ siatki przestrzennej. Grid = stała rozdzielczość, Voronoi = adaptacyjna.",
+  population_method: "Metoda przypisania populacji do komórek siatki.",
+  y_formula: "Zmienna zależna modelu. Transformacja danych wejściowych.",
+  model_type:
+    "Typ modelu przestrzennego. SAR = autoregresja, SEM = błędy przestrzenne, SDM = Durbin.",
 
   // Diagnostyka
-  vif_threshold: 'Próg multikolinearności (Variance Inflation Factor). Zmienne z VIF > próg są usuwane. 5 = restrykcyjny, 10 = tolerancyjny.',
-  alpha: 'Poziom istotności statystycznej (α). Współczynniki z p-value < α są uznawane za istotne.',
+  vif_threshold:
+    "Próg multikolinearności (Variance Inflation Factor). Zmienne z VIF > próg są usuwane. 5 = restrykcyjny, 10 = tolerancyjny.",
+  alpha:
+    "Poziom istotności statystycznej (α). Współczynniki z p-value < α są uznawane za istotne.",
 
   // Reżimy
-  regime_type: 'Podział przestrzeni na reżimy. Każdy reżim ma własne współczynniki modelu.',
-  regime_threshold: 'Próg klasyfikacji lasu. Komórki z ≥X% lasu → kategoria FOREST.',
-  regime_threshold_urban: 'Próg klasyfikacji zabudowy. Komórki z ≥X% zabudowy → kategoria URBAN.',
+  regime_type:
+    "Podział przestrzeni na reżimy. Każdy reżim ma własne współczynniki modelu.",
+  regime_threshold:
+    "Próg klasyfikacji lasu. Komórki z ≥X% lasu → kategoria FOREST.",
+  regime_threshold_urban:
+    "Próg klasyfikacji zabudowy. Komórki z ≥X% zabudowy → kategoria URBAN.",
 
   // Predyktory
-  predictors: 'Zmienne objaśniające włączone do modelu. Standaryzowane metodą z-score (średnia=0, std=1).',
+  predictors:
+    "Zmienne objaśniające włączone do modelu. Standaryzowane metodą z-score (średnia=0, std=1).",
 
   // Diagnostyka (checkboxy)
-  run_moran: 'Moran\'s I - test autokorelacji przestrzennej residuów.',
-  run_lm_tests: 'Testy LM - porównanie SAR vs SEM na podstawie statystyki Lagrange\'a.',
-  run_lisa: 'LISA - lokalne wskaźniki autokorelacji (hot-spots, cold-spots).',
-  run_eta: 'ETA - entropia przestrzenna (spatialWarsaw).',
+  run_moran: "Moran's I - test autokorelacji przestrzennej residuów.",
+  run_lm_tests:
+    "Testy LM - porównanie SAR vs SEM na podstawie statystyki Lagrange'a.",
+  run_lisa: "LISA - lokalne wskaźniki autokorelacji (hot-spots, cold-spots).",
+  run_eta: "ETA - entropia przestrzenna (spatialWarsaw).",
 };
 
 const SIMPLE_INTERPRETATIONS = {
-  'forests_z': {
-    positive: 'Bliskość lasu ZWIĘKSZA ryzyko spotkania z dzikiem',
-    negative: 'Lasy nie są istotnym czynnikiem ryzyka'
+  forests_z: {
+    positive: "Bliskość lasu ZWIĘKSZA ryzyko spotkania z dzikiem",
+    negative: "Lasy nie są istotnym czynnikiem ryzyka",
   },
-  'buildings_z': {
-    positive: 'Gęsta zabudowa przyciąga dziki (śmietniki, ogrody)',
-    negative: 'Gęsta zabudowa CHRONI — dziki unikają centrum'
+  buildings_z: {
+    positive: "Gęsta zabudowa przyciąga dziki (śmietniki, ogrody)",
+    negative: "Gęsta zabudowa CHRONI — dziki unikają centrum",
   },
-  'roads_z': {
-    positive: 'Drogi ułatwiają przemieszczanie się dzików',
-    negative: 'Ruch drogowy odstrasza dziki'
+  roads_z: {
+    positive: "Drogi ułatwiają przemieszczanie się dzików",
+    negative: "Ruch drogowy odstrasza dziki",
   },
-  'water_z': {
-    positive: 'Zbiorniki wodne przyciągają dziki',
-    negative: 'Woda nie jest istotnym czynnikiem'
+  water_z: {
+    positive: "Zbiorniki wodne przyciągają dziki",
+    negative: "Woda nie jest istotnym czynnikiem",
   },
-  'parks_z': {
-    positive: 'Parki to siedliska dzików',
-    negative: 'Parki miejskie nie przyciągają dzików'
+  parks_z: {
+    positive: "Parki to siedliska dzików",
+    negative: "Parki miejskie nie przyciągają dzików",
   },
-  'meadow_z': {
-    positive: 'Łąki przyciągają dziki',
-    negative: 'Łąki nie są istotnym czynnikiem'
+  meadow_z: {
+    positive: "Łąki przyciągają dziki",
+    negative: "Łąki nie są istotnym czynnikiem",
   },
-  'farmland_z': {
-    positive: 'Pola uprawne to źródło pożywienia',
-    negative: 'Pola uprawne nie przyciągają dzików'
+  farmland_z: {
+    positive: "Pola uprawne to źródło pożywienia",
+    negative: "Pola uprawne nie przyciągają dzików",
   },
-  'allotments_z': {
-    positive: 'Działki przyciągają dziki (ogrody, komposty)',
-    negative: 'Działki nie są istotnym czynnikiem'
+  allotments_z: {
+    positive: "Działki przyciągają dziki (ogrody, komposty)",
+    negative: "Działki nie są istotnym czynnikiem",
   },
-  'scrub_z': {
-    positive: 'Zarośla to naturalne kryjówki dzików',
-    negative: 'Zarośla nie są istotnym czynnikiem'
+  scrub_z: {
+    positive: "Zarośla to naturalne kryjówki dzików",
+    negative: "Zarośla nie są istotnym czynnikiem",
   },
-  'railway_z': {
-    positive: 'Linie kolejowe tworzą korytarze migracji',
-    negative: 'Kolej nie wpływa na obecność dzików'
+  railway_z: {
+    positive: "Linie kolejowe tworzą korytarze migracji",
+    negative: "Kolej nie wpływa na obecność dzików",
   },
-  'barriers_z': {
-    positive: 'Bariery nie powstrzymują dzików',
-    negative: 'Bariery ograniczają ruch dzików'
+  barriers_z: {
+    positive: "Bariery nie powstrzymują dzików",
+    negative: "Bariery ograniczają ruch dzików",
   },
 };
 
-// ─────────────────────────────────────────────────────────────
 // VALIDATION: Invalid combinations (mirrors backend clean())
-// ─────────────────────────────────────────────────────────────
 
 function getValidationWarnings(form) {
   const warnings = [];
   const { geometry_type, y_formula, model_type } = form;
 
   // voronoi + binary = invalid (Voronoi 1:1 → Y=1 always)
-  if (geometry_type === 'voronoi' && y_formula === 'binary') {
-    warnings.push('Voronoi + binary: Voronoi 1:1 oznacza Y=1 zawsze (brak wariancji)');
+  if (geometry_type === "voronoi" && y_formula === "binary") {
+    warnings.push(
+      "Voronoi + binary: Voronoi 1:1 oznacza Y=1 zawsze (brak wariancji)",
+    );
   }
 
   // voronoi + log_count = invalid (Voronoi 1:1 → log(1+1)=0.693 always)
-  if (geometry_type === 'voronoi' && y_formula === 'log_count') {
-    warnings.push('Voronoi + log(count+1): Każda komórka ma count=1, więc Y=0.693 dla wszystkich (brak wariancji)');
+  if (geometry_type === "voronoi" && y_formula === "log_count") {
+    warnings.push(
+      "Voronoi + log(count+1): Każda komórka ma count=1, więc Y=0.693 dla wszystkich (brak wariancji)",
+    );
   }
 
   // sar/sem/sdm + binary = invalid (requires continuous Y)
-  if (['sar', 'sem', 'sdm'].includes(model_type) && y_formula === 'binary') {
-    warnings.push(`${model_type.toUpperCase()} + binary: SAR/SEM/SDM wymaga continuous Y (nie binary)`);
+  if (["sar", "sem", "sdm"].includes(model_type) && y_formula === "binary") {
+    warnings.push(
+      `${model_type.toUpperCase()} + binary: SAR/SEM/SDM wymaga continuous Y (nie binary)`,
+    );
   }
 
   // probit/logit = not implemented
-  if (['probit', 'logit'].includes(model_type)) {
-    warnings.push(`${model_type.toUpperCase()}: Nie zaimplementowane w R (wybierz inny model)`);
+  if (["probit", "logit"].includes(model_type)) {
+    warnings.push(
+      `${model_type.toUpperCase()}: Nie zaimplementowane w R (wybierz inny model)`,
+    );
   }
 
   // k_range validation
   if (form.k_range_min >= form.k_range_max) {
-    warnings.push('k min musi być mniejsze od k max');
+    warnings.push("k min musi być mniejsze od k max");
   }
 
   // minimum 1 predictor
   if (!form.active_predictors || form.active_predictors.length === 0) {
-    warnings.push('Wybierz co najmniej jeden predyktor');
+    warnings.push("Wybierz co najmniej jeden predyktor");
   }
 
   return warnings;
 }
 
-const API = '/api/research';
+const API = "/api/research";
 
-// ─────────────────────────────────────────────────────────────
 // CONFIG FORM CHOICES (mirrors models_research.py enums)
-// ─────────────────────────────────────────────────────────────
 
 const GEOMETRY_CHOICES = [
-  { value: 'voronoi', label: 'Voronoi tessellation', desc: 'Dokładność lokalizacji' },
-  { value: 'grid_500', label: 'Regular grid 500m (+)', desc: 'Stabilność, szybkość' },
+  {
+    value: "voronoi",
+    label: "Voronoi tessellation",
+    desc: "Dokładność lokalizacji",
+  },
+  {
+    value: "grid_500",
+    label: "Regular grid 500m (+)",
+    desc: "Stabilność, szybkość",
+  },
 ];
 
 const Y_FORMULA_CHOICES = [
-  { value: 'log_count', label: 'log(obserwacje+1) (+)', desc: 'Bezpośrednia miara dzików' },
-  { value: 'inv_pop', label: '1 / populacja', desc: 'Gęstość zaludnienia (odwrotna!)' },
-  { value: 'log_pop', label: 'log(populacja)', desc: 'Normalizacja rozkładu' },
-  { value: 'count_pop', label: 'zliczenia / populacja', desc: 'Prosta interpretacja' },
-  { value: 'binary', label: 'binary (0/1)', desc: 'Dla probit/logit', notImplemented: true },
+  {
+    value: "log_count",
+    label: "log(obserwacje+1) (+)",
+    desc: "Bezpośrednia miara dzików",
+  },
+  {
+    value: "inv_pop",
+    label: "1 / populacja",
+    desc: "Gęstość zaludnienia (odwrotna!)",
+  },
+  { value: "log_pop", label: "log(populacja)", desc: "Normalizacja rozkładu" },
+  {
+    value: "count_pop",
+    label: "zliczenia / populacja",
+    desc: "Prosta interpretacja",
+  },
+  {
+    value: "binary",
+    label: "binary (0/1)",
+    desc: "Dla probit/logit",
+    notImplemented: true,
+  },
 ];
 
 const W_METHOD_CHOICES = [
-  { value: 'knn_aic', label: 'KNN (auto k) (+)', desc: 'Stabilny, bez NAs' },
-  { value: 'contiguity', label: 'Queen contiguity', desc: 'Może mieć NAs dla grid' },
-  { value: 'tessw', label: 'tessW (spatialWarsaw)', desc: 'Wrażliwy na geometrię' },
+  { value: "knn_aic", label: "KNN (auto k) (+)", desc: "Stabilny, bez NAs" },
+  {
+    value: "contiguity",
+    label: "Queen contiguity",
+    desc: "Może mieć NAs dla grid",
+  },
+  {
+    value: "tessw",
+    label: "tessW (spatialWarsaw)",
+    desc: "Wrażliwy na geometrię",
+  },
 ];
 
 const MODEL_TYPE_CHOICES = [
-  { value: 'auto', label: 'Automatyczny (+)', desc: 'Wybiera najlepszy model po AIC' },
-  { value: 'sar', label: 'SAR (Spatial Lag)', desc: 'Autoregresja przestrzenna' },
-  { value: 'sem', label: 'SEM (Spatial Error)', desc: 'Błędy przestrzenne' },
-  { value: 'sdm', label: 'SDM (Spatial Durbin)', desc: 'SAR + lag predyktorów' },
-  { value: 'probit', label: 'Spatial Probit', desc: 'Nie zaimplementowane', notImplemented: true },
-  { value: 'logit', label: 'Spatial Logit', desc: 'Nie zaimplementowane', notImplemented: true },
+  {
+    value: "auto",
+    label: "Automatyczny (+)",
+    desc: "Wybiera najlepszy model po AIC",
+  },
+  {
+    value: "sar",
+    label: "SAR (Spatial Lag)",
+    desc: "Autoregresja przestrzenna",
+  },
+  { value: "sem", label: "SEM (Spatial Error)", desc: "Błędy przestrzenne" },
+  {
+    value: "sdm",
+    label: "SDM (Spatial Durbin)",
+    desc: "SAR + lag predyktorów",
+  },
+  {
+    value: "probit",
+    label: "Spatial Probit",
+    desc: "Nie zaimplementowane",
+    notImplemented: true,
+  },
+  {
+    value: "logit",
+    label: "Spatial Logit",
+    desc: "Nie zaimplementowane",
+    notImplemented: true,
+  },
 ];
 
 const POPULATION_CHOICES = [
-  { value: 'spatial_join', label: 'Spatial join (GUS)', desc: 'Dla grid_500' },
-  { value: 'points', label: 'Point-in-polygon', desc: 'Dla voronoi' },
-  { value: 'centroid', label: 'Centroid lookup', desc: 'Szybki, mniej dokładny' },
+  { value: "spatial_join", label: "Spatial join (GUS)", desc: "Dla grid_500" },
+  { value: "points", label: "Point-in-polygon", desc: "Dla voronoi" },
+  {
+    value: "centroid",
+    label: "Centroid lookup",
+    desc: "Szybki, mniej dokładny",
+  },
 ];
 
 // Merged: regime_type includes 'none' option (no separate checkbox)
 const REGIME_TYPE_CHOICES = [
-  { value: 'none', label: 'Wyłączony', desc: 'Jeden model globalny' },
-  { value: 'trinary', label: 'Trinary (las/miasto/mixed) (+) - Regime switching', desc: 'Każdy typ terenu ma własne współczynniki - oddzielne estymacje wg 3 oddzielnych modeli' },
+  { value: "none", label: "Wyłączony", desc: "Jeden model globalny" },
+  {
+    value: "trinary",
+    label: "Trinary (las/miasto/mixed) (+) - Regime switching",
+    desc: "Każdy typ terenu ma własne współczynniki - oddzielne estymacje wg 3 oddzielnych modeli",
+  },
 ];
 
-
-// ─────────────────────────────────────────────────────────────
 // HELPERS
-// ─────────────────────────────────────────────────────────────
 
 async function apiFetch(path, opts = {}) {
   const res = await fetch(`${API}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    headers: { "Content-Type": "application/json", ...opts.headers },
     ...opts,
   });
   const data = await res.json();
@@ -240,43 +310,50 @@ async function apiFetch(path, opts = {}) {
 
 function StatusBadge({ status }) {
   const colors = {
-    success: 'bg-green-600/30 text-green-400',
-    failed: 'bg-red-600/30 text-red-400',
-    running: 'bg-blue-600/30 text-blue-400',
-    pending: 'bg-yellow-600/30 text-yellow-400',
-    skipped: 'bg-gray-600/30 text-gray-400',
+    success: "bg-green-600/30 text-green-400",
+    failed: "bg-red-600/30 text-red-400",
+    running: "bg-blue-600/30 text-blue-400",
+    pending: "bg-yellow-600/30 text-yellow-400",
+    skipped: "bg-gray-600/30 text-gray-400",
   };
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-mono ${colors[status] || 'bg-gray-600/30 text-gray-400'}`}>
+    <span
+      className={`px-2 py-0.5 rounded text-xs font-mono ${colors[status] || "bg-gray-600/30 text-gray-400"}`}
+    >
       {status}
     </span>
   );
 }
 
 function formatDuration(seconds) {
-  if (seconds == null) return '-';
+  if (seconds == null) return "-";
   if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
   return `${seconds.toFixed(1)}s`;
 }
 
 function formatDate(iso) {
-  if (!iso) return '-';
+  if (!iso) return "-";
   const d = new Date(iso);
-  return d.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString("pl-PL", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Status Overview
-// ─────────────────────────────────────────────────────────────
 
 function StatusSection({ status, onRefresh, researchGeometry }) {
-  if (!status) return <div className="text-gray-500 text-sm">Ładowanie statusu...</div>;
+  if (!status)
+    return <div className="text-gray-500 text-sm">Ładowanie statusu...</div>;
 
-  const geometryLabel = researchGeometry === 'voronoi' ? 'Centroidy voronoi' : 'Grid 500x500m';
+  const geometryLabel =
+    researchGeometry === "voronoi" ? "Centroidy voronoi" : "Grid 500x500m";
 
   // Computed config = last successful run's config
-  const lastSuccessRun = status.last_run?.status === 'success' ? status.last_run : null;
+  const lastSuccessRun =
+    status.last_run?.status === "success" ? status.last_run : null;
   const computedConfigId = lastSuccessRun?.config_id;
   const computedConfigName = lastSuccessRun?.config_name;
 
@@ -285,16 +362,25 @@ function StatusSection({ status, onRefresh, researchGeometry }) {
   const selectedConfigName = status.active_config?.name;
 
   // Check if recalculation is needed
-  const needsRecalculation = selectedConfigId && computedConfigId && selectedConfigId !== computedConfigId;
+  const needsRecalculation =
+    selectedConfigId &&
+    computedConfigId &&
+    selectedConfigId !== computedConfigId;
   const noComputedYet = selectedConfigId && !computedConfigId;
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-gray-800 rounded-lg p-3 col-span-2">
-          <div className="text-xs text-gray-500 mb-1">Aktywna konfiguracja (przeliczona)</div>
+          <div className="text-xs text-gray-500 mb-1">
+            Aktywna konfiguracja (przeliczona)
+          </div>
           <div className="text-sm font-medium text-white truncate">
-            {computedConfigName ? computedConfigName : <span className="text-gray-500">Brak - uruchom pipeline</span>}
+            {computedConfigName ? (
+              computedConfigName
+            ) : (
+              <span className="text-gray-500">Brak - uruchom pipeline</span>
+            )}
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-3">
@@ -309,7 +395,9 @@ function StatusSection({ status, onRefresh, researchGeometry }) {
             {status.last_run ? (
               <span className="flex items-center gap-1.5">
                 <StatusBadge status={status.last_run.status} />
-                <span className="text-gray-400 text-xs">{formatDate(status.last_run.started_at)}</span>
+                <span className="text-gray-400 text-xs">
+                  {formatDate(status.last_run.started_at)}
+                </span>
               </span>
             ) : (
               <span className="text-gray-500">-</span>
@@ -324,7 +412,8 @@ function StatusSection({ status, onRefresh, researchGeometry }) {
           <span className="text-amber-400 text-lg">⚠️</span>
           <div className="flex-1">
             <div className="text-sm text-amber-300 font-medium">
-              Wybrana konfiguracja: <span className="text-white">{selectedConfigName}</span>
+              Wybrana konfiguracja:{" "}
+              <span className="text-white">{selectedConfigName}</span>
             </div>
             <div className="text-xs text-amber-400/80 mt-1">
               Uruchom pipeline, żeby przeliczyć nowy tryb
@@ -336,20 +425,17 @@ function StatusSection({ status, onRefresh, researchGeometry }) {
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Config Form
-// ─────────────────────────────────────────────────────────────
 
 const EMPTY_CONFIG = {
-  name: '',
-  geometry_type: 'grid_500',  // (+) recommended
-  population_method: 'spatial_join',
-  y_formula: 'log_count',  // (+) NEW: direct boar presence measure
-  w_method: 'knn_aic',  // (+) stable
+  name: "",
+  geometry_type: "grid_500", // (+) recommended
+  population_method: "spatial_join",
+  y_formula: "log_count", // (+) NEW: direct boar presence measure
+  w_method: "knn_aic", // (+) stable
   k_range_min: 2,
-  k_range_max: 30,  // (+) optimal range
-  model_type: 'auto',  // (+) AIC selection
+  k_range_max: 30, // (+) optimal range
+  model_type: "auto", // (+) AIC selection
   active_predictors: [],
   run_moran: true,
   run_lm_tests: true,
@@ -360,14 +446,23 @@ const EMPTY_CONFIG = {
   seed: 42,
   // Regime model - enabled by default (+)
   use_regime_model: true,
-  regime_type: 'trinary',  // (+) improves AIC by ~6
-  regime_threshold: 0.3,  // (+) forest threshold
-  regime_threshold_urban: 0.15,  // (+) urban threshold
+  regime_type: "trinary", // (+) improves AIC by ~6
+  regime_threshold: 0.3, // (+) forest threshold
+  regime_threshold_urban: 0.15, // (+) urban threshold
 };
 
-function SelectField({ label, value, onChange, options, disabledValues = [], disabledReasons = {}, warning, showDesc = false }) {
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  disabledValues = [],
+  disabledReasons = {},
+  warning,
+  showDesc = false,
+}) {
   // Find selected option to show its description
-  const selectedOption = options.find(o => o.value === value);
+  const selectedOption = options.find((o) => o.value === value);
 
   return (
     <label className="block">
@@ -376,28 +471,33 @@ function SelectField({ label, value, onChange, options, disabledValues = [], dis
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={`mt-1 block w-full bg-gray-700 border rounded px-2 py-1.5 text-sm text-white focus:outline-none ${
-          warning ? 'border-amber-500/50 focus:border-amber-500' : 'border-gray-600 focus:border-blue-500'
+          warning
+            ? "border-amber-500/50 focus:border-amber-500"
+            : "border-gray-600 focus:border-blue-500"
         }`}
       >
         {options.map((o) => {
-          const isDisabled = disabledValues.includes(o.value) || o.notImplemented;
-          const reason = disabledReasons[o.value] || (o.notImplemented ? 'N/A' : null);
+          const isDisabled =
+            disabledValues.includes(o.value) || o.notImplemented;
+          const reason =
+            disabledReasons[o.value] || (o.notImplemented ? "N/A" : null);
           return (
-            <option
-              key={o.value}
-              value={o.value}
-              disabled={isDisabled}
-            >
-              {o.label}{isDisabled && reason ? ` - ${reason}` : ''}
+            <option key={o.value} value={o.value} disabled={isDisabled}>
+              {o.label}
+              {isDisabled && reason ? ` - ${reason}` : ""}
             </option>
           );
         })}
       </select>
       {/* Show description below select for selected option */}
       {selectedOption?.desc && !warning && (
-        <span className="text-xs text-gray-500 mt-0.5 block">{selectedOption.desc}</span>
+        <span className="text-xs text-gray-500 mt-0.5 block">
+          {selectedOption.desc}
+        </span>
       )}
-      {warning && <span className="text-xs text-amber-400 mt-0.5 block">{warning}</span>}
+      {warning && (
+        <span className="text-xs text-amber-400 mt-0.5 block">{warning}</span>
+      )}
     </label>
   );
 }
@@ -415,7 +515,9 @@ function NumberField({ label, value, onChange, min, max, step, hint }) {
         onChange={(e) => onChange(Number(e.target.value))}
         className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:border-blue-500 focus:outline-none"
       />
-      {hint && <span className="text-xs text-slate-500 mt-0.5 block">{hint}</span>}
+      {hint && (
+        <span className="text-xs text-slate-500 mt-0.5 block">{hint}</span>
+      )}
     </label>
   );
 }
@@ -423,7 +525,7 @@ function NumberField({ label, value, onChange, min, max, step, hint }) {
 function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
   const [form, setForm] = useState(config || { ...EMPTY_CONFIG });
   const [error, setError] = useState(null);
-  const [selectedPreset, setSelectedPreset] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState("");
   const [presetModified, setPresetModified] = useState(false);
   const isEdit = !!config?.id;
 
@@ -450,7 +552,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
     setForm((prev) => ({
       ...prev,
       ...preset.config,
-      name: prev.name || '', // Keep existing name
+      name: prev.name || "", // Keep existing name
     }));
   };
 
@@ -463,9 +565,9 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
 
   // Compute which Y formula options are invalid for current geometry
   const disabledYFormulas = useMemo(() => {
-    const disabled = ['binary']; // Always disabled - no probit/logit implemented
-    if (form.geometry_type === 'voronoi') {
-      disabled.push('log_count'); // Voronoi 1:1 → log(1+1)=0.693 always
+    const disabled = ["binary"]; // Always disabled - no probit/logit implemented
+    if (form.geometry_type === "voronoi") {
+      disabled.push("log_count"); // Voronoi 1:1 → log(1+1)=0.693 always
       // count_pop OK: Y = 1/population ma wariancję (population różna per komórka)
     }
     return disabled;
@@ -474,18 +576,18 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
   // Reasons for disabled Y formulas
   const disabledYReasons = useMemo(() => {
     const reasons = {
-      binary: 'brak probit/logit',
+      binary: "brak probit/logit",
     };
-    if (form.geometry_type === 'voronoi') {
-      reasons.log_count = 'Voronoi 1:1';
+    if (form.geometry_type === "voronoi") {
+      reasons.log_count = "Voronoi 1:1";
     }
     return reasons;
   }, [form.geometry_type]);
 
   // Compute which model types are invalid for current Y formula
   const disabledModelTypes = useMemo(() => {
-    if (form.y_formula === 'binary') {
-      return ['sar', 'sem', 'sdm'];
+    if (form.y_formula === "binary") {
+      return ["sar", "sem", "sdm"];
     }
     return [];
   }, [form.y_formula]);
@@ -493,13 +595,13 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
   // Reasons for disabled model types
   const disabledModelReasons = useMemo(() => {
     const reasons = {
-      probit: 'nie zaimplementowane',
-      logit: 'nie zaimplementowane',
+      probit: "nie zaimplementowane",
+      logit: "nie zaimplementowane",
     };
-    if (form.y_formula === 'binary') {
-      reasons.sar = 'wymaga continuous Y';
-      reasons.sem = 'wymaga continuous Y';
-      reasons.sdm = 'wymaga continuous Y';
+    if (form.y_formula === "binary") {
+      reasons.sar = "wymaga continuous Y";
+      reasons.sem = "wymaga continuous Y";
+      reasons.sdm = "wymaga continuous Y";
     }
     return reasons;
   }, [form.y_formula]);
@@ -513,27 +615,27 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
 
   // Dynamic W method descriptions based on geometry
   const wMethodChoices = useMemo(() => {
-    const base = W_METHOD_CHOICES.map(c => ({ ...c }));
-    if (form.geometry_type === 'grid_500') {
+    const base = W_METHOD_CHOICES.map((c) => ({ ...c }));
+    if (form.geometry_type === "grid_500") {
       // Add warning for contiguity/tessw with grid
-      const contiguity = base.find(c => c.value === 'contiguity');
-      const tessw = base.find(c => c.value === 'tessw');
-      if (contiguity) contiguity.desc = '1 wyspa w grid_500 (NAs)';
-      if (tessw) tessw.desc = '1 wyspa + krótkie granice';
+      const contiguity = base.find((c) => c.value === "contiguity");
+      const tessw = base.find((c) => c.value === "tessw");
+      if (contiguity) contiguity.desc = "1 wyspa w grid_500 (NAs)";
+      if (tessw) tessw.desc = "1 wyspa + krótkie granice";
     }
     return base;
   }, [form.geometry_type]);
 
   // Dynamic population method based on geometry
   const populationChoices = useMemo(() => {
-    return POPULATION_CHOICES.map(c => {
+    return POPULATION_CHOICES.map((c) => {
       const copy = { ...c };
-      if (form.geometry_type === 'voronoi') {
-        if (c.value === 'spatial_join') copy.desc = 'Wolniejszy dla Voronoi';
-        if (c.value === 'points') copy.desc = 'Optymalny dla Voronoi (+)';
+      if (form.geometry_type === "voronoi") {
+        if (c.value === "spatial_join") copy.desc = "Wolniejszy dla Voronoi";
+        if (c.value === "points") copy.desc = "Optymalny dla Voronoi (+)";
       } else {
-        if (c.value === 'spatial_join') copy.desc = 'Optymalny dla grid (+)';
-        if (c.value === 'points') copy.desc = 'Dla Voronoi';
+        if (c.value === "spatial_join") copy.desc = "Optymalny dla grid (+)";
+        if (c.value === "points") copy.desc = "Dla Voronoi";
       }
       return copy;
     });
@@ -563,8 +665,15 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
   return (
     <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">{isEdit ? `Edycja: ${form.name}` : 'Nowa konfiguracja'}</h3>
-        <button onClick={onCancel} className="text-gray-400 hover:text-white text-sm">Anuluj</button>
+        <h3 className="text-sm font-semibold text-white">
+          {isEdit ? `Edycja: ${form.name}` : "Nowa konfiguracja"}
+        </h3>
+        <button
+          onClick={onCancel}
+          className="text-gray-400 hover:text-white text-sm"
+        >
+          Anuluj
+        </button>
       </div>
 
       {/* Preset selector - only for new configs */}
@@ -574,7 +683,9 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
             <span className="text-xs text-gray-400 flex items-center gap-2">
               Preset
               {selectedPreset && presetModified && (
-                <span className="text-amber-400 text-[10px]">(zmodyfikowany)</span>
+                <span className="text-amber-400 text-[10px]">
+                  (zmodyfikowany)
+                </span>
               )}
             </span>
             <select
@@ -587,7 +698,8 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
                 <optgroup key={group.id} label={group.label}>
                   {(presetsByGroup[group.id] || []).map((preset) => (
                     <option key={preset.id} value={preset.id}>
-                      {preset.recommended ? '★ ' : ''}{preset.name}
+                      {preset.recommended ? "★ " : ""}
+                      {preset.name}
                     </option>
                   ))}
                 </optgroup>
@@ -609,69 +721,127 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           <input
             type="text"
             value={form.name}
-            onChange={(e) => set('name')(e.target.value)}
+            onChange={(e) => set("name")(e.target.value)}
             placeholder="np. test_voronoi_v1"
             className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:border-blue-500 focus:outline-none"
           />
-          <span className="text-xs text-slate-500 mt-0.5 block">{PARAM_HINTS.name}</span>
+          <span className="text-xs text-slate-500 mt-0.5 block">
+            {PARAM_HINTS.name}
+          </span>
         </label>
       )}
 
       {/* Main dropdowns - 2 column grid */}
       <div className="grid grid-cols-2 gap-3">
-        <SelectField label="Geometria" value={form.geometry_type} onChange={set('geometry_type')} options={GEOMETRY_CHOICES} />
-        <SelectField label="Populacja" value={form.population_method} onChange={set('population_method')} options={populationChoices} />
+        <SelectField
+          label="Geometria"
+          value={form.geometry_type}
+          onChange={set("geometry_type")}
+          options={GEOMETRY_CHOICES}
+        />
+        <SelectField
+          label="Populacja"
+          value={form.population_method}
+          onChange={set("population_method")}
+          options={populationChoices}
+        />
         <SelectField
           label="Zmienna Y"
           value={form.y_formula}
-          onChange={set('y_formula')}
+          onChange={set("y_formula")}
           options={Y_FORMULA_CHOICES}
           disabledValues={disabledYFormulas}
           disabledReasons={disabledYReasons}
-          warning={disabledYFormulas.includes(form.y_formula) ? 'Nieprawidłowe dla Voronoi' : null}
+          warning={
+            disabledYFormulas.includes(form.y_formula)
+              ? "Nieprawidłowe dla Voronoi"
+              : null
+          }
         />
         <SelectField
           label="Model"
           value={form.model_type}
-          onChange={set('model_type')}
+          onChange={set("model_type")}
           options={MODEL_TYPE_CHOICES}
           disabledValues={disabledModelTypes}
           disabledReasons={disabledModelReasons}
           warning={
-            disabledModelTypes.includes(form.model_type) ? 'Wymaga continuous Y' :
-            ['probit', 'logit'].includes(form.model_type) ? 'Nie zaimplementowane' : null
+            disabledModelTypes.includes(form.model_type)
+              ? "Wymaga continuous Y"
+              : ["probit", "logit"].includes(form.model_type)
+                ? "Nie zaimplementowane"
+                : null
           }
         />
         <SelectField
           label="Macierz W"
           value={form.w_method}
-          onChange={set('w_method')}
+          onChange={set("w_method")}
           options={wMethodChoices}
           warning={
-            form.geometry_type === 'grid_500' && ['contiguity', 'tessw'].includes(form.w_method)
-              ? 'Może mieć NAs dla grid_500'
+            form.geometry_type === "grid_500" &&
+            ["contiguity", "tessw"].includes(form.w_method)
+              ? "Może mieć NAs dla grid_500"
               : null
           }
         />
-        <NumberField label="Seed" value={form.seed} onChange={set('seed')} min={1} hint={PARAM_HINTS.seed} />
+        <NumberField
+          label="Seed"
+          value={form.seed}
+          onChange={set("seed")}
+          min={1}
+          hint={PARAM_HINTS.seed}
+        />
       </div>
 
       {/* K range */}
       <div className="grid grid-cols-2 gap-3">
-        <NumberField label="k_range_min" value={form.k_range_min} onChange={set('k_range_min')} min={1} max={100} hint={PARAM_HINTS.k_range_min} />
-        <NumberField label="k_range_max" value={form.k_range_max} onChange={set('k_range_max')} min={2} max={200} hint={PARAM_HINTS.k_range_max} />
+        <NumberField
+          label="k_range_min"
+          value={form.k_range_min}
+          onChange={set("k_range_min")}
+          min={1}
+          max={100}
+          hint={PARAM_HINTS.k_range_min}
+        />
+        <NumberField
+          label="k_range_max"
+          value={form.k_range_max}
+          onChange={set("k_range_max")}
+          min={2}
+          max={200}
+          hint={PARAM_HINTS.k_range_max}
+        />
       </div>
 
       {/* Thresholds */}
       <div className="grid grid-cols-2 gap-3">
-        <NumberField label="VIF threshold" value={form.vif_threshold} onChange={set('vif_threshold')} min={1} max={100} step={0.5} hint={PARAM_HINTS.vif_threshold} />
-        <NumberField label="Alpha (α)" value={form.alpha} onChange={set('alpha')} min={0.001} max={0.5} step={0.01} hint={PARAM_HINTS.alpha} />
+        <NumberField
+          label="VIF threshold"
+          value={form.vif_threshold}
+          onChange={set("vif_threshold")}
+          min={1}
+          max={100}
+          step={0.5}
+          hint={PARAM_HINTS.vif_threshold}
+        />
+        <NumberField
+          label="Alpha (α)"
+          value={form.alpha}
+          onChange={set("alpha")}
+          min={0.001}
+          max={0.5}
+          step={0.01}
+          hint={PARAM_HINTS.alpha}
+        />
       </div>
 
       {/* OSM predictors */}
       <div>
         <span className="text-xs text-gray-400 block mb-1">Predyktory OSM</span>
-        <span className="text-xs text-slate-500 block mb-2">{PARAM_HINTS.predictors}</span>
+        <span className="text-xs text-slate-500 block mb-2">
+          {PARAM_HINTS.predictors}
+        </span>
         <div className="flex flex-wrap gap-1.5">
           {(availablePredictors || []).map((p) => {
             const active = (form.active_predictors || []).includes(p);
@@ -681,8 +851,8 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
                 onClick={() => togglePredictor(p)}
                 className={`px-2 py-1 rounded text-xs transition-colors ${
                   active
-                    ? 'bg-blue-600/40 text-blue-300 border border-blue-500/50'
-                    : 'bg-gray-700 text-gray-400 border border-gray-600 hover:text-white'
+                    ? "bg-blue-600/40 text-blue-300 border border-blue-500/50"
+                    : "bg-gray-700 text-gray-400 border border-gray-600 hover:text-white"
                 }`}
               >
                 {p}
@@ -695,25 +865,52 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
       {/* Diagnostics toggles */}
       <div>
         <span className="text-xs text-gray-400 block mb-1">Diagnostyka</span>
-        <span className="text-xs text-slate-500 block mb-2">Testy statystyczne wykonywane po estymacji modelu.</span>
+        <span className="text-xs text-slate-500 block mb-2">
+          Testy statystyczne wykonywane po estymacji modelu.
+        </span>
         <div className="grid grid-cols-2 gap-2">
           {[
-            { key: 'run_moran', label: "Moran's I", desc: PARAM_HINTS.run_moran, implemented: true },
-            { key: 'run_lm_tests', label: 'Testy LM', desc: PARAM_HINTS.run_lm_tests, implemented: true },
-            { key: 'run_lisa', label: 'LISA', desc: PARAM_HINTS.run_lisa, implemented: false },
-            { key: 'run_eta', label: 'ETA', desc: PARAM_HINTS.run_eta, implemented: true, voronoiOnly: true },
+            {
+              key: "run_moran",
+              label: "Moran's I",
+              desc: PARAM_HINTS.run_moran,
+              implemented: true,
+            },
+            {
+              key: "run_lm_tests",
+              label: "Testy LM",
+              desc: PARAM_HINTS.run_lm_tests,
+              implemented: true,
+            },
+            {
+              key: "run_lisa",
+              label: "LISA",
+              desc: PARAM_HINTS.run_lisa,
+              implemented: false,
+            },
+            {
+              key: "run_eta",
+              label: "ETA",
+              desc: PARAM_HINTS.run_eta,
+              implemented: true,
+              voronoiOnly: true,
+            },
           ].map(({ key, label, desc, implemented, voronoiOnly }) => {
-            const isVoronoi = form.geometry_type === 'voronoi';
+            const isVoronoi = form.geometry_type === "voronoi";
             const isDisabled = !implemented || (voronoiOnly && !isVoronoi);
-            const disabledReason = !implemented ? '(N/A)' : (voronoiOnly && !isVoronoi) ? '(tylko Voronoi)' : null;
+            const disabledReason = !implemented
+              ? "(N/A)"
+              : voronoiOnly && !isVoronoi
+                ? "(tylko Voronoi)"
+                : null;
 
             return (
               <label
                 key={key}
                 className={`flex flex-col p-2 rounded border ${
                   !isDisabled
-                    ? 'border-gray-600 bg-gray-800/50 cursor-pointer hover:border-gray-500'
-                    : 'border-gray-700 bg-gray-900/30 cursor-not-allowed opacity-60'
+                    ? "border-gray-600 bg-gray-800/50 cursor-pointer hover:border-gray-500"
+                    : "border-gray-700 bg-gray-900/30 cursor-not-allowed opacity-60"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -723,15 +920,25 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
                     onChange={() => !isDisabled && set(key)(!form[key])}
                     disabled={isDisabled}
                     className={`rounded bg-gray-700 border-gray-600 focus:ring-0 ${
-                      !isDisabled ? 'text-blue-500' : 'text-gray-600 cursor-not-allowed'
+                      !isDisabled
+                        ? "text-blue-500"
+                        : "text-gray-600 cursor-not-allowed"
                     }`}
                   />
-                  <span className={`text-xs font-medium ${!isDisabled ? 'text-gray-200' : 'text-gray-500'}`}>
+                  <span
+                    className={`text-xs font-medium ${!isDisabled ? "text-gray-200" : "text-gray-500"}`}
+                  >
                     {label}
-                    {disabledReason && <span className="text-gray-600 ml-1">{disabledReason}</span>}
+                    {disabledReason && (
+                      <span className="text-gray-600 ml-1">
+                        {disabledReason}
+                      </span>
+                    )}
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-500 mt-1 ml-5">{desc}</span>
+                <span className="text-[10px] text-slate-500 mt-1 ml-5">
+                  {desc}
+                </span>
               </label>
             );
           })}
@@ -746,23 +953,23 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
             label="Rezim przestrzenny"
             value={form.regime_type}
             onChange={(val) => {
-              set('regime_type')(val);
+              set("regime_type")(val);
               // Auto-sync use_regime_model based on regime_type
-              set('use_regime_model')(val !== 'none');
+              set("use_regime_model")(val !== "none");
             }}
             options={REGIME_TYPE_CHOICES}
           />
         </div>
 
         {/* Interactive threshold sliders with histograms */}
-        {form.regime_type !== 'none' && (
+        {form.regime_type !== "none" && (
           <RegimeThresholdControl
             forestThreshold={form.regime_threshold}
             urbanThreshold={form.regime_threshold_urban}
-            onForestChange={set('regime_threshold')}
-            onUrbanChange={set('regime_threshold_urban')}
+            onForestChange={set("regime_threshold")}
+            onUrbanChange={set("regime_threshold_urban")}
             geometryType={form.geometry_type}
-            disabled={form.regime_type === 'none'}
+            disabled={form.regime_type === "none"}
           />
         )}
       </div>
@@ -772,37 +979,56 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
         <div className="text-amber-400 text-xs bg-amber-900/20 border border-amber-700/30 rounded p-2 space-y-1">
           <div className="font-medium">Nieprawidłowa kombinacja:</div>
           {warnings.map((w, i) => (
-            <div key={i} className="pl-2">- {w}</div>
+            <div key={i} className="pl-2">
+              - {w}
+            </div>
           ))}
         </div>
       )}
 
-      {error && <div className="text-red-400 text-xs bg-red-900/20 rounded p-2">{error}</div>}
+      {error && (
+        <div className="text-red-400 text-xs bg-red-900/20 rounded p-2">
+          {error}
+        </div>
+      )}
 
       <button
         onClick={handleSubmit}
         disabled={saving || hasWarnings}
         className={`w-full py-2 rounded text-white text-sm font-medium transition-colors ${
           hasWarnings
-            ? 'bg-gray-600 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-500 disabled:opacity-50'
+            ? "bg-gray-600 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-500 disabled:opacity-50"
         }`}
-        title={hasWarnings ? 'Napraw ostrzeżenia przed zapisaniem' : undefined}
+        title={hasWarnings ? "Napraw ostrzeżenia przed zapisaniem" : undefined}
       >
-        {saving ? 'Zapisywanie...' : hasWarnings ? 'Napraw ostrzeżenia' : isEdit ? 'Zapisz zmiany' : 'Utwórz konfigurację'}
+        {saving
+          ? "Zapisywanie..."
+          : hasWarnings
+            ? "Napraw ostrzeżenia"
+            : isEdit
+              ? "Zapisz zmiany"
+              : "Utwórz konfigurację"}
       </button>
     </div>
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Config List
-// ─────────────────────────────────────────────────────────────
 
-function ConfigList({ configs, activeConfigId, onActivate, onEdit, activating }) {
+function ConfigList({
+  configs,
+  activeConfigId,
+  onActivate,
+  onEdit,
+  activating,
+}) {
   if (!configs || configs.length === 0) {
-    return <div className="text-gray-500 text-sm">Brak konfiguracji. Utwórz pierwszą.</div>;
+    return (
+      <div className="text-gray-500 text-sm">
+        Brak konfiguracji. Utwórz pierwszą.
+      </div>
+    );
   }
 
   return (
@@ -812,15 +1038,19 @@ function ConfigList({ configs, activeConfigId, onActivate, onEdit, activating })
           key={c.id}
           className={`flex items-center gap-2 p-2.5 rounded-lg border transition-colors ${
             c.is_active
-              ? 'bg-green-900/20 border-green-700/50'
-              : 'bg-gray-800/50 border-gray-700/50 hover:bg-gray-800'
+              ? "bg-green-900/20 border-green-700/50"
+              : "bg-gray-800/50 border-gray-700/50 hover:bg-gray-800"
           }`}
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-white truncate">{c.name}</span>
+              <span className="text-sm font-medium text-white truncate">
+                {c.name}
+              </span>
               {c.is_active && (
-                <span className="text-xs bg-green-600/30 text-green-400 px-1.5 py-0.5 rounded">aktywna</span>
+                <span className="text-xs bg-green-600/30 text-green-400 px-1.5 py-0.5 rounded">
+                  aktywna
+                </span>
               )}
             </div>
             <div className="text-xs text-gray-500 mt-0.5">
@@ -850,12 +1080,16 @@ function ConfigList({ configs, activeConfigId, onActivate, onEdit, activating })
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Run Button + Progress
-// ─────────────────────────────────────────────────────────────
 
-function RunSection({ hasActiveConfig, onRun, runResult, isRunning, wsProgress, currentRunId }) {
+function RunSection({
+  hasActiveConfig,
+  onRun,
+  runResult,
+  isRunning,
+  wsProgress,
+  currentRunId,
+}) {
   return (
     <div className="space-y-3">
       <button
@@ -863,10 +1097,10 @@ function RunSection({ hasActiveConfig, onRun, runResult, isRunning, wsProgress, 
         disabled={!hasActiveConfig || isRunning}
         className={`w-full py-3 rounded-lg font-medium text-sm transition-colors ${
           isRunning
-            ? 'bg-blue-800 text-blue-300 cursor-wait'
+            ? "bg-blue-800 text-blue-300 cursor-wait"
             : hasActiveConfig
-              ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+              : "bg-gray-700 text-gray-500 cursor-not-allowed"
         }`}
       >
         {isRunning ? (
@@ -875,44 +1109,39 @@ function RunSection({ hasActiveConfig, onRun, runResult, isRunning, wsProgress, 
             Pipeline uruchomiony...
           </span>
         ) : hasActiveConfig ? (
-          'Uruchom pipeline'
+          "Uruchom pipeline"
         ) : (
-          'Brak aktywnej konfiguracji'
+          "Brak aktywnej konfiguracji"
         )}
       </button>
 
       {/* Live WebSocket progress */}
-      {isRunning && currentRunId && (
-        <LiveStepsProgress progress={wsProgress} />
-      )}
+      {isRunning && currentRunId && <LiveStepsProgress progress={wsProgress} />}
 
       {/* Step results (after completion) */}
-      {!isRunning && runResult && runResult.status !== 'running' && (
+      {!isRunning && runResult && runResult.status !== "running" && (
         <RunStepsList run={runResult} />
       )}
     </div>
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Step List (reused for live run + history)
-// ─────────────────────────────────────────────────────────────
 
 function RunStepsList({ run }) {
   const [expandedStep, setExpandedStep] = useState(null);
 
   const statusIcon = {
-    success: '✓',
-    failed: '✗',
-    skipped: '−',
-    running: '…',
+    success: "✓",
+    failed: "✗",
+    skipped: "−",
+    running: "…",
   };
   const statusColor = {
-    success: 'text-green-400',
-    failed: 'text-red-400',
-    skipped: 'text-gray-500',
-    running: 'text-blue-400',
+    success: "text-green-400",
+    failed: "text-red-400",
+    skipped: "text-gray-500",
+    running: "text-blue-400",
   };
 
   return (
@@ -925,7 +1154,9 @@ function RunStepsList({ run }) {
             {run.n_sightings != null && <span>{run.n_sightings} obs</span>}
           </span>
         </div>
-        <span className="text-xs text-gray-500">{formatDate(run.started_at)}</span>
+        <span className="text-xs text-gray-500">
+          {formatDate(run.started_at)}
+        </span>
       </div>
 
       {run.error_message && (
@@ -937,43 +1168,56 @@ function RunStepsList({ run }) {
       {(run.steps || []).map((step) => (
         <div key={step.step_order}>
           <button
-            onClick={() => setExpandedStep(expandedStep === step.step_order ? null : step.step_order)}
+            onClick={() =>
+              setExpandedStep(
+                expandedStep === step.step_order ? null : step.step_order,
+              )
+            }
             className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-700/50 transition-colors"
           >
-            <span className="w-4 text-center font-mono text-gray-600">{step.step_order}</span>
-            <span className={`w-4 text-center ${statusColor[step.status] || ''}`}>
-              {statusIcon[step.status] || '?'}
+            <span className="w-4 text-center font-mono text-gray-600">
+              {step.step_order}
             </span>
-            <span className="flex-1 text-left text-gray-300 font-mono">{step.step_name}</span>
-            <span className="text-gray-500">{formatDuration(step.duration_seconds)}</span>
+            <span
+              className={`w-4 text-center ${statusColor[step.status] || ""}`}
+            >
+              {statusIcon[step.status] || "?"}
+            </span>
+            <span className="flex-1 text-left text-gray-300 font-mono">
+              {step.step_name}
+            </span>
+            <span className="text-gray-500">
+              {formatDuration(step.duration_seconds)}
+            </span>
             {step.exit_code != null && step.exit_code !== 0 && (
               <span className="text-red-400">exit={step.exit_code}</span>
             )}
           </button>
 
           <AnimatePresence>
-            {expandedStep === step.step_order && (step.stdout || step.stderr) && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="overflow-hidden"
-              >
-                <div className="px-3 pb-2 ml-8">
-                  {step.stdout && (
-                    <pre className="text-xs text-gray-400 bg-gray-950 rounded p-2 overflow-x-auto max-h-32 overflow-y-auto font-mono">
-                      {step.stdout}
-                    </pre>
-                  )}
-                  {step.stderr && (
-                    <pre className="text-xs text-red-400/80 bg-red-950/30 rounded p-2 mt-1 overflow-x-auto max-h-32 overflow-y-auto font-mono">
-                      {step.stderr}
-                    </pre>
-                  )}
-                </div>
-              </motion.div>
-            )}
+            {expandedStep === step.step_order &&
+              (step.stdout || step.stderr) && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-3 pb-2 ml-8">
+                    {step.stdout && (
+                      <pre className="text-xs text-gray-400 bg-gray-950 rounded p-2 overflow-x-auto max-h-32 overflow-y-auto font-mono">
+                        {step.stdout}
+                      </pre>
+                    )}
+                    {step.stderr && (
+                      <pre className="text-xs text-red-400/80 bg-red-950/30 rounded p-2 mt-1 overflow-x-auto max-h-32 overflow-y-auto font-mono">
+                        {step.stderr}
+                      </pre>
+                    )}
+                  </div>
+                </motion.div>
+              )}
           </AnimatePresence>
         </div>
       ))}
@@ -981,23 +1225,23 @@ function RunStepsList({ run }) {
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SIMPLE VIEW (dla laików)
-// ─────────────────────────────────────────────────────────────
 
 function SimpleView({ diagnostics, configSnapshot }) {
   const model = diagnostics?.model || {};
   const coefficients = model.coefficients || {};
-  const isVoronoi = configSnapshot?.geometry_type === 'voronoi';
+  const isVoronoi = configSnapshot?.geometry_type === "voronoi";
 
   // Filtruj tylko predyktory (bez Intercept)
-  const predictors = Object.entries(coefficients).filter(([name]) => name !== '(Intercept)');
+  const predictors = Object.entries(coefficients).filter(
+    ([name]) => name !== "(Intercept)",
+  );
 
   // Znajdź max dla paska siły
-  const maxEstimate = predictors.length > 0
-    ? Math.max(...predictors.map(([, c]) => Math.abs(c.estimate)))
-    : 1;
+  const maxEstimate =
+    predictors.length > 0
+      ? Math.max(...predictors.map(([, c]) => Math.abs(c.estimate)))
+      : 1;
 
   // Sortuj: najpierw istotne (p < 0.05), potem po sile wpływu
   const sorted = [...predictors].sort((a, b) => {
@@ -1012,7 +1256,10 @@ function SimpleView({ diagnostics, configSnapshot }) {
       {/* MODEL INFO */}
       <div className="text-xs">
         <span className="bg-gray-800 px-2 py-1 rounded text-gray-300">
-          Model: <span className="text-white font-medium">{model.selected?.toUpperCase() || '?'}</span>
+          Model:{" "}
+          <span className="text-white font-medium">
+            {model.selected?.toUpperCase() || "?"}
+          </span>
         </span>
       </div>
 
@@ -1022,9 +1269,15 @@ function SimpleView({ diagnostics, configSnapshot }) {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-gray-700 bg-gray-800/80">
-                <th className="text-left px-3 py-2 text-gray-400 font-medium">Czynnik</th>
-                <th className="text-left px-3 py-2 text-gray-400 font-medium w-28">Siła</th>
-                <th className="text-center px-3 py-2 text-gray-400 font-medium">Wpływ</th>
+                <th className="text-left px-3 py-2 text-gray-400 font-medium">
+                  Czynnik
+                </th>
+                <th className="text-left px-3 py-2 text-gray-400 font-medium w-28">
+                  Siła
+                </th>
+                <th className="text-center px-3 py-2 text-gray-400 font-medium">
+                  Wpływ
+                </th>
                 <th className="text-center px-2 py-2 text-gray-400 font-medium w-8"></th>
               </tr>
             </thead>
@@ -1032,29 +1285,44 @@ function SimpleView({ diagnostics, configSnapshot }) {
               {sorted.map(([name, coef]) => {
                 const isSignificant = coef.p < 0.05;
                 const isPositive = coef.estimate > 0;
-                const displayName = FACTOR_NAMES[name] || name.replace('_z', '');
-                const icon = FACTOR_ICONS[name] || '';
-                const strength = Math.round((Math.abs(coef.estimate) / maxEstimate) * 100);
-                const barColor = isPositive ? 'bg-red-500' : 'bg-green-500';
+                const displayName =
+                  FACTOR_NAMES[name] || name.replace("_z", "");
+                const icon = FACTOR_ICONS[name] || "";
+                const strength = Math.round(
+                  (Math.abs(coef.estimate) / maxEstimate) * 100,
+                );
+                const barColor = isPositive ? "bg-red-500" : "bg-green-500";
 
                 return (
-                  <tr key={name} className="border-b border-gray-700/50 last:border-0">
+                  <tr
+                    key={name}
+                    className="border-b border-gray-700/50 last:border-0"
+                  >
                     <td className="px-3 py-2 text-gray-200">
                       {icon && <span className="mr-1.5">{icon}</span>}
                       {displayName}
                     </td>
                     <td className="px-3 py-2">
                       <div className="w-20 h-2 bg-gray-700 rounded overflow-hidden">
-                        <div className={`h-full ${barColor}`} style={{ width: `${strength}%` }} />
+                        <div
+                          className={`h-full ${barColor}`}
+                          style={{ width: `${strength}%` }}
+                        />
                       </div>
                     </td>
                     <td className="text-center px-3 py-2">
-                      <span className={isPositive ? 'text-red-400' : 'text-green-400'}>
-                        {isPositive ? '↑ zwiększa' : '↓ zmniejsza'}
+                      <span
+                        className={
+                          isPositive ? "text-red-400" : "text-green-400"
+                        }
+                      >
+                        {isPositive ? "↑ zwiększa" : "↓ zmniejsza"}
                       </span>
                     </td>
                     <td className="text-center px-2 py-2">
-                      {isSignificant && <span className="text-yellow-400">✓</span>}
+                      {isSignificant && (
+                        <span className="text-yellow-400">✓</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -1072,53 +1340,61 @@ function SimpleView({ diagnostics, configSnapshot }) {
       {isVoronoi && diagnostics?.eta?.h_rel != null ? (
         <div className="flex items-center gap-2 text-xs bg-gray-800 rounded-lg p-2">
           <span className="text-gray-400">Skupienie punktów:</span>
-          <span className={`font-medium ${
-            diagnostics.eta.h_rel > 0.9 ? 'text-green-400' :
-            diagnostics.eta.h_rel > 0.7 ? 'text-yellow-400' :
-            'text-red-400'
-          }`}>
-            {diagnostics.eta.h_rel > 0.9 ? 'Równomierne' :
-             diagnostics.eta.h_rel > 0.7 ? 'Umiarkowane skupienie' :
-             'Silne skupienie (klastry)'}
+          <span
+            className={`font-medium ${
+              diagnostics.eta.h_rel > 0.9
+                ? "text-green-400"
+                : diagnostics.eta.h_rel > 0.7
+                  ? "text-yellow-400"
+                  : "text-red-400"
+            }`}
+          >
+            {diagnostics.eta.h_rel > 0.9
+              ? "Równomierne"
+              : diagnostics.eta.h_rel > 0.7
+                ? "Umiarkowane skupienie"
+                : "Silne skupienie (klastry)"}
           </span>
           <span className="text-gray-600 ml-auto">
             ETA={diagnostics.eta.h_rel?.toFixed(2)}
           </span>
         </div>
-      ) : !isVoronoi && (
-        <div className="flex items-center gap-2 text-xs bg-gray-800/50 rounded-lg p-2 opacity-50">
-          <span className="text-gray-500">Skupienie punktów:</span>
-          <span className="text-gray-500 italic">n/d (tylko Voronoi)</span>
-        </div>
+      ) : (
+        !isVoronoi && (
+          <div className="flex items-center gap-2 text-xs bg-gray-800/50 rounded-lg p-2 opacity-50">
+            <span className="text-gray-500">Skupienie punktów:</span>
+            <span className="text-gray-500 italic">n/d (tylko Voronoi)</span>
+          </div>
+        )
       )}
 
       {/* LEGENDA */}
       <div className="text-[10px] text-gray-500 flex gap-4">
-        <span><span className="text-yellow-400">✓</span> = statystycznie istotny (p &lt; 0.05)</span>
+        <span>
+          <span className="text-yellow-400">✓</span> = statystycznie istotny (p
+          &lt; 0.05)
+        </span>
       </div>
     </div>
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // FULL DEBUG VIEW (interactive steps with expandable stdout/stderr)
-// ─────────────────────────────────────────────────────────────
 
 function FullDebugView({ diagnostics, steps, configSnapshot }) {
   const [expandedStep, setExpandedStep] = useState(null);
 
   const statusIcon = {
-    success: '✓',
-    failed: '✗',
-    skipped: '−',
-    running: '…',
+    success: "✓",
+    failed: "✗",
+    skipped: "−",
+    running: "…",
   };
   const statusColor = {
-    success: 'text-green-400',
-    failed: 'text-red-400',
-    skipped: 'text-gray-500',
-    running: 'text-blue-400',
+    success: "text-green-400",
+    failed: "text-red-400",
+    skipped: "text-gray-500",
+    running: "text-blue-400",
   };
 
   return (
@@ -1127,11 +1403,18 @@ function FullDebugView({ diagnostics, steps, configSnapshot }) {
       <div className="bg-gray-800 p-3 rounded text-xs">
         <h4 className="font-medium text-gray-300 mb-2">Debug info</h4>
         <ul className="space-y-1 text-gray-400">
-          <li>LISA HH: {diagnostics?.lisa?.hh ?? 'brak danych'}</li>
-          <li>LISA LL: {diagnostics?.lisa?.ll ?? 'brak danych'}</li>
-          <li>VIF: {diagnostics?.vif?.results ? 'dostępne' : 'brak danych'}</li>
-          <li>k_selected: {diagnostics?.w_metrics?.k_selected ?? 'brak danych'}</li>
-          <li>impacts: {diagnostics?.impacts ? `TAK (${Object.keys(diagnostics.impacts.direct || {}).length} predyktorów)` : 'NIE (SEM/OLS lub brak danych)'}</li>
+          <li>LISA HH: {diagnostics?.lisa?.hh ?? "brak danych"}</li>
+          <li>LISA LL: {diagnostics?.lisa?.ll ?? "brak danych"}</li>
+          <li>VIF: {diagnostics?.vif?.results ? "dostępne" : "brak danych"}</li>
+          <li>
+            k_selected: {diagnostics?.w_metrics?.k_selected ?? "brak danych"}
+          </li>
+          <li>
+            impacts:{" "}
+            {diagnostics?.impacts
+              ? `TAK (${Object.keys(diagnostics.impacts.direct || {}).length} predyktorów)`
+              : "NIE (SEM/OLS lub brak danych)"}
+          </li>
         </ul>
       </div>
 
@@ -1140,13 +1423,20 @@ function FullDebugView({ diagnostics, steps, configSnapshot }) {
         <h4 className="font-medium text-gray-300 mb-2">Macierz W</h4>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-400">
           <span>Metoda:</span>
-          <span className="text-white">{configSnapshot?.w_method || '?'}</span>
+          <span className="text-white">{configSnapshot?.w_method || "?"}</span>
           <span>Zakres k:</span>
-          <span className="text-white">{configSnapshot?.k_range_min || '?'} - {configSnapshot?.k_range_max || '?'}</span>
+          <span className="text-white">
+            {configSnapshot?.k_range_min || "?"} -{" "}
+            {configSnapshot?.k_range_max || "?"}
+          </span>
           <span>k wybrane:</span>
-          <span className="text-white">{diagnostics?.w_metrics?.k_selected ?? '—'}</span>
+          <span className="text-white">
+            {diagnostics?.w_metrics?.k_selected ?? "—"}
+          </span>
           <span>Średnia sąsiadów:</span>
-          <span className="text-white">{diagnostics?.w_metrics?.mean_neighbors?.toFixed(1) ?? '—'}</span>
+          <span className="text-white">
+            {diagnostics?.w_metrics?.mean_neighbors?.toFixed(1) ?? "—"}
+          </span>
         </div>
       </div>
 
@@ -1154,27 +1444,45 @@ function FullDebugView({ diagnostics, steps, configSnapshot }) {
       {steps && steps.length > 0 && (
         <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
           <div className="px-3 py-2 border-b border-gray-700 bg-gray-800">
-            <h4 className="text-xs font-medium text-gray-300">Pipeline Steps ({steps.length})</h4>
+            <h4 className="text-xs font-medium text-gray-300">
+              Pipeline Steps ({steps.length})
+            </h4>
           </div>
 
           {steps.map((step) => (
             <div key={step.step_order}>
               <button
-                onClick={() => setExpandedStep(expandedStep === step.step_order ? null : step.step_order)}
+                onClick={() =>
+                  setExpandedStep(
+                    expandedStep === step.step_order ? null : step.step_order,
+                  )
+                }
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-700/50 transition-colors"
               >
-                <span className="w-5 text-center font-mono text-gray-600">{step.step_order}</span>
-                <span className={`w-4 text-center ${statusColor[step.status] || ''}`}>
-                  {statusIcon[step.status] || '?'}
+                <span className="w-5 text-center font-mono text-gray-600">
+                  {step.step_order}
                 </span>
-                <span className="flex-1 text-left text-gray-300 font-mono truncate">{step.step_name}</span>
+                <span
+                  className={`w-4 text-center ${statusColor[step.status] || ""}`}
+                >
+                  {statusIcon[step.status] || "?"}
+                </span>
+                <span className="flex-1 text-left text-gray-300 font-mono truncate">
+                  {step.step_name}
+                </span>
                 <span className="text-gray-500 text-[10px]">
-                  {step.duration_seconds != null ? `${step.duration_seconds.toFixed(1)}s` : '-'}
+                  {step.duration_seconds != null
+                    ? `${step.duration_seconds.toFixed(1)}s`
+                    : "-"}
                 </span>
                 {step.exit_code != null && step.exit_code !== 0 && (
-                  <span className="text-red-400 text-[10px]">exit={step.exit_code}</span>
+                  <span className="text-red-400 text-[10px]">
+                    exit={step.exit_code}
+                  </span>
                 )}
-                <span className={`text-gray-500 transition-transform ${expandedStep === step.step_order ? 'rotate-180' : ''}`}>
+                <span
+                  className={`text-gray-500 transition-transform ${expandedStep === step.step_order ? "rotate-180" : ""}`}
+                >
                   ▼
                 </span>
               </button>
@@ -1183,7 +1491,7 @@ function FullDebugView({ diagnostics, steps, configSnapshot }) {
                 {expandedStep === step.step_order && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
+                    animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.15 }}
                     className="overflow-hidden"
@@ -1191,17 +1499,23 @@ function FullDebugView({ diagnostics, steps, configSnapshot }) {
                     <div className="px-3 pb-3 ml-9 space-y-2">
                       {step.stdout ? (
                         <div>
-                          <div className="text-[10px] text-gray-500 mb-1">stdout:</div>
+                          <div className="text-[10px] text-gray-500 mb-1">
+                            stdout:
+                          </div>
                           <pre className="text-xs text-green-400 bg-black p-2 rounded overflow-x-auto max-h-60 overflow-y-auto font-mono whitespace-pre-wrap">
                             {step.stdout}
                           </pre>
                         </div>
                       ) : (
-                        <p className="text-xs text-gray-600 italic">Brak stdout</p>
+                        <p className="text-xs text-gray-600 italic">
+                          Brak stdout
+                        </p>
                       )}
                       {step.stderr && (
                         <div>
-                          <div className="text-[10px] text-gray-500 mb-1">stderr:</div>
+                          <div className="text-[10px] text-gray-500 mb-1">
+                            stderr:
+                          </div>
                           <pre className="text-xs text-red-400 bg-red-950/30 p-2 rounded overflow-x-auto max-h-32 overflow-y-auto font-mono whitespace-pre-wrap">
                             {step.stderr}
                           </pre>
@@ -1217,20 +1531,19 @@ function FullDebugView({ diagnostics, steps, configSnapshot }) {
       )}
 
       {(!steps || steps.length === 0) && (
-        <div className="text-xs text-gray-500 italic">Brak kroków pipeline dla tego uruchomienia.</div>
+        <div className="text-xs text-gray-500 italic">
+          Brak kroków pipeline dla tego uruchomienia.
+        </div>
       )}
     </div>
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Diagnostics Report
-// ─────────────────────────────────────────────────────────────
 
 function DiagnosticsReport({ diagnostics, configSnapshot, steps }) {
   // Tryb raportu (domyślnie prosty!)
-  const [reportMode, setReportMode] = useState('simple');
+  const [reportMode, setReportMode] = useState("simple");
 
   if (!diagnostics) {
     return (
@@ -1244,14 +1557,14 @@ function DiagnosticsReport({ diagnostics, configSnapshot, steps }) {
 
   // Format p-value with significance stars
   const formatPValue = (p, alpha = 0.05) => {
-    if (p == null) return '-';
-    const stars = p < 0.001 ? '***' : p < 0.01 ? '**' : p < alpha ? '*' : '';
-    return `${p.toFixed(4)}${stars ? ` ${stars}` : ''}`;
+    if (p == null) return "-";
+    const stars = p < 0.001 ? "***" : p < 0.01 ? "**" : p < alpha ? "*" : "";
+    return `${p.toFixed(4)}${stars ? ` ${stars}` : ""}`;
   };
 
   // Format coefficient value
   const formatCoef = (val) => {
-    if (val == null) return '-';
+    if (val == null) return "-";
     return val >= 0 ? `+${val.toFixed(4)}` : val.toFixed(4);
   };
 
@@ -1260,17 +1573,17 @@ function DiagnosticsReport({ diagnostics, configSnapshot, steps }) {
       {/* TABS - tryb raportu */}
       <div className="flex border-b border-gray-700 mb-2">
         {[
-          { id: 'simple', label: 'Ogólny', desc: 'dla wszystkich' },
-          { id: 'technical', label: 'Techniczny', desc: 'dla analityków' },
-          { id: 'full', label: 'Dogłębny', desc: 'dla debuggingu' },
-        ].map(tab => (
+          { id: "simple", label: "Ogólny", desc: "dla wszystkich" },
+          { id: "technical", label: "Techniczny", desc: "dla analityków" },
+          { id: "full", label: "Dogłębny", desc: "dla debuggingu" },
+        ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setReportMode(tab.id)}
             className={`px-3 py-2 text-xs transition-colors ${
               reportMode === tab.id
-                ? 'border-b-2 border-blue-500 text-white'
-                : 'text-gray-400 hover:text-gray-200'
+                ? "border-b-2 border-blue-500 text-white"
+                : "text-gray-400 hover:text-gray-200"
             }`}
           >
             <span className="block">{tab.label}</span>
@@ -1280,86 +1593,120 @@ function DiagnosticsReport({ diagnostics, configSnapshot, steps }) {
       </div>
 
       {/* SIMPLE VIEW */}
-      {reportMode === 'simple' && (
+      {reportMode === "simple" && (
         <SimpleView diagnostics={diagnostics} configSnapshot={configSnapshot} />
       )}
 
       {/* TECHNICAL VIEW */}
-      {reportMode === 'technical' && (
+      {reportMode === "technical" && (
         <>
           {/* MODEL SUMMARY */}
           <div>
-            <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Model</h4>
+            <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+              Model
+            </h4>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-gray-800 rounded p-2">
-                <span className="text-gray-500">Typ:</span>{' '}
-                <span className="text-white font-mono">{model?.selected?.toUpperCase() || '-'}</span>
-              </div>
-              <div className="bg-gray-800 rounded p-2">
-                <span className="text-gray-500">AIC:</span>{' '}
-                <span className="text-white font-mono">{model?.aic?.toFixed(2) || '-'}</span>
-              </div>
-              <div className="bg-gray-800 rounded p-2">
-                <span className="text-gray-500">Pseudo R²:</span>{' '}
+                <span className="text-gray-500">Typ:</span>{" "}
                 <span className="text-white font-mono">
-                  {model?.r_squared != null ? `${(model.r_squared * 100).toFixed(1)}%` : '-'}
+                  {model?.selected?.toUpperCase() || "-"}
+                </span>
+              </div>
+              <div className="bg-gray-800 rounded p-2">
+                <span className="text-gray-500">AIC:</span>{" "}
+                <span className="text-white font-mono">
+                  {model?.aic?.toFixed(2) || "-"}
+                </span>
+              </div>
+              <div className="bg-gray-800 rounded p-2">
+                <span className="text-gray-500">Pseudo R²:</span>{" "}
+                <span className="text-white font-mono">
+                  {model?.r_squared != null
+                    ? `${(model.r_squared * 100).toFixed(1)}%`
+                    : "-"}
                 </span>
               </div>
               <div className="bg-gray-800 rounded p-2">
                 <span className="text-gray-500">
-                  {model?.selected === 'sem' ? 'λ (SEM):' : 'ρ (SAR):'}
-                </span>{' '}
+                  {model?.selected === "sem" ? "λ (SEM):" : "ρ (SAR):"}
+                </span>{" "}
                 <span className="text-white font-mono">
-                  {(model?.selected === 'sem' ? model?.lambda : model?.rho)?.toFixed(4) || '-'}
+                  {(model?.selected === "sem"
+                    ? model?.lambda
+                    : model?.rho
+                  )?.toFixed(4) || "-"}
                 </span>
               </div>
             </div>
             <p className="text-[10px] text-gray-500 mt-1">
-              Wybrano {model?.selected?.toUpperCase() || '?'} na podstawie najniższego AIC. Porównanie modeli w logach R.
+              Wybrano {model?.selected?.toUpperCase() || "?"} na podstawie
+              najniższego AIC. Porównanie modeli w logach R.
             </p>
           </div>
 
           {/* COEFFICIENTS */}
-          {model?.coefficients && Object.keys(model.coefficients).length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Współczynniki</h4>
-              <div className="bg-gray-800 rounded overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left px-2 py-1 text-gray-500 font-normal">Zmienna</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Estimate</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Std.Err</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">p-value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(model.coefficients).map(([name, coef]) => {
-                      const isSignificant = coef.p != null && coef.p < 0.05;
-                      const isPositive = coef.estimate > 0;
-                      return (
-                        <tr key={name} className="border-b border-gray-700/50 last:border-0">
-                          <td className="px-2 py-1 text-gray-300 font-mono">{name}</td>
-                          <td className={`text-right px-2 py-1 font-mono ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                            {formatCoef(coef.estimate)}
-                          </td>
-                          <td className="text-right px-2 py-1 text-gray-400 font-mono">
-                            {coef.std_error?.toFixed(4) || '-'}
-                          </td>
-                          <td className={`text-right px-2 py-1 font-mono ${isSignificant ? 'text-yellow-400' : 'text-gray-500'}`}>
-                            {formatPValue(coef.p)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          {model?.coefficients &&
+            Object.keys(model.coefficients).length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                  Współczynniki
+                </h4>
+                <div className="bg-gray-800 rounded overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left px-2 py-1 text-gray-500 font-normal">
+                          Zmienna
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          Estimate
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          Std.Err
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          p-value
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(model.coefficients).map(
+                        ([name, coef]) => {
+                          const isSignificant = coef.p != null && coef.p < 0.05;
+                          const isPositive = coef.estimate > 0;
+                          return (
+                            <tr
+                              key={name}
+                              className="border-b border-gray-700/50 last:border-0"
+                            >
+                              <td className="px-2 py-1 text-gray-300 font-mono">
+                                {name}
+                              </td>
+                              <td
+                                className={`text-right px-2 py-1 font-mono ${isPositive ? "text-green-400" : "text-red-400"}`}
+                              >
+                                {formatCoef(coef.estimate)}
+                              </td>
+                              <td className="text-right px-2 py-1 text-gray-400 font-mono">
+                                {coef.std_error?.toFixed(4) || "-"}
+                              </td>
+                              <td
+                                className={`text-right px-2 py-1 font-mono ${isSignificant ? "text-yellow-400" : "text-gray-500"}`}
+                              >
+                                {formatPValue(coef.p)}
+                              </td>
+                            </tr>
+                          );
+                        },
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-gray-600 mt-1">
+                  *** p&lt;0.001, ** p&lt;0.01, * p&lt;0.05
+                </p>
               </div>
-              <p className="text-[10px] text-gray-600 mt-1">
-                *** p&lt;0.001, ** p&lt;0.01, * p&lt;0.05
-              </p>
-            </div>
-          )}
+            )}
 
           {/* VIF */}
           {vif?.results && Object.keys(vif.results).length > 0 && (
@@ -1369,24 +1716,25 @@ function DiagnosticsReport({ diagnostics, configSnapshot, steps }) {
               </h4>
               <div className="flex flex-wrap gap-1">
                 {Object.entries(vif.results).map(([name, val]) => {
-                  const isHigh = val != null && val > (configSnapshot?.vif_threshold || 5.0);
+                  const isHigh =
+                    val != null && val > (configSnapshot?.vif_threshold || 5.0);
                   return (
                     <span
                       key={name}
                       className={`px-2 py-0.5 rounded text-xs font-mono ${
                         isHigh
-                          ? 'bg-red-900/40 text-red-400 border border-red-700/50'
-                          : 'bg-gray-800 text-gray-400'
+                          ? "bg-red-900/40 text-red-400 border border-red-700/50"
+                          : "bg-gray-800 text-gray-400"
                       }`}
                     >
-                      {name}: {val?.toFixed(2) || 'NA'}
+                      {name}: {val?.toFixed(2) || "NA"}
                     </span>
                   );
                 })}
               </div>
               {vif.dropped && vif.dropped.length > 0 && (
                 <p className="text-xs text-red-400 mt-1">
-                  Usunięte: {vif.dropped.join(', ')}
+                  Usunięte: {vif.dropped.join(", ")}
                 </p>
               )}
             </div>
@@ -1395,192 +1743,270 @@ function DiagnosticsReport({ diagnostics, configSnapshot, steps }) {
           {/* MORAN'S I */}
           {moran?.i != null && (
             <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Moran's I (residua)</h4>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                Moran's I (residua)
+              </h4>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="bg-gray-800 rounded p-2">
-                  <span className="text-gray-500">I:</span>{' '}
-                  <span className="text-white font-mono">{moran.i?.toFixed(4)}</span>
+                  <span className="text-gray-500">I:</span>{" "}
+                  <span className="text-white font-mono">
+                    {moran.i?.toFixed(4)}
+                  </span>
                 </div>
                 <div className="bg-gray-800 rounded p-2">
-                  <span className="text-gray-500">z:</span>{' '}
-                  <span className="text-white font-mono">{moran.z?.toFixed(2)}</span>
+                  <span className="text-gray-500">z:</span>{" "}
+                  <span className="text-white font-mono">
+                    {moran.z?.toFixed(2)}
+                  </span>
                 </div>
                 <div className="bg-gray-800 rounded p-2">
-                  <span className="text-gray-500">p:</span>{' '}
-                  <span className={`font-mono ${moran.p < 0.05 ? 'text-red-400' : 'text-green-400'}`}>
+                  <span className="text-gray-500">p:</span>{" "}
+                  <span
+                    className={`font-mono ${moran.p < 0.05 ? "text-red-400" : "text-green-400"}`}
+                  >
                     {formatPValue(moran.p)}
                   </span>
                 </div>
               </div>
-              <p className={`text-xs mt-1 ${moran.p < 0.05 ? 'text-red-400' : 'text-green-400'}`}>
+              <p
+                className={`text-xs mt-1 ${moran.p < 0.05 ? "text-red-400" : "text-green-400"}`}
+              >
                 {moran.p < 0.05
-                  ? '⚠️ Istotna autokorelacja reszt — model nie wyczyścił zależności przestrzennej'
-                  : '✓ Brak istotnej autokorelacji reszt'}
+                  ? "⚠️ Istotna autokorelacja reszt — model nie wyczyścił zależności przestrzennej"
+                  : "✓ Brak istotnej autokorelacji reszt"}
               </p>
             </div>
           )}
 
           {/* LM TESTS */}
-          {lm_tests && (lm_tests.lm_lag?.stat != null || lm_tests.lm_error?.stat != null) && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Testy LM</h4>
-              <div className="bg-gray-800 rounded overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left px-2 py-1 text-gray-500 font-normal">Test</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Stat</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">p-value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { name: 'LM-lag (SAR)', data: lm_tests.lm_lag },
-                      { name: 'LM-error (SEM)', data: lm_tests.lm_error },
-                      { name: 'Robust LM-lag', data: lm_tests.rlm_lag },
-                      { name: 'Robust LM-error', data: lm_tests.rlm_error },
-                    ].map(({ name, data }) => (
-                      data?.stat != null && (
-                        <tr key={name} className="border-b border-gray-700/50 last:border-0">
-                          <td className="px-2 py-1 text-gray-300">{name}</td>
-                          <td className="text-right px-2 py-1 text-white font-mono">
-                            {data.stat?.toFixed(2)}
-                          </td>
-                          <td className={`text-right px-2 py-1 font-mono ${data.p < 0.05 ? 'text-yellow-400' : 'text-gray-500'}`}>
-                            {formatPValue(data.p)}
-                          </td>
-                        </tr>
-                      )
-                    ))}
-                  </tbody>
-                </table>
+          {lm_tests &&
+            (lm_tests.lm_lag?.stat != null ||
+              lm_tests.lm_error?.stat != null) && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                  Testy LM
+                </h4>
+                <div className="bg-gray-800 rounded overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left px-2 py-1 text-gray-500 font-normal">
+                          Test
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          Stat
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          p-value
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { name: "LM-lag (SAR)", data: lm_tests.lm_lag },
+                        { name: "LM-error (SEM)", data: lm_tests.lm_error },
+                        { name: "Robust LM-lag", data: lm_tests.rlm_lag },
+                        { name: "Robust LM-error", data: lm_tests.rlm_error },
+                      ].map(
+                        ({ name, data }) =>
+                          data?.stat != null && (
+                            <tr
+                              key={name}
+                              className="border-b border-gray-700/50 last:border-0"
+                            >
+                              <td className="px-2 py-1 text-gray-300">
+                                {name}
+                              </td>
+                              <td className="text-right px-2 py-1 text-white font-mono">
+                                {data.stat?.toFixed(2)}
+                              </td>
+                              <td
+                                className={`text-right px-2 py-1 font-mono ${data.p < 0.05 ? "text-yellow-400" : "text-gray-500"}`}
+                              >
+                                {formatPValue(data.p)}
+                              </td>
+                            </tr>
+                          ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* IMPACTS (SAR/SDM only) - LeSage & Pace 2009 */}
-          {diagnostics?.impacts && diagnostics.impacts.direct && Object.keys(diagnostics.impacts.direct).length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
-                Impacts (SAR/SDM)
-                <span className="text-gray-600 font-normal ml-2">LeSage & Pace 2009</span>
-              </h4>
-              <div className="bg-gray-800 rounded overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left px-2 py-1 text-gray-500 font-normal">Zmienna</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Direct</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Indirect</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-normal">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.keys(diagnostics.impacts.direct || {}).map((name) => {
-                      const direct = diagnostics.impacts.direct[name];
-                      const indirect = diagnostics.impacts.indirect[name];
-                      const total = diagnostics.impacts.total[name];
-                      const isPositive = total > 0;
-                      return (
-                        <tr key={name} className="border-b border-gray-700/50 last:border-0">
-                          <td className="px-2 py-1 text-gray-300 font-mono">{name}</td>
-                          <td className="text-right px-2 py-1 text-gray-400 font-mono">
-                            {direct?.toFixed(4) || '-'}
-                          </td>
-                          <td className="text-right px-2 py-1 text-blue-400 font-mono">
-                            {indirect?.toFixed(4) || '-'}
-                          </td>
-                          <td className={`text-right px-2 py-1 font-mono font-medium ${isPositive ? 'text-red-400' : 'text-green-400'}`}>
-                            {total?.toFixed(4) || '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[10px] text-gray-600 mt-1">
-                Direct = wpływ X_i na Y_i (z feedbackiem) | Indirect = spillover na sąsiadów | Total = Direct + Indirect
-              </p>
-              {model?.rho > 0.5 && (
-                <p className="text-[10px] text-amber-400 mt-1">
-                  ⚠️ Wysokie ρ ({model.rho?.toFixed(3)}) — indirect effects mogą dominować nad direct
+          {diagnostics?.impacts &&
+            diagnostics.impacts.direct &&
+            Object.keys(diagnostics.impacts.direct).length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                  Impacts (SAR/SDM)
+                  <span className="text-gray-600 font-normal ml-2">
+                    LeSage & Pace 2009
+                  </span>
+                </h4>
+                <div className="bg-gray-800 rounded overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left px-2 py-1 text-gray-500 font-normal">
+                          Zmienna
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          Direct
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          Indirect
+                        </th>
+                        <th className="text-right px-2 py-1 text-gray-500 font-normal">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys(diagnostics.impacts.direct || {}).map(
+                        (name) => {
+                          const direct = diagnostics.impacts.direct[name];
+                          const indirect = diagnostics.impacts.indirect[name];
+                          const total = diagnostics.impacts.total[name];
+                          const isPositive = total > 0;
+                          return (
+                            <tr
+                              key={name}
+                              className="border-b border-gray-700/50 last:border-0"
+                            >
+                              <td className="px-2 py-1 text-gray-300 font-mono">
+                                {name}
+                              </td>
+                              <td className="text-right px-2 py-1 text-gray-400 font-mono">
+                                {direct?.toFixed(4) || "-"}
+                              </td>
+                              <td className="text-right px-2 py-1 text-blue-400 font-mono">
+                                {indirect?.toFixed(4) || "-"}
+                              </td>
+                              <td
+                                className={`text-right px-2 py-1 font-mono font-medium ${isPositive ? "text-red-400" : "text-green-400"}`}
+                              >
+                                {total?.toFixed(4) || "-"}
+                              </td>
+                            </tr>
+                          );
+                        },
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-gray-600 mt-1">
+                  Direct = wpływ X_i na Y_i (z feedbackiem) | Indirect =
+                  spillover na sąsiadów | Total = Direct + Indirect
                 </p>
-              )}
-            </div>
-          )}
+                {model?.rho > 0.5 && (
+                  <p className="text-[10px] text-amber-400 mt-1">
+                    ⚠️ Wysokie ρ ({model.rho?.toFixed(3)}) — indirect effects
+                    mogą dominować nad direct
+                  </p>
+                )}
+              </div>
+            )}
 
           {/* Info gdy brak impacts (SEM/OLS lub brak danych) */}
-          {(!diagnostics?.impacts || !diagnostics.impacts.direct || Object.keys(diagnostics.impacts.direct).length === 0) && model?.selected && (
-            <div className="opacity-50">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Impacts</h4>
-              <p className="text-xs text-gray-500 italic">
-                {['sem', 'ols'].includes(model.selected?.toLowerCase())
-                  ? `Niedostępne dla ${model.selected.toUpperCase()}. Impacts są potrzebne tylko dla SAR/SDM (mnożnik przestrzenny (I - ρW)⁻¹).`
-                  : 'Brak danych — uruchom pipeline ponownie z modelem SAR lub SDM.'}
-              </p>
-            </div>
-          )}
+          {(!diagnostics?.impacts ||
+            !diagnostics.impacts.direct ||
+            Object.keys(diagnostics.impacts.direct).length === 0) &&
+            model?.selected && (
+              <div className="opacity-50">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                  Impacts
+                </h4>
+                <p className="text-xs text-gray-500 italic">
+                  {["sem", "ols"].includes(model.selected?.toLowerCase())
+                    ? `Niedostępne dla ${model.selected.toUpperCase()}. Impacts są potrzebne tylko dla SAR/SDM (mnożnik przestrzenny (I - ρW)⁻¹).`
+                    : "Brak danych — uruchom pipeline ponownie z modelem SAR lub SDM."}
+                </p>
+              </div>
+            )}
 
           {/* ETA - Aglomeracja (entropia tessellacji) */}
-          {configSnapshot?.geometry_type === 'voronoi' && diagnostics?.eta?.h_rel != null ? (
+          {configSnapshot?.geometry_type === "voronoi" &&
+          diagnostics?.eta?.h_rel != null ? (
             <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">ETA (Aglomeracja)</h4>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                ETA (Aglomeracja)
+              </h4>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="bg-gray-800 rounded p-2">
-                  <span className="text-gray-500">H emp:</span>{' '}
-                  <span className="text-white font-mono">{diagnostics.eta.h_emp?.toFixed(4)}</span>
+                  <span className="text-gray-500">H emp:</span>{" "}
+                  <span className="text-white font-mono">
+                    {diagnostics.eta.h_emp?.toFixed(4)}
+                  </span>
                 </div>
                 <div className="bg-gray-800 rounded p-2">
-                  <span className="text-gray-500">H max:</span>{' '}
-                  <span className="text-white font-mono">{diagnostics.eta.h_max?.toFixed(4)}</span>
+                  <span className="text-gray-500">H max:</span>{" "}
+                  <span className="text-white font-mono">
+                    {diagnostics.eta.h_max?.toFixed(4)}
+                  </span>
                 </div>
                 <div className="bg-gray-800 rounded p-2">
-                  <span className="text-gray-500">ETA:</span>{' '}
-                  <span className={`font-mono font-medium ${
-                    diagnostics.eta.h_rel > 0.9 ? 'text-green-400' :
-                    diagnostics.eta.h_rel > 0.7 ? 'text-yellow-400' :
-                    'text-red-400'
-                  }`}>
+                  <span className="text-gray-500">ETA:</span>{" "}
+                  <span
+                    className={`font-mono font-medium ${
+                      diagnostics.eta.h_rel > 0.9
+                        ? "text-green-400"
+                        : diagnostics.eta.h_rel > 0.7
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                    }`}
+                  >
                     {diagnostics.eta.h_rel?.toFixed(4)}
                   </span>
                 </div>
               </div>
-              <p className={`text-xs mt-1 ${
-                diagnostics.eta.h_rel > 0.9 ? 'text-green-400' :
-                diagnostics.eta.h_rel > 0.7 ? 'text-yellow-400' :
-                'text-red-400'
-              }`}>
+              <p
+                className={`text-xs mt-1 ${
+                  diagnostics.eta.h_rel > 0.9
+                    ? "text-green-400"
+                    : diagnostics.eta.h_rel > 0.7
+                      ? "text-yellow-400"
+                      : "text-red-400"
+                }`}
+              >
                 {diagnostics.eta.h_rel > 0.9
-                  ? '✓ Rozkład równomierny (brak aglomeracji)'
+                  ? "✓ Rozkład równomierny (brak aglomeracji)"
                   : diagnostics.eta.h_rel > 0.7
-                    ? '~ Umiarkowane skupienie punktów'
-                    : '⚠️ Silna aglomeracja (punkty w klastrach)'}
+                    ? "~ Umiarkowane skupienie punktów"
+                    : "⚠️ Silna aglomeracja (punkty w klastrach)"}
               </p>
             </div>
-          ) : configSnapshot?.geometry_type !== 'voronoi' && (
-            <div className="opacity-50">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">ETA (Aglomeracja)</h4>
-              <p className="text-xs text-gray-500 italic">
-                Niedostępne dla siatki regularnej. ETA mierzy entropię rozkładu powierzchni komórek - ma sens tylko dla Voronoi, gdzie komórki mają różne kształty i rozmiary.
-              </p>
-            </div>
+          ) : (
+            configSnapshot?.geometry_type !== "voronoi" && (
+              <div className="opacity-50">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                  ETA (Aglomeracja)
+                </h4>
+                <p className="text-xs text-gray-500 italic">
+                  Niedostępne dla siatki regularnej. ETA mierzy entropię
+                  rozkładu powierzchni komórek - ma sens tylko dla Voronoi,
+                  gdzie komórki mają różne kształty i rozmiary.
+                </p>
+              </div>
+            )
           )}
         </>
       )}
 
       {/* FULL VIEW - Debug only */}
-      {reportMode === 'full' && (
-        <FullDebugView diagnostics={diagnostics} steps={steps} configSnapshot={configSnapshot} />
+      {reportMode === "full" && (
+        <FullDebugView
+          diagnostics={diagnostics}
+          steps={steps}
+          configSnapshot={configSnapshot}
+        />
       )}
     </div>
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Expanded Run Tabs (Steps + Report)
-// ─────────────────────────────────────────────────────────────
 
 function ExpandedRunTabs({ run }) {
   // Simplified: just show DiagnosticsReport directly (steps are in "Dogłębny" view)
@@ -1593,10 +2019,7 @@ function ExpandedRunTabs({ run }) {
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // SECTION: Run History
-// ─────────────────────────────────────────────────────────────
 
 function RunHistory({ runs, onSelectRun, selectedRunId, selectedRunDetail }) {
   if (!runs || runs.length === 0) return null;
@@ -1609,17 +2032,23 @@ function RunHistory({ runs, onSelectRun, selectedRunId, selectedRunDetail }) {
             onClick={() => onSelectRun(r.id)}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
               selectedRunId === r.id
-                ? 'bg-gray-700 border border-gray-600 rounded-b-none'
-                : 'bg-gray-800/30 border border-transparent hover:bg-gray-800/60'
+                ? "bg-gray-700 border border-gray-600 rounded-b-none"
+                : "bg-gray-800/30 border border-transparent hover:bg-gray-800/60"
             }`}
           >
             <StatusBadge status={r.status} />
-            <span className="text-gray-300 truncate">{r.config_name || '?'}</span>
-            <span className="text-gray-500 ml-auto flex-shrink-0">{formatDate(r.started_at)}</span>
+            <span className="text-gray-300 truncate">
+              {r.config_name || "?"}
+            </span>
+            <span className="text-gray-500 ml-auto flex-shrink-0">
+              {formatDate(r.started_at)}
+            </span>
             <span className="text-gray-600">{r.n_sightings} obs</span>
             {/* Expand indicator */}
-            <span className={`text-gray-500 transition-transform ${selectedRunId === r.id ? 'rotate-180' : ''}`}>
-              {'\u25BC'}
+            <span
+              className={`text-gray-500 transition-transform ${selectedRunId === r.id ? "rotate-180" : ""}`}
+            >
+              {"\u25BC"}
             </span>
           </button>
 
@@ -1628,7 +2057,7 @@ function RunHistory({ runs, onSelectRun, selectedRunId, selectedRunDetail }) {
             {selectedRunId === r.id && selectedRunDetail && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
+                animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
@@ -1646,14 +2075,12 @@ function RunHistory({ runs, onSelectRun, selectedRunId, selectedRunDetail }) {
   );
 }
 
-
-// ─────────────────────────────────────────────────────────────
 // MAIN: PipelineTab
-// ─────────────────────────────────────────────────────────────
 
 export default function PipelineTab() {
   // --- store ---
-  const { setDisplayMode, setResearchGeometry, researchGeometry } = useSightingsStore();
+  const { setDisplayMode, setResearchGeometry, researchGeometry } =
+    useSightingsStore();
 
   // --- data state ---
   const [status, setStatus] = useState(null);
@@ -1679,9 +2106,9 @@ export default function PipelineTab() {
   const refresh = useCallback(async () => {
     try {
       const [statusData, configData, runData] = await Promise.all([
-        apiFetch('/status/'),
-        apiFetch('/configs/'),
-        apiFetch('/runs/'),
+        apiFetch("/status/"),
+        apiFetch("/configs/"),
+        apiFetch("/runs/"),
       ]);
       setStatus(statusData);
       setConfigs(configData.configs || []);
@@ -1689,20 +2116,25 @@ export default function PipelineTab() {
       setRuns(runData.runs || []);
       // Update researchGeometry based on LAST SUCCESSFUL RUN (not selected config)
       // This ensures map shows computed results, not pending selection
-      const lastSuccess = statusData?.last_run?.status === 'success' ? statusData.last_run : null;
+      const lastSuccess =
+        statusData?.last_run?.status === "success" ? statusData.last_run : null;
       if (lastSuccess) {
         // Find config geometry from the successful run
-        const successConfig = (configData.configs || []).find(c => c.id === lastSuccess.config_id);
+        const successConfig = (configData.configs || []).find(
+          (c) => c.id === lastSuccess.config_id,
+        );
         if (successConfig?.geometry_type) {
           setResearchGeometry(successConfig.geometry_type);
         }
       }
     } catch (e) {
-      console.error('PipelineTab refresh error:', e);
+      console.error("PipelineTab refresh error:", e);
     }
   }, [setResearchGeometry]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   // --- Config CRUD ---
   const handleSaveConfig = async (form, isEdit) => {
@@ -1710,12 +2142,12 @@ export default function PipelineTab() {
     try {
       if (isEdit) {
         await apiFetch(`/configs/${form.id}/`, {
-          method: 'PUT',
+          method: "PUT",
           body: JSON.stringify(form),
         });
       } else {
-        await apiFetch('/configs/', {
-          method: 'POST',
+        await apiFetch("/configs/", {
+          method: "POST",
           body: JSON.stringify(form),
         });
       }
@@ -1734,11 +2166,11 @@ export default function PipelineTab() {
     setActivating(true);
     setActivateError(null);
     try {
-      await apiFetch(`/configs/${configId}/activate/`, { method: 'POST' });
+      await apiFetch(`/configs/${configId}/activate/`, { method: "POST" });
       // NOTE: Don't change researchGeometry here - it should only change after pipeline runs
       await refresh();
     } catch (e) {
-      console.error('Activate error:', e);
+      console.error("Activate error:", e);
       setActivateError(e.message);
     } finally {
       setActivating(false);
@@ -1756,49 +2188,69 @@ export default function PipelineTab() {
     setRunResult(null);
     setCurrentRunId(null); // Reset WebSocket connection
     try {
-      const data = await apiFetch('/run/', { method: 'POST' });
-      console.log('[Pipeline] Started:', data);
+      const data = await apiFetch("/run/", { method: "POST" });
+      console.log("[Pipeline] Started:", data);
 
       // NEW: Handle async response (status: 'pending')
-      if (data.status === 'pending') {
+      if (data.status === "pending") {
         // Set run_id to connect WebSocket for live progress
         if (data.run_id) {
           setCurrentRunId(data.run_id);
-          console.log('[Pipeline] WebSocket connecting to run_id:', data.run_id);
+          console.log(
+            "[Pipeline] WebSocket connecting to run_id:",
+            data.run_id,
+          );
         }
 
-        setRunResult({ status: 'running', message: 'Pipeline uruchomiony...', task_id: data.task_id, run_id: data.run_id });
+        setRunResult({
+          status: "running",
+          message: "Pipeline uruchomiony...",
+          task_id: data.task_id,
+          run_id: data.run_id,
+        });
 
         // Poll for completion (fallback if WebSocket doesn't work)
         const pollInterval = setInterval(async () => {
           try {
-            const statusData = await apiFetch('/status/');
+            const statusData = await apiFetch("/status/");
             const lastRun = statusData.last_run;
-            console.log('[Polling] Status:', lastRun?.status);
+            console.log("[Polling] Status:", lastRun?.status);
 
-            if (lastRun?.status === 'success') {
+            if (lastRun?.status === "success") {
               clearInterval(pollInterval);
               setIsRunning(false);
               setCurrentRunId(null); // Close WebSocket
-              setRunResult({ status: 'success', ...lastRun });
-              await refresh();  // This sets researchGeometry based on successful run
+              setRunResult({ status: "success", ...lastRun });
+              await refresh(); // This sets researchGeometry based on successful run
 
               // Switch to RESEARCH mode and refresh map
-              setDisplayMode('research');
+              setDisplayMode("research");
               // NOTE: researchGeometry already set by refresh() based on last successful run
-              setTimeout(() => window.dispatchEvent(new CustomEvent('voronoi-refresh')), 600);
-
-            } else if (lastRun?.status === 'error' || lastRun?.status === 'failed') {
+              setTimeout(
+                () => window.dispatchEvent(new CustomEvent("voronoi-refresh")),
+                600,
+              );
+            } else if (
+              lastRun?.status === "error" ||
+              lastRun?.status === "failed"
+            ) {
               clearInterval(pollInterval);
               setIsRunning(false);
               setCurrentRunId(null); // Close WebSocket
-              setRunResult({ status: 'failed', error_message: lastRun?.error_message || 'Pipeline failed', steps: [] });
+              setRunResult({
+                status: "failed",
+                error_message: lastRun?.error_message || "Pipeline failed",
+                steps: [],
+              });
             } else {
               // Still running - update progress message (WebSocket provides live updates)
-              setRunResult(prev => ({ ...prev, message: `Pipeline w toku... (${lastRun?.status || 'running'})` }));
+              setRunResult((prev) => ({
+                ...prev,
+                message: `Pipeline w toku... (${lastRun?.status || "running"})`,
+              }));
             }
           } catch (pollErr) {
-            console.error('[Polling] Error:', pollErr);
+            console.error("[Polling] Error:", pollErr);
           }
         }, 3000); // Poll every 3 seconds
 
@@ -1808,22 +2260,28 @@ export default function PipelineTab() {
           if (isRunning) {
             setIsRunning(false);
             setCurrentRunId(null);
-            setRunResult({ status: 'failed', error_message: 'Pipeline timeout (10 min)', steps: [] });
+            setRunResult({
+              status: "failed",
+              error_message: "Pipeline timeout (10 min)",
+              steps: [],
+            });
           }
         }, 600000);
-
       } else {
         // Legacy: synchronous response (shouldn't happen anymore)
         setRunResult(data);
         await refresh();
-        if (data.status === 'success') {
-          setDisplayMode('research');
-          setTimeout(() => window.dispatchEvent(new CustomEvent('voronoi-refresh')), 600);
+        if (data.status === "success") {
+          setDisplayMode("research");
+          setTimeout(
+            () => window.dispatchEvent(new CustomEvent("voronoi-refresh")),
+            600,
+          );
         }
         setIsRunning(false);
       }
     } catch (e) {
-      setRunResult({ status: 'failed', error_message: e.message, steps: [] });
+      setRunResult({ status: "failed", error_message: e.message, steps: [] });
       setIsRunning(false);
       setCurrentRunId(null);
     }
@@ -1843,7 +2301,9 @@ export default function PipelineTab() {
       const [detail, stepsData, diagData] = await Promise.all([
         apiFetch(`/runs/${runId}/`),
         apiFetch(`/runs/${runId}/steps/`),
-        apiFetch(`/runs/${runId}/diagnostics/`).catch(() => ({ diagnostics: null })),
+        apiFetch(`/runs/${runId}/diagnostics/`).catch(() => ({
+          diagnostics: null,
+        })),
       ]);
       setSelectedRunDetail({
         ...detail,
@@ -1851,24 +2311,26 @@ export default function PipelineTab() {
         diagnostics: diagData.diagnostics || null,
       });
     } catch (e) {
-      console.error('Run detail error:', e);
+      console.error("Run detail error:", e);
       setSelectedRunDetail(null);
     }
   };
 
   // --- Clear history ---
   const handleClearHistory = async () => {
-    if (!window.confirm('Czy na pewno chcesz wyczyścić całą historię uruchomień?')) {
+    if (
+      !window.confirm("Czy na pewno chcesz wyczyścić całą historię uruchomień?")
+    ) {
       return;
     }
     try {
-      await apiFetch('/runs/clear/', { method: 'DELETE' });
+      await apiFetch("/runs/clear/", { method: "DELETE" });
       setRuns([]);
       setSelectedRunId(null);
       setSelectedRunDetail(null);
       setRunResult(null);
     } catch (e) {
-      console.error('Clear history error:', e);
+      console.error("Clear history error:", e);
     }
   };
 
@@ -1877,16 +2339,24 @@ export default function PipelineTab() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-
       {/* ── STATUS ── */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Status</h2>
-          <button onClick={refresh} className="text-xs text-gray-500 hover:text-white transition-colors">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+            Status
+          </h2>
+          <button
+            onClick={refresh}
+            className="text-xs text-gray-500 hover:text-white transition-colors"
+          >
             Odśwież
           </button>
         </div>
-        <StatusSection status={status} onRefresh={refresh} researchGeometry={researchGeometry} />
+        <StatusSection
+          status={status}
+          onRefresh={refresh}
+          researchGeometry={researchGeometry}
+        />
       </section>
 
       {/* ── CONFIGS ── */}
@@ -1897,10 +2367,15 @@ export default function PipelineTab() {
           </div>
         )}
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Konfiguracje</h2>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+            Konfiguracje
+          </h2>
           {!showForm && (
             <button
-              onClick={() => { setEditingConfig(null); setShowForm(true); }}
+              onClick={() => {
+                setEditingConfig(null);
+                setShowForm(true);
+              }}
               className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
             >
               + Nowa
@@ -1921,7 +2396,10 @@ export default function PipelineTab() {
                 config={editingConfig}
                 availablePredictors={availablePredictors}
                 onSave={handleSaveConfig}
-                onCancel={() => { setShowForm(false); setEditingConfig(null); }}
+                onCancel={() => {
+                  setShowForm(false);
+                  setEditingConfig(null);
+                }}
                 saving={saving}
               />
             </motion.div>
@@ -1947,7 +2425,9 @@ export default function PipelineTab() {
 
       {/* ── RUN PIPELINE ── */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">Uruchomienie</h2>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          Uruchomienie
+        </h2>
         <RunSection
           hasActiveConfig={!!activeConfigId}
           onRun={handleRun}

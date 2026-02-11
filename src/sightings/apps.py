@@ -2,6 +2,6 @@ from django.apps import AppConfig
 
 
 class SightingsConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'sightings'
-    verbose_name = 'Zgłoszenia dzików'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "sightings"
+    verbose_name = "Zgłoszenia dzików"

@@ -13,9 +13,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('sightings', '0003_gridcell_spatialwarsaw_alignment'),
+        ("sightings", "0003_gridcell_spatialwarsaw_alignment"),
     ]
 
     operations = [
@@ -32,7 +31,6 @@ class Migration(migrations.Migration):
                 SET geometry_2180 = NULL;
             """,
         ),
-
         # Step 2: Calculate edge-to-edge distance to forest
         # Uses KNN operator (<->) for performance with GiST index
         # ST_Distance on EPSG:2180 gives meters directly
@@ -60,7 +58,6 @@ class Migration(migrations.Migration):
             """,
             reverse_sql="UPDATE sightings_gridcell SET distance_to_forest = NULL;",
         ),
-
         # Step 3: Calculate edge-to-edge distance to water
         migrations.RunSQL(
             sql="""
@@ -86,7 +83,6 @@ class Migration(migrations.Migration):
             """,
             reverse_sql="UPDATE sightings_gridcell SET distance_to_water = NULL;",
         ),
-
         # Step 4: Calculate road density (meters of road per km² cell area)
         migrations.RunSQL(
             sql="""
@@ -113,7 +109,6 @@ class Migration(migrations.Migration):
             """,
             reverse_sql="UPDATE sightings_gridcell SET road_density = NULL;",
         ),
-
         # Step 5: Calculate building density (building footprint / cell area)
         migrations.RunSQL(
             sql="""

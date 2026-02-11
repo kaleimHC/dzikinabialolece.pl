@@ -14,18 +14,18 @@ Tables isolation:
 - research_grid_500m: 500m grid for research (RESEARCH mode) - NEW
 - research_grid_250m: 250m grid for research (RESEARCH mode) - NEW
 """
+
 from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('sightings', '0010_create_research_grid_table'),
+        ("sightings", "0010_create_research_grid_table"),
     ]
 
     operations = [
         migrations.RunSQL(
-            sql='''
+            sql="""
             -- ================================================================
             -- research_grid_500m: Regular grid ~500m cells
             -- Expected: ~80 cells covering Bialoleka
@@ -185,13 +185,13 @@ class Migration(migrations.Migration):
 
             CREATE INDEX IF NOT EXISTS idx_research_regime
             ON sightings_gridcell_research(regime);
-            ''',
-            reverse_sql='''
+            """,
+            reverse_sql="""
             DROP TABLE IF EXISTS research_grid_500m CASCADE;
             DROP TABLE IF EXISTS research_grid_250m CASCADE;
             ALTER TABLE sightings_gridcell_research DROP COLUMN IF EXISTS regime;
             ALTER TABLE sightings_gridcell_research DROP COLUMN IF EXISTS regime_probability;
             DROP INDEX IF EXISTS idx_research_regime;
-            '''
+            """,
         ),
     ]

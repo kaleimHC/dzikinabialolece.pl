@@ -1,27 +1,29 @@
-import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware';
-import { themes, DEFAULT_THEME } from '../themes/registry';
+import { create } from "zustand";
+import { subscribeWithSelector } from "zustand/middleware";
+import { themes, DEFAULT_THEME } from "../themes/registry";
 
 const _getStoredTheme = () => {
   try {
-    const s = localStorage.getItem('dziki-theme');
-    return (s && themes[s]) ? s : DEFAULT_THEME;
-  } catch { return DEFAULT_THEME; }
+    const s = localStorage.getItem("dziki-theme");
+    return s && themes[s] ? s : DEFAULT_THEME;
+  } catch {
+    return DEFAULT_THEME;
+  }
 };
 
 const _applyTheme = (name) => {
-  if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('data-theme', name);
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-theme", name);
   }
 };
 
 export const useSightingsStore = create(
   subscribeWithSelector((set, get) => ({
     // Onboarding
-    hasSeenOnboarding: localStorage.getItem('dziki-onboarded') === '1',
+    hasSeenOnboarding: localStorage.getItem("dziki-onboarded") === "1",
     completeOnboarding: () => {
-      localStorage.setItem('dziki-onboarded', '1')
-      set({ hasSeenOnboarding: true })
+      localStorage.setItem("dziki-onboarded", "1");
+      set({ hasSeenOnboarding: true });
     },
 
     // Theme slice — additive (zero breaking dla istniejących subscribers)
@@ -29,7 +31,9 @@ export const useSightingsStore = create(
     setTheme: (name) => {
       if (!themes[name]) return;
       set({ currentTheme: name });
-      try { localStorage.setItem('dziki-theme', name); } catch {}
+      try {
+        localStorage.setItem("dziki-theme", name);
+      } catch {}
       _applyTheme(name);
     },
 
@@ -45,7 +49,7 @@ export const useSightingsStore = create(
 
     // Add sighting mode (centered pin pattern)
     isAddMode: false,
-    pendingLocation: null,  // { lat, lng }
+    pendingLocation: null, // { lat, lng }
 
     // Grid visibility per mode
     showFastGrid: true,
@@ -54,18 +58,19 @@ export const useSightingsStore = create(
 
     // Linked toggles (risk map + population sync/xor)
     linkedToggles: false,
-    linkedXor: false,  // true = opposite states (XOR mode), false = same states (sync mode)
+    linkedXor: false, // true = opposite states (XOR mode), false = same states (sync mode)
 
     toggleLinked: () => {
       const state = get();
       const wasLinked = state.linkedToggles;
       if (!wasLinked) {
         // Turning ON linking - detect if states are opposite (XOR) or same (sync)
-        const riskMapOn = state.displayMode === 'fast'
-          ? state.showFastGrid
-          : state.displayMode === 'research'
-            ? state.showResearchGrid
-            : state.showHeatmap;
+        const riskMapOn =
+          state.displayMode === "fast"
+            ? state.showFastGrid
+            : state.displayMode === "research"
+              ? state.showResearchGrid
+              : state.showHeatmap;
         const populationOn = state.visibleLayers.population;
         const isXor = riskMapOn !== populationOn;
         set({ linkedToggles: true, linkedXor: isXor });
@@ -82,7 +87,7 @@ export const useSightingsStore = create(
         const popNewVal = state.linkedXor ? !newVal : newVal;
         set({
           showFastGrid: newVal,
-          visibleLayers: { ...state.visibleLayers, population: popNewVal }
+          visibleLayers: { ...state.visibleLayers, population: popNewVal },
         });
       } else {
         set({ showFastGrid: newVal });
@@ -95,7 +100,7 @@ export const useSightingsStore = create(
         const popNewVal = state.linkedXor ? !newVal : newVal;
         set({
           showHeatmap: newVal,
-          visibleLayers: { ...state.visibleLayers, population: popNewVal }
+          visibleLayers: { ...state.visibleLayers, population: popNewVal },
         });
       } else {
         set({ showHeatmap: newVal });
@@ -108,7 +113,7 @@ export const useSightingsStore = create(
         const popNewVal = state.linkedXor ? !newVal : newVal;
         set({
           showResearchGrid: newVal,
-          visibleLayers: { ...state.visibleLayers, population: popNewVal }
+          visibleLayers: { ...state.visibleLayers, population: popNewVal },
         });
       } else {
         set({ showResearchGrid: newVal });
@@ -122,14 +127,15 @@ export const useSightingsStore = create(
       if (state.linkedToggles) {
         // XOR mode: risk map gets opposite, Sync mode: risk map gets same
         const riskNewVal = state.linkedXor ? !newVal : newVal;
-        const riskUpdate = state.displayMode === 'fast'
-          ? { showFastGrid: riskNewVal }
-          : state.displayMode === 'research'
-            ? { showResearchGrid: riskNewVal }
-            : { showHeatmap: riskNewVal };
+        const riskUpdate =
+          state.displayMode === "fast"
+            ? { showFastGrid: riskNewVal }
+            : state.displayMode === "research"
+              ? { showResearchGrid: riskNewVal }
+              : { showHeatmap: riskNewVal };
         set({
           visibleLayers: { ...state.visibleLayers, population: newVal },
-          ...riskUpdate
+          ...riskUpdate,
         });
       } else {
         set({ visibleLayers: { ...state.visibleLayers, population: newVal } });
@@ -151,25 +157,30 @@ export const useSightingsStore = create(
       roads: false,
       railway: false,
       population: false,
-      wMatrix: false,  // W matrix neighbor connections
+      wMatrix: false, // W matrix neighbor connections
     },
-    toggleLayer: (layerKey) => set((s) => ({
-      visibleLayers: { ...s.visibleLayers, [layerKey]: !s.visibleLayers[layerKey] }
-    })),
+    toggleLayer: (layerKey) =>
+      set((s) => ({
+        visibleLayers: {
+          ...s.visibleLayers,
+          [layerKey]: !s.visibleLayers[layerKey],
+        },
+      })),
 
     // Display mode: 'fast' (heuristic), 'publication' (voronoi), or 'research' (spatialWarsaw)
-    displayMode: 'fast',
-    setDisplayMode: (mode) => set((state) => {
-      const updates = { displayMode: mode };
-      // Wyłącz macierz W gdy opuszczamy tryb research
-      if (state.displayMode === 'research' && mode !== 'research') {
-        updates.visibleLayers = { ...state.visibleLayers, wMatrix: false };
-      }
-      return updates;
-    }),
+    displayMode: "fast",
+    setDisplayMode: (mode) =>
+      set((state) => {
+        const updates = { displayMode: mode };
+        // Wyłącz macierz W gdy opuszczamy tryb research
+        if (state.displayMode === "research" && mode !== "research") {
+          updates.visibleLayers = { ...state.visibleLayers, wMatrix: false };
+        }
+        return updates;
+      }),
 
     // Research geometry type: 'voronoi' or 'grid_500'
-    researchGeometry: 'voronoi',
+    researchGeometry: "voronoi",
     setResearchGeometry: (geom) => {
       const current = get().researchGeometry;
       if (current === geom) return; // Guard: no-op if same value
@@ -178,7 +189,8 @@ export const useSightingsStore = create(
 
     // Research panel visibility
     showResearchPanel: false,
-    toggleResearchPanel: () => set({ showResearchPanel: !get().showResearchPanel }),
+    toggleResearchPanel: () =>
+      set({ showResearchPanel: !get().showResearchPanel }),
 
     // Actions
     setSightings: (sightings) => set({ sightings }),
@@ -194,7 +206,7 @@ export const useSightingsStore = create(
       const state = get();
       set({
         isAddMode: true,
-        pendingLocation: { lat: state.mapCenter[1], lng: state.mapCenter[0] }
+        pendingLocation: { lat: state.mapCenter[1], lng: state.mapCenter[0] },
       });
     },
     exitAddMode: () => set({ isAddMode: false, pendingLocation: null }),
@@ -212,8 +224,8 @@ export const useSightingsStore = create(
     fetchSightings: async () => {
       set({ isLoading: true, error: null });
       try {
-        const response = await fetch('/api/sightings/');
-        if (!response.ok) throw new Error('Błąd pobierania danych');
+        const response = await fetch("/api/sightings/");
+        if (!response.ok) throw new Error("Błąd pobierania danych");
         const data = await response.json();
         const features = data.results?.features || data.features || [];
         set({ sightings: features, isLoading: false });
@@ -225,15 +237,15 @@ export const useSightingsStore = create(
     submitSighting: async (sightingData) => {
       set({ isLoading: true, error: null });
       try {
-        const response = await fetch('/api/sightings/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sightingData)
+        const response = await fetch("/api/sightings/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sightingData),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.location?.[0] || 'Błąd zapisu');
+          throw new Error(errorData.location?.[0] || "Błąd zapisu");
         }
 
         const newSighting = await response.json();
@@ -241,7 +253,7 @@ export const useSightingsStore = create(
           sightings: [...state.sightings, newSighting],
           isLoading: false,
           isAddMode: false,
-          pendingLocation: null
+          pendingLocation: null,
         }));
 
         return newSighting;
@@ -255,19 +267,19 @@ export const useSightingsStore = create(
     get totalBoars() {
       return get().sightings.reduce(
         (sum, s) => sum + (s.properties?.boar_count || 1),
-        0
+        0,
       );
     },
 
     get recentSightings() {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      return get().sightings.filter(s => {
+      return get().sightings.filter((s) => {
         const date = new Date(s.properties?.observed_at);
         return date > weekAgo;
       });
-    }
-  }))
+    },
+  })),
 );
 
 // Offline queue for PWA
@@ -277,8 +289,8 @@ export const useOfflineQueue = create((set, get) => ({
   addToQueue: (sighting) => {
     set((state) => ({ queue: [...state.queue, sighting] }));
     // Persist to IndexedDB
-    if (typeof indexedDB !== 'undefined') {
-      saveToIndexedDB('offlineQueue', get().queue);
+    if (typeof indexedDB !== "undefined") {
+      saveToIndexedDB("offlineQueue", get().queue);
     }
   },
 
@@ -297,41 +309,41 @@ export const useOfflineQueue = create((set, get) => ({
     }
 
     set((state) => ({
-      queue: state.queue.filter(s => !processed.includes(s))
+      queue: state.queue.filter((s) => !processed.includes(s)),
     }));
   },
 
   loadFromStorage: async () => {
-    if (typeof indexedDB !== 'undefined') {
-      const queue = await loadFromIndexedDB('offlineQueue');
+    if (typeof indexedDB !== "undefined") {
+      const queue = await loadFromIndexedDB("offlineQueue");
       if (queue) set({ queue });
     }
-  }
+  },
 }));
 
 // IndexedDB helpers
 async function saveToIndexedDB(key, value) {
   const db = await openDB();
-  const tx = db.transaction('store', 'readwrite');
-  tx.objectStore('store').put({ key, value });
+  const tx = db.transaction("store", "readwrite");
+  tx.objectStore("store").put({ key, value });
 }
 
 async function loadFromIndexedDB(key) {
   const db = await openDB();
-  const tx = db.transaction('store', 'readonly');
-  const result = await tx.objectStore('store').get(key);
+  const tx = db.transaction("store", "readonly");
+  const result = await tx.objectStore("store").get(key);
   return result?.value;
 }
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('dziki-offline', 1);
+    const request = indexedDB.open("dziki-offline", 1);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      if (!db.objectStoreNames.contains('store')) {
-        db.createObjectStore('store', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains("store")) {
+        db.createObjectStore("store", { keyPath: "key" });
       }
     };
   });

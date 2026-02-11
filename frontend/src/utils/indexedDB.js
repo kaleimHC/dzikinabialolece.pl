@@ -7,12 +7,12 @@ export async function openDB(name, version) {
 }
 
 export async function saveToIndexedDB(db, store, data) {
-  const tx = db.transaction(store, 'readwrite');
+  const tx = db.transaction(store, "readwrite");
   tx.objectStore(store).put(data);
   return tx.complete;
 }
 
 export async function loadFromIndexedDB(db, store, key) {
-  const tx = db.transaction(store, 'readonly');
+  const tx = db.transaction(store, "readonly");
   return tx.objectStore(store).get(key);
 }

@@ -15,7 +15,7 @@ from django_celery_results.models import TaskResult
 from .models import ModelPrediction
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def grid_cells(request):
     """
     Get SQUARE grid cells as GeoJSON (FAST mode).
@@ -44,35 +44,48 @@ def grid_cells(request):
         rows = cursor.fetchall()
 
     features = []
-    for grid_id, sighting_count, geojson, ensemble_risk, confidence, eta_score, gwr_score, area_km2 in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {
-                'grid_id': grid_id,
-                'sighting_count': sighting_count,
-                'risk': round(ensemble_risk, 3),
-                'confidence': round(confidence, 3),
-                'eta_score': round(eta_score, 3),
-                'gwr_score': round(gwr_score, 3),
-                'area_km2': round(area_km2, 4) if area_km2 else 0,
-                'risk_source': 'heuristic',
-                'grid_type': 'square',
+    for (
+        grid_id,
+        sighting_count,
+        geojson,
+        ensemble_risk,
+        confidence,
+        eta_score,
+        gwr_score,
+        area_km2,
+    ) in rows:
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {
+                    "grid_id": grid_id,
+                    "sighting_count": sighting_count,
+                    "risk": round(ensemble_risk, 3),
+                    "confidence": round(confidence, 3),
+                    "eta_score": round(eta_score, 3),
+                    "gwr_score": round(gwr_score, 3),
+                    "area_km2": round(area_km2, 4) if area_km2 else 0,
+                    "risk_source": "heuristic",
+                    "grid_type": "square",
+                },
             }
-        })
+        )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features,
-        'metadata': {
-            'mode': 'fast',
-            'grid_type': 'square',
-            'cell_count': len(features),
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+            "metadata": {
+                "mode": "fast",
+                "grid_type": "square",
+                "cell_count": len(features),
+            },
         }
-    })
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def voronoi_cells(request):
     """
     Get VORONOI cells as GeoJSON (PUB mode).
@@ -101,35 +114,48 @@ def voronoi_cells(request):
         rows = cursor.fetchall()
 
     features = []
-    for grid_id, sighting_count, geojson, ensemble_risk, confidence, area_rank_score, gwr_score, area_km2 in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {
-                'grid_id': grid_id,
-                'sighting_count': sighting_count,
-                'risk': round(ensemble_risk, 3),
-                'confidence': round(confidence, 3),
-                'area_rank_score': round(area_rank_score, 3),
-                'gwr_score': round(gwr_score, 3),
-                'area_km2': round(area_km2, 4) if area_km2 else 0,
-                'risk_source': 'ensemble',
-                'grid_type': 'voronoi',
+    for (
+        grid_id,
+        sighting_count,
+        geojson,
+        ensemble_risk,
+        confidence,
+        area_rank_score,
+        gwr_score,
+        area_km2,
+    ) in rows:
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {
+                    "grid_id": grid_id,
+                    "sighting_count": sighting_count,
+                    "risk": round(ensemble_risk, 3),
+                    "confidence": round(confidence, 3),
+                    "area_rank_score": round(area_rank_score, 3),
+                    "gwr_score": round(gwr_score, 3),
+                    "area_km2": round(area_km2, 4) if area_km2 else 0,
+                    "risk_source": "ensemble",
+                    "grid_type": "voronoi",
+                },
             }
-        })
+        )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features,
-        'metadata': {
-            'mode': 'publication',
-            'grid_type': 'voronoi',
-            'cell_count': len(features),
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+            "metadata": {
+                "mode": "publication",
+                "grid_type": "voronoi",
+                "cell_count": len(features),
+            },
         }
-    })
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def research_grid_cells(request):
     """
     Get RESEARCH grid cells as GeoJSON (RESEARCH mode).
@@ -140,7 +166,7 @@ def research_grid_cells(request):
     Grid: Experimental grid for spatialWarsaw research
     Risk: Various Y formulas and model experiments
     """
-    run_id = request.query_params.get('run_id')
+    run_id = request.query_params.get("run_id")
 
     with connection.cursor() as cursor:
         query = """
@@ -178,9 +204,25 @@ def research_grid_cells(request):
 
     features = []
     for row in rows:
-        (grid_id, sighting_count, geojson, ensemble_risk, confidence,
-         area_rank_score, spatial_risk, area_km2, population,
-         y_inv_pop, y_log_pop, y_count_pop, y_binary, y_log_count, model_fitted, row_run_id, regime) = row
+        (
+            grid_id,
+            sighting_count,
+            geojson,
+            ensemble_risk,
+            confidence,
+            area_rank_score,
+            spatial_risk,
+            area_km2,
+            population,
+            y_inv_pop,
+            y_log_pop,
+            y_count_pop,
+            y_binary,
+            y_log_count,
+            model_fitted,
+            row_run_id,
+            regime,
+        ) = row
 
         # FIXED 2026-01-29: Use model_fitted as primary risk source
         # model_fitted = SEM/SAR prediction based on predictors + spatial neighbors
@@ -196,49 +238,57 @@ def research_grid_cells(request):
         else:
             display_risk = ensemble_risk if ensemble_risk else 0.05
 
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {
-                'grid_id': grid_id,
-                'sighting_count': sighting_count,
-                # Use normalized y_log_count for color interpolation (0-1 range)
-                # NOTE: Use "is not None" because 0 is a valid risk value (no sightings)!
-                'risk': round(display_risk, 3) if display_risk is not None else 0.5,
-                'ensemble_risk': round(ensemble_risk, 3),  # Old formula for comparison
-                'confidence': round(confidence, 3),
-                'area_rank_score': round(area_rank_score, 3),
-                'spatial_risk': round(spatial_risk, 3) if spatial_risk is not None else 0,
-                'area_km2': round(area_km2, 4) if area_km2 else 0,
-                'population': round(population, 1) if population else 0,
-                'y_formula': {
-                    'inv_pop': round(y_inv_pop, 6) if y_inv_pop else None,
-                    'log_pop': round(y_log_pop, 4) if y_log_pop else None,
-                    'count_pop': round(y_count_pop, 6) if y_count_pop else None,
-                    'log_count': round(y_log_count, 4) if y_log_count else None,
-                    'binary': y_binary,
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {
+                    "grid_id": grid_id,
+                    "sighting_count": sighting_count,
+                    # Use normalized y_log_count for color interpolation (0-1 range)
+                    # NOTE: Use "is not None" because 0 is a valid risk value (no sightings)!
+                    "risk": round(display_risk, 3) if display_risk is not None else 0.5,
+                    "ensemble_risk": round(
+                        ensemble_risk, 3
+                    ),  # Old formula for comparison
+                    "confidence": round(confidence, 3),
+                    "area_rank_score": round(area_rank_score, 3),
+                    "spatial_risk": round(spatial_risk, 3)
+                    if spatial_risk is not None
+                    else 0,
+                    "area_km2": round(area_km2, 4) if area_km2 else 0,
+                    "population": round(population, 1) if population else 0,
+                    "y_formula": {
+                        "inv_pop": round(y_inv_pop, 6) if y_inv_pop else None,
+                        "log_pop": round(y_log_pop, 4) if y_log_pop else None,
+                        "count_pop": round(y_count_pop, 6) if y_count_pop else None,
+                        "log_count": round(y_log_count, 4) if y_log_count else None,
+                        "binary": y_binary,
+                    },
+                    "model_fitted": round(model_fitted, 4) if model_fitted else None,
+                    "regime": regime,
+                    "risk_source": "research",
+                    "grid_type": "research",
+                    "run_id": row_run_id,
                 },
-                'model_fitted': round(model_fitted, 4) if model_fitted else None,
-                'regime': regime,
-                'risk_source': 'research',
-                'grid_type': 'research',
-                'run_id': row_run_id,
             }
-        })
+        )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features,
-        'metadata': {
-            'mode': 'research',
-            'grid_type': 'research',
-            'cell_count': len(features),
-            'run_id': run_id,
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+            "metadata": {
+                "mode": "research",
+                "grid_type": "research",
+                "cell_count": len(features),
+                "run_id": run_id,
+            },
         }
-    })
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def research_grid_500(request):
     """
     Get RESEARCH grid 500m cells as GeoJSON.
@@ -271,9 +321,20 @@ def research_grid_500(request):
 
     features = []
     for row in rows:
-        (grid_id, sighting_count, geojson, ensemble_risk, spatial_risk,
-         area_km2, population, forest_cover, building_density, road_density,
-         y_log_pop, model_fitted) = row
+        (
+            grid_id,
+            sighting_count,
+            geojson,
+            ensemble_risk,
+            spatial_risk,
+            area_km2,
+            population,
+            forest_cover,
+            building_density,
+            road_density,
+            y_log_pop,
+            model_fitted,
+        ) = row
 
         # FIXED 2026-01-29: Use model_fitted as primary risk source
         # model_fitted = SEM/SAR prediction based on predictors + spatial neighbors
@@ -290,41 +351,49 @@ def research_grid_500(request):
         else:
             display_risk = ensemble_risk if ensemble_risk else 0.05
 
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {
-                'grid_id': grid_id,
-                'sighting_count': sighting_count,
-                # Use normalized spatial_risk for color interpolation (0-1 range)
-                # NOTE: Use "is not None" because 0 is a valid risk value (no sightings)!
-                'risk': round(display_risk, 3) if display_risk is not None else 0.5,
-                'ensemble_risk': round(ensemble_risk, 3),
-                'spatial_risk': round(spatial_risk, 3) if spatial_risk is not None else 0,
-                'area_km2': round(area_km2, 4) if area_km2 else 0,
-                'population': round(population, 1) if population else 0,
-                'forest_cover': round(forest_cover, 4) if forest_cover else 0,
-                'building_density': round(building_density, 4) if building_density else 0,
-                'road_density': round(road_density, 4) if road_density else 0,
-                'y_log_pop': round(y_log_pop, 4) if y_log_pop else None,
-                'model_fitted': round(model_fitted, 4) if model_fitted else None,
-                'risk_source': 'research',
-                'grid_type': 'grid_500',
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {
+                    "grid_id": grid_id,
+                    "sighting_count": sighting_count,
+                    # Use normalized spatial_risk for color interpolation (0-1 range)
+                    # NOTE: Use "is not None" because 0 is a valid risk value (no sightings)!
+                    "risk": round(display_risk, 3) if display_risk is not None else 0.5,
+                    "ensemble_risk": round(ensemble_risk, 3),
+                    "spatial_risk": round(spatial_risk, 3)
+                    if spatial_risk is not None
+                    else 0,
+                    "area_km2": round(area_km2, 4) if area_km2 else 0,
+                    "population": round(population, 1) if population else 0,
+                    "forest_cover": round(forest_cover, 4) if forest_cover else 0,
+                    "building_density": round(building_density, 4)
+                    if building_density
+                    else 0,
+                    "road_density": round(road_density, 4) if road_density else 0,
+                    "y_log_pop": round(y_log_pop, 4) if y_log_pop else None,
+                    "model_fitted": round(model_fitted, 4) if model_fitted else None,
+                    "risk_source": "research",
+                    "grid_type": "grid_500",
+                },
             }
-        })
+        )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features,
-        'metadata': {
-            'mode': 'research',
-            'grid_type': 'grid_500',
-            'cell_count': len(features),
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+            "metadata": {
+                "mode": "research",
+                "grid_type": "grid_500",
+                "cell_count": len(features),
+            },
         }
-    })
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def risk_heatmap(request):
     """
     Get risk predictions as GeoJSON for heatmap.
@@ -332,36 +401,34 @@ def risk_heatmap(request):
     GET /api/analytics/risk/
     GET /api/analytics/risk/?date=2024-12-27&model=ensemble
     """
-    date_param = request.query_params.get('date', str(date.today()))
-    model_type = request.query_params.get('model', 'ensemble')
+    date_param = request.query_params.get("date", str(date.today()))
+    model_type = request.query_params.get("model", "ensemble")
 
     predictions = ModelPrediction.objects.filter(
-        prediction_date=date_param,
-        model_type=model_type
-    ).select_related('grid_cell')
+        prediction_date=date_param, model_type=model_type
+    ).select_related("grid_cell")
 
     features = []
     for pred in predictions:
         if pred.grid_cell and pred.grid_cell.geometry:
-            features.append({
-                'type': 'Feature',
-                'geometry': json.loads(pred.grid_cell.geometry.json),
-                'properties': {
-                    'risk': pred.prediction_value,
-                    'confidence_lower': pred.confidence_lower,
-                    'confidence_upper': pred.confidence_upper,
-                    'grid_id': pred.grid_cell.grid_id,
-                    'sighting_count': pred.grid_cell.sighting_count
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": json.loads(pred.grid_cell.geometry.json),
+                    "properties": {
+                        "risk": pred.prediction_value,
+                        "confidence_lower": pred.confidence_lower,
+                        "confidence_upper": pred.confidence_upper,
+                        "grid_id": pred.grid_cell.grid_id,
+                        "sighting_count": pred.grid_cell.sighting_count,
+                    },
                 }
-            })
+            )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features
-    })
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def predictions_list(request):
     """
     Get model predictions.
@@ -369,18 +436,20 @@ def predictions_list(request):
     GET /api/analytics/predictions/
     """
     # TODO: Implement predictions retrieval
-    return Response({
-        'status': 'ok',
-        'predictions': [],
-        'message': 'Predictions endpoint - to be implemented'
-    })
+    return Response(
+        {
+            "status": "ok",
+            "predictions": [],
+            "message": "Predictions endpoint - to be implemented",
+        }
+    )
 
 
 # Security: whitelist for recalculate modes
-ALLOWED_RECALC_MODES = {'fast', 'full'}
+ALLOWED_RECALC_MODES = {"fast", "full"}
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsBearerAuthenticated])
 def recalculate(request):
     """
@@ -392,104 +461,127 @@ def recalculate(request):
     """
     from .tasks import recalculate_risk_model, run_r_pipeline_dev
 
-    mode = request.query_params.get('mode', 'full')
+    mode = request.query_params.get("mode", "full")
 
     # Security: whitelist validation
     if mode not in ALLOWED_RECALC_MODES:
-        return Response({
-            'status': 'error',
-            'message': f'Invalid mode. Allowed: {", ".join(ALLOWED_RECALC_MODES)}'
-        }, status=400)
+        return Response(
+            {
+                "status": "error",
+                "message": f"Invalid mode. Allowed: {', '.join(ALLOWED_RECALC_MODES)}",
+            },
+            status=400,
+        )
 
     # Atomic lock to prevent race condition
     # cache.add() returns True only if key didn't exist (atomic operation)
-    LOCK_KEY = 'recalculate_lock'
+    LOCK_KEY = "recalculate_lock"
     LOCK_TIMEOUT = 600  # 10 minutes max
 
     if not cache.add(LOCK_KEY, mode, LOCK_TIMEOUT):
         # Lock exists - check current progress for status info
-        progress = cache.get('r_pipeline_progress', {})
-        return Response({
-            'status': 'already_running',
-            'message': 'Przeliczanie już działa',
-            'current_step': progress.get('current_step', 0),
-            'total_steps': progress.get('total_steps', 5),
-            'mode': cache.get(LOCK_KEY, 'unknown'),
-        }, status=409)
+        progress = cache.get("r_pipeline_progress", {})
+        return Response(
+            {
+                "status": "already_running",
+                "message": "Przeliczanie już działa",
+                "current_step": progress.get("current_step", 0),
+                "total_steps": progress.get("total_steps", 5),
+                "mode": cache.get(LOCK_KEY, "unknown"),
+            },
+            status=409,
+        )
 
     # Lock acquired - proceed with task
     try:
-        if mode == 'fast':
+        if mode == "fast":
             # Fast Python-only recalculation (~2s)
-            cache.set('r_pipeline_progress', {
-                'running': True,
-                'current_step': 0,
-                'total_steps': 4,
-                'current_script': 'Uruchamianie (FAST)...',
-                'error': None,
-                'completed': False,
-            }, timeout=3600)
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": True,
+                    "current_step": 0,
+                    "total_steps": 4,
+                    "current_script": "Uruchamianie (FAST)...",
+                    "error": None,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
 
             recalculate_risk_model.delay()
 
-            return Response({
-                'status': 'started',
-                'message': 'Przeliczanie FAST uruchomione',
-                'total_steps': 4,
-                'mode': 'fast',
-            })
+            return Response(
+                {
+                    "status": "started",
+                    "message": "Przeliczanie FAST uruchomione",
+                    "total_steps": 4,
+                    "mode": "fast",
+                }
+            )
         else:
             # Full R pipeline recalculation (~2min)
-            cache.set('r_pipeline_progress', {
-                'running': True,
-                'current_step': 0,
-                'total_steps': 5,
-                'current_script': 'Uruchamianie R pipeline...',
-                'error': None,
-                'completed': False,
-            }, timeout=3600)
+            cache.set(
+                "r_pipeline_progress",
+                {
+                    "running": True,
+                    "current_step": 0,
+                    "total_steps": 5,
+                    "current_script": "Uruchamianie R pipeline...",
+                    "error": None,
+                    "completed": False,
+                },
+                timeout=3600,
+            )
 
             run_r_pipeline_dev.delay()
 
-            return Response({
-                'status': 'started',
-                'message': 'Przeliczanie R uruchomione',
-                'total_steps': 5,
-                'mode': 'full',
-            })
-    except Exception as e:
+            return Response(
+                {
+                    "status": "started",
+                    "message": "Przeliczanie R uruchomione",
+                    "total_steps": 5,
+                    "mode": "full",
+                }
+            )
+    except Exception:
         # Release lock on error
         cache.delete(LOCK_KEY)
         raise
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def recalculate_status(request):
     """
     Get R pipeline recalculation status (dev only).
 
     GET /api/analytics/recalculate/status/
     """
-    progress = cache.get('r_pipeline_progress', {
-        'running': False,
-        'current_step': 0,
-        'total_steps': 4,
-        'current_script': '',
-        'error': None,
-        'completed': False,
-    })
+    progress = cache.get(
+        "r_pipeline_progress",
+        {
+            "running": False,
+            "current_step": 0,
+            "total_steps": 4,
+            "current_script": "",
+            "error": None,
+            "completed": False,
+        },
+    )
 
-    return Response({
-        'running': progress.get('running', False),
-        'current_step': progress.get('current_step', 0),
-        'total_steps': progress.get('total_steps', 5),
-        'current_script': progress.get('current_script', ''),
-        'error': progress.get('error'),
-        'completed': progress.get('completed', False),
-    })
+    return Response(
+        {
+            "running": progress.get("running", False),
+            "current_step": progress.get("current_step", 0),
+            "total_steps": progress.get("total_steps", 5),
+            "current_script": progress.get("current_script", ""),
+            "error": progress.get("error"),
+            "completed": progress.get("completed", False),
+        }
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def boundaries(request):
     """
     Get administrative/geographic boundaries as GeoJSON.
@@ -498,15 +590,18 @@ def boundaries(request):
     GET /api/analytics/boundaries/?name=bialoleka
     GET /api/analytics/boundaries/?name=wisla
     """
-    name = request.query_params.get('name')
+    name = request.query_params.get("name")
 
     with connection.cursor() as cursor:
         if name:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT name, ST_AsGeoJSON(geom) as geojson
                 FROM boundaries
                 WHERE name = %s
-            """, [name])
+            """,
+                [name],
+            )
         else:
             cursor.execute("""
                 SELECT name, ST_AsGeoJSON(geom) as geojson
@@ -516,62 +611,66 @@ def boundaries(request):
 
     features = []
     for name, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'name': name}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"name": name},
+            }
+        )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features
-    })
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def task_status(request):
     """
     Get Celery task status.
 
     GET /api/analytics/status/?task_id=xxx
     """
-    task_id = request.query_params.get('task_id')
+    task_id = request.query_params.get("task_id")
 
     if not task_id:
         # Return recent tasks
-        recent = TaskResult.objects.order_by('-date_created')[:10]
-        return Response({
-            'recent_tasks': [
-                {
-                    'task_id': t.task_id,
-                    'task_name': t.task_name,
-                    'status': t.status,
-                    'date_created': t.date_created,
-                }
-                for t in recent
-            ]
-        })
+        recent = TaskResult.objects.order_by("-date_created")[:10]
+        return Response(
+            {
+                "recent_tasks": [
+                    {
+                        "task_id": t.task_id,
+                        "task_name": t.task_name,
+                        "status": t.status,
+                        "date_created": t.date_created,
+                    }
+                    for t in recent
+                ]
+            }
+        )
 
     try:
         result = TaskResult.objects.get(task_id=task_id)
-        return Response({
-            'task_id': result.task_id,
-            'task_name': result.task_name,
-            'status': result.status,
-            'result': result.result,
-            'date_created': result.date_created,
-            'date_done': result.date_done,
-        })
+        return Response(
+            {
+                "task_id": result.task_id,
+                "task_name": result.task_name,
+                "status": result.status,
+                "result": result.result,
+                "date_created": result.date_created,
+                "date_done": result.date_done,
+            }
+        )
     except TaskResult.DoesNotExist:
-        return Response({
-            'task_id': task_id,
-            'status': 'PENDING',
-            'message': 'Task not found or still pending'
-        })
+        return Response(
+            {
+                "task_id": task_id,
+                "status": "PENDING",
+                "message": "Task not found or still pending",
+            }
+        )
 
 
-
-@api_view(['GET'])
+@api_view(["GET"])
 def buildings(request):
     """
     Get buildings as GeoJSON for map layer.
@@ -580,20 +679,23 @@ def buildings(request):
     GET /api/analytics/buildings/
     GET /api/analytics/buildings/?bbox=20.95,52.28,21.05,52.38
     """
-    bbox = request.query_params.get('bbox')
+    bbox = request.query_params.get("bbox")
 
     with connection.cursor() as cursor:
         if bbox:
             try:
-                minx, miny, maxx, maxy = map(float, bbox.split(','))
-                cursor.execute("""
+                minx, miny, maxx, maxy = map(float, bbox.split(","))
+                cursor.execute(
+                    """
                     SELECT osm_id, ST_AsGeoJSON(geom) as geojson
                     FROM osm_buildings
                     WHERE geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
                     LIMIT 50000
-                """, [minx, miny, maxx, maxy])
+                """,
+                    [minx, miny, maxx, maxy],
+                )
             except (ValueError, TypeError):
-                return Response({'error': 'Invalid bbox format'}, status=400)
+                return Response({"error": "Invalid bbox format"}, status=400)
         else:
             cursor.execute("""
                 SELECT osm_id, ST_AsGeoJSON(geom) as geojson
@@ -604,19 +706,18 @@ def buildings(request):
 
     features = []
     for osm_id, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id},
+            }
+        )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features
-    })
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def forests(request):
     """Get forests as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -629,16 +730,18 @@ def forests(request):
 
     features = []
     for osm_id, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'type': 'forest'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "type": "forest"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def population(request):
     """Get GUS 500m population grid cells as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -651,16 +754,18 @@ def population(request):
 
     features = []
     for code, tot, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'code': code, 'tot': tot}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"code": code, "tot": tot},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def water(request):
     """Get water bodies (polygons only) as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -674,16 +779,18 @@ def water(request):
 
     features = []
     for osm_id, name, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'name': name, 'type': 'water'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "name": name, "type": "water"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def waterways(request):
     """Get waterways (lines - rivers, streams) as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -697,18 +804,18 @@ def waterways(request):
 
     features = []
     for osm_id, name, waterway, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'name': name, 'waterway': waterway}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "name": name, "waterway": waterway},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-
-
-@api_view(['GET'])
+@api_view(["GET"])
 def barriers(request):
     """Get barriers (fences, walls) as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -722,16 +829,22 @@ def barriers(request):
 
     features = []
     for osm_id, barrier_type, permeability, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'type': barrier_type, 'permeability': permeability}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {
+                    "osm_id": osm_id,
+                    "type": barrier_type,
+                    "permeability": permeability,
+                },
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def roads(request):
     """Get roads as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -744,16 +857,18 @@ def roads(request):
 
     features = []
     for osm_id, highway, name, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'highway': highway, 'name': name}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "highway": highway, "name": name},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def allotments(request):
     """Get allotment gardens as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -766,16 +881,18 @@ def allotments(request):
 
     features = []
     for osm_id, name, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'name': name, 'type': 'allotment'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "name": name, "type": "allotment"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def meadows(request):
     """Get meadows as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -788,16 +905,18 @@ def meadows(request):
 
     features = []
     for osm_id, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'type': 'meadow'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "type": "meadow"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def farmland(request):
     """Get farmland as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -810,16 +929,18 @@ def farmland(request):
 
     features = []
     for osm_id, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'type': 'farmland'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "type": "farmland"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def parks(request):
     """Get parks as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -832,16 +953,18 @@ def parks(request):
 
     features = []
     for osm_id, name, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'name': name, 'type': 'park'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "name": name, "type": "park"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def scrub(request):
     """Get scrub/bushes as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -854,16 +977,18 @@ def scrub(request):
 
     features = []
     for osm_id, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'type': 'scrub'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "type": "scrub"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def railway(request):
     """Get railway lines as GeoJSON for map layer."""
     with connection.cursor() as cursor:
@@ -876,13 +1001,15 @@ def railway(request):
 
     features = []
     for osm_id, name, geojson in rows:
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson),
-            'properties': {'osm_id': osm_id, 'name': name, 'type': 'railway'}
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson),
+                "properties": {"osm_id": osm_id, "name": name, "type": "railway"},
+            }
+        )
 
-    return Response({'type': 'FeatureCollection', 'features': features})
+    return Response({"type": "FeatureCollection", "features": features})
 
 
 # =============================================================================
@@ -890,14 +1017,14 @@ def railway(request):
 # =============================================================================
 
 VALID_SAMPLES = {
-    'mala': {'n': 100, 'file': 'baza_mala.json'},
-    'srednia': {'n': 500, 'file': 'baza_srednia.json'},
-    'duza': {'n': 1500, 'file': 'baza_duza.json'},
-    'pelna': {'n': 3500, 'file': 'baza_ogromna.json'},
+    "mala": {"n": 100, "file": "baza_mala.json"},
+    "srednia": {"n": 500, "file": "baza_srednia.json"},
+    "duza": {"n": 1500, "file": "baza_duza.json"},
+    "pelna": {"n": 3500, "file": "baza_ogromna.json"},
 }
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def samples_current(request):
     """
     Get current sample info.
@@ -906,23 +1033,25 @@ def samples_current(request):
     """
     from sightings.models import Sighting
 
-    count = Sighting.objects.filter(status='verified').count()
+    count = Sighting.objects.filter(status="verified").count()
 
     # Determine which sample based on count
-    current_sample = 'unknown'
+    current_sample = "unknown"
     for sample_id, info in VALID_SAMPLES.items():
-        if abs(count - info['n']) < 50:  # tolerance
+        if abs(count - info["n"]) < 50:  # tolerance
             current_sample = sample_id
             break
 
-    return Response({
-        'current_sample': current_sample,
-        'sighting_count': count,
-        'available_samples': list(VALID_SAMPLES.keys()),
-    })
+    return Response(
+        {
+            "current_sample": current_sample,
+            "sighting_count": count,
+            "available_samples": list(VALID_SAMPLES.keys()),
+        }
+    )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsBearerAuthenticated])
 def samples_switch(request):
     """
@@ -933,76 +1062,92 @@ def samples_switch(request):
     """
     from .tasks import switch_sample_task
 
-    sample = request.data.get('sample')
+    sample = request.data.get("sample")
 
     if sample not in VALID_SAMPLES:
-        return Response({
-            'error': f'Invalid sample. Valid: {list(VALID_SAMPLES.keys())}'
-        }, status=400)
+        return Response(
+            {"error": f"Invalid sample. Valid: {list(VALID_SAMPLES.keys())}"},
+            status=400,
+        )
 
     # Check if already switching
-    progress = cache.get('sample_switch_progress', {})
-    if progress.get('running'):
-        return Response({
-            'status': 'already_running',
-            'message': 'Przełączanie już trwa',
-        }, status=409)
+    progress = cache.get("sample_switch_progress", {})
+    if progress.get("running"):
+        return Response(
+            {
+                "status": "already_running",
+                "message": "Przełączanie już trwa",
+            },
+            status=409,
+        )
 
     # Start task
     task = switch_sample_task.delay(sample)
 
-    cache.set('sample_switch_progress', {
-        'running': True,
-        'task_id': task.id,
-        'sample': sample,
-        'current': 0,
-        'total': 4,
-        'step': 'starting',
-        'message': 'Uruchamianie...',
-    }, timeout=600)
+    cache.set(
+        "sample_switch_progress",
+        {
+            "running": True,
+            "task_id": task.id,
+            "sample": sample,
+            "current": 0,
+            "total": 4,
+            "step": "starting",
+            "message": "Uruchamianie...",
+        },
+        timeout=600,
+    )
 
-    return Response({
-        'task_id': task.id,
-        'sample': sample,
-        'expected_n': VALID_SAMPLES[sample]['n'],
-    })
+    return Response(
+        {
+            "task_id": task.id,
+            "sample": sample,
+            "expected_n": VALID_SAMPLES[sample]["n"],
+        }
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def sample_task_progress(request, task_id):
     """
     Get sample switch task progress.
 
     GET /api/analytics/tasks/{task_id}/status/
     """
-    progress = cache.get('sample_switch_progress', {})
+    progress = cache.get("sample_switch_progress", {})
 
-    if progress.get('task_id') != task_id:
+    if progress.get("task_id") != task_id:
         # Check Celery result
         try:
             result = TaskResult.objects.get(task_id=task_id)
-            return Response({
-                'status': result.status,
-                'result': result.result,
-            })
+            return Response(
+                {
+                    "status": result.status,
+                    "result": result.result,
+                }
+            )
         except TaskResult.DoesNotExist:
-            return Response({
-                'status': 'PENDING',
-                'message': 'Task not found',
-            })
+            return Response(
+                {
+                    "status": "PENDING",
+                    "message": "Task not found",
+                }
+            )
 
-    return Response({
-        'status': 'PROGRESS' if progress.get('running') else 'SUCCESS',
-        'current': progress.get('current', 0),
-        'total': progress.get('total', 4),
-        'percent': int(progress.get('current', 0) / progress.get('total', 4) * 100),
-        'step': progress.get('step', ''),
-        'message': progress.get('message', ''),
-        'error': progress.get('error'),
-    })
+    return Response(
+        {
+            "status": "PROGRESS" if progress.get("running") else "SUCCESS",
+            "current": progress.get("current", 0),
+            "total": progress.get("total", 4),
+            "percent": int(progress.get("current", 0) / progress.get("total", 4) * 100),
+            "step": progress.get("step", ""),
+            "message": progress.get("message", ""),
+            "error": progress.get("error"),
+        }
+    )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 def calculate_voronoi_features(request):
     """
     Calculate environmental features for Voronoi cells.
@@ -1014,14 +1159,15 @@ def calculate_voronoi_features(request):
                   building_density, road_density
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     results = {
-        'distance_to_forest': {'updated': 0, 'error': None},
-        'distance_to_water': {'updated': 0, 'error': None},
-        'forest_cover': {'updated': 0, 'error': None},
-        'building_density': {'updated': 0, 'error': None},
-        'road_density': {'updated': 0, 'error': None},
+        "distance_to_forest": {"updated": 0, "error": None},
+        "distance_to_water": {"updated": 0, "error": None},
+        "forest_cover": {"updated": 0, "error": None},
+        "building_density": {"updated": 0, "error": None},
+        "road_density": {"updated": 0, "error": None},
     }
 
     with connection.cursor() as cursor:
@@ -1029,10 +1175,13 @@ def calculate_voronoi_features(request):
         cursor.execute("SELECT COUNT(*) FROM sightings_gridcell_voronoi")
         cell_count = cursor.fetchone()[0]
         if cell_count == 0:
-            return Response({
-                'status': 'error',
-                'message': 'No Voronoi cells found. Run 01_generate_voronoi.R first.'
-            }, status=400)
+            return Response(
+                {
+                    "status": "error",
+                    "message": "No Voronoi cells found. Run 01_generate_voronoi.R first.",
+                },
+                status=400,
+            )
 
         logger.info(f"Calculating features for {cell_count} Voronoi cells...")
 
@@ -1063,10 +1212,10 @@ def calculate_voronoi_features(request):
                     ) subq
                     WHERE g.id = subq.id;
                 """)
-                results['distance_to_forest']['updated'] = cursor.rowcount
+                results["distance_to_forest"]["updated"] = cursor.rowcount
                 logger.info(f"  distance_to_forest: {cursor.rowcount} updated")
         except Exception as e:
-            results['distance_to_forest']['error'] = str(e)
+            results["distance_to_forest"]["error"] = str(e)
             logger.error(f"  distance_to_forest ERROR: {e}")
 
         # 2. Distance to water (edge-to-edge, in meters)
@@ -1096,10 +1245,10 @@ def calculate_voronoi_features(request):
                     ) subq
                     WHERE g.id = subq.id;
                 """)
-                results['distance_to_water']['updated'] = cursor.rowcount
+                results["distance_to_water"]["updated"] = cursor.rowcount
                 logger.info(f"  distance_to_water: {cursor.rowcount} updated")
         except Exception as e:
-            results['distance_to_water']['error'] = str(e)
+            results["distance_to_water"]["error"] = str(e)
             logger.error(f"  distance_to_water ERROR: {e}")
 
         # 3. Forest cover (% of cell covered by forest)
@@ -1118,10 +1267,10 @@ def calculate_voronoi_features(request):
                 ) subq
                 WHERE g.id = subq.id;
             """)
-            results['forest_cover']['updated'] = cursor.rowcount
+            results["forest_cover"]["updated"] = cursor.rowcount
             logger.info(f"  forest_cover: {cursor.rowcount} updated")
         except Exception as e:
-            results['forest_cover']['error'] = str(e)
+            results["forest_cover"]["error"] = str(e)
             logger.error(f"  forest_cover ERROR: {e}")
 
         # 4. Building density (% of cell covered by buildings)
@@ -1140,10 +1289,10 @@ def calculate_voronoi_features(request):
                 ) subq
                 WHERE g.id = subq.id;
             """)
-            results['building_density']['updated'] = cursor.rowcount
+            results["building_density"]["updated"] = cursor.rowcount
             logger.info(f"  building_density: {cursor.rowcount} updated")
         except Exception as e:
-            results['building_density']['error'] = str(e)
+            results["building_density"]["error"] = str(e)
             logger.error(f"  building_density ERROR: {e}")
 
         # 5. Road density (km of roads per km2 of cell)
@@ -1162,10 +1311,10 @@ def calculate_voronoi_features(request):
                 ) subq
                 WHERE g.id = subq.id;
             """)
-            results['road_density']['updated'] = cursor.rowcount
+            results["road_density"]["updated"] = cursor.rowcount
             logger.info(f"  road_density: {cursor.rowcount} updated")
         except Exception as e:
-            results['road_density']['error'] = str(e)
+            results["road_density"]["error"] = str(e)
             logger.error(f"  road_density ERROR: {e}")
 
         # Update timestamp
@@ -1175,21 +1324,24 @@ def calculate_voronoi_features(request):
     cache.clear()
 
     # Check for any errors
-    errors = [f for f, v in results.items() if v['error']]
+    errors = [f for f, v in results.items() if v["error"]]
 
-    return Response({
-        'status': 'success' if not errors else 'partial',
-        'cells': cell_count,
-        'results': results,
-        'errors': errors
-    })
+    return Response(
+        {
+            "status": "success" if not errors else "partial",
+            "cells": cell_count,
+            "results": results,
+            "errors": errors,
+        }
+    )
 
 
 # =============================================================================
 # BAYESIAN LAYER ENDPOINTS (MASTER_SPEC v2.3)
 # =============================================================================
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 def bayesian_results(request):
     """
     Get Bayesian SSM results as GeoJSON.
@@ -1202,14 +1354,14 @@ def bayesian_results(request):
 
     Returns posterior mean intensity with credible intervals.
     """
-    grid_type = request.GET.get('grid_type', 'voronoi')
-    run_id = request.GET.get('run_id')
-    min_prob = request.GET.get('min_prob')
+    grid_type = request.GET.get("grid_type", "voronoi")
+    run_id = request.GET.get("run_id")
+    min_prob = request.GET.get("min_prob")
 
     try:
         grid_table = validate_grid_type(grid_type)
     except ValueError:
-        return Response({'error': f'Invalid grid_type: {grid_type}'}, status=400)
+        return Response({"error": f"Invalid grid_type: {grid_type}"}, status=400)
 
     query = f"""
         SELECT
@@ -1245,34 +1397,51 @@ def bayesian_results(request):
 
     features = []
     for row in rows:
-        cell_id, intensity_mean, intensity_median, ci_lower, ci_upper, prob, r_hat, ess, computed_at, geojson = row
-        features.append({
-            'type': 'Feature',
-            'geometry': json.loads(geojson) if geojson else None,
-            'properties': {
-                'cell_id': cell_id,
-                'intensity_mean': float(intensity_mean) if intensity_mean else 0,
-                'intensity_median': float(intensity_median) if intensity_median else 0,
-                'ci_lower_95': float(ci_lower) if ci_lower else 0,
-                'ci_upper_95': float(ci_upper) if ci_upper else 0,
-                'prob_above_threshold': float(prob) if prob else 0,
-                'r_hat': float(r_hat) if r_hat else None,
-                'ess_bulk': float(ess) if ess else None,
-                'converged': float(r_hat) < 1.01 if r_hat else None,
+        (
+            cell_id,
+            intensity_mean,
+            intensity_median,
+            ci_lower,
+            ci_upper,
+            prob,
+            r_hat,
+            ess,
+            computed_at,
+            geojson,
+        ) = row
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson) if geojson else None,
+                "properties": {
+                    "cell_id": cell_id,
+                    "intensity_mean": float(intensity_mean) if intensity_mean else 0,
+                    "intensity_median": float(intensity_median)
+                    if intensity_median
+                    else 0,
+                    "ci_lower_95": float(ci_lower) if ci_lower else 0,
+                    "ci_upper_95": float(ci_upper) if ci_upper else 0,
+                    "prob_above_threshold": float(prob) if prob else 0,
+                    "r_hat": float(r_hat) if r_hat else None,
+                    "ess_bulk": float(ess) if ess else None,
+                    "converged": float(r_hat) < 1.01 if r_hat else None,
+                },
             }
-        })
+        )
 
-    return Response({
-        'type': 'FeatureCollection',
-        'features': features,
-        'metadata': {
-            'count': len(features),
-            'grid_type': grid_type,
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+            "metadata": {
+                "count": len(features),
+                "grid_type": grid_type,
+            },
         }
-    })
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def prior_configs(request):
     """
     Get active prior configurations.
@@ -1286,8 +1455,8 @@ def prior_configs(request):
     """
     from .models_bayesian import PriorConfig
 
-    active_only = request.GET.get('active_only', 'true').lower() == 'true'
-    parameter = request.GET.get('parameter')
+    active_only = request.GET.get("active_only", "true").lower() == "true"
+    parameter = request.GET.get("parameter")
 
     queryset = PriorConfig.objects.all()
 
@@ -1297,37 +1466,44 @@ def prior_configs(request):
     if parameter:
         queryset = queryset.filter(parameter_name=parameter)
 
-    queryset = queryset.order_by('-created_at')[:100]
+    queryset = queryset.order_by("-created_at")[:100]
 
     configs = []
     for pc in queryset:
-        configs.append({
-            'id': str(pc.id),
-            'model_version': pc.model_version,
-            'parameter_name': pc.parameter_name,
-            'dist_type': pc.dist_type,
-            'alpha_hyper': float(pc.alpha_hyper),
-            'beta_hyper': float(pc.beta_hyper),
-            'source': {
-                'h_rel': float(pc.source_h_rel) if pc.source_h_rel else None,
-                'ari': float(pc.source_ari) if pc.source_ari else None,
-                'bandwidth': float(pc.source_bandwidth) if pc.source_bandwidth else None,
-            },
-            'is_active': pc.is_active,
-            'created_at': pc.created_at.isoformat(),
-        })
+        configs.append(
+            {
+                "id": str(pc.id),
+                "model_version": pc.model_version,
+                "parameter_name": pc.parameter_name,
+                "dist_type": pc.dist_type,
+                "alpha_hyper": float(pc.alpha_hyper),
+                "beta_hyper": float(pc.beta_hyper),
+                "source": {
+                    "h_rel": float(pc.source_h_rel) if pc.source_h_rel else None,
+                    "ari": float(pc.source_ari) if pc.source_ari else None,
+                    "bandwidth": float(pc.source_bandwidth)
+                    if pc.source_bandwidth
+                    else None,
+                },
+                "is_active": pc.is_active,
+                "created_at": pc.created_at.isoformat(),
+            }
+        )
 
-    return Response({
-        'priors': configs,
-        'count': len(configs),
-    })
+    return Response(
+        {
+            "priors": configs,
+            "count": len(configs),
+        }
+    )
 
 
 # =============================================================================
 # PRESET PROFILES ENDPOINTS
 # =============================================================================
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 def presets_list(request):
     """
     Get available preset profiles.
@@ -1340,27 +1516,31 @@ def presets_list(request):
 
     presets = []
     for key, preset in PRESET_PROFILES.items():
-        presets.append({
-            'id': key,
-            'name': preset.get('name', key),
-            'description': preset.get('description', ''),
-            'parameters': {
-                'bayesian_kappa': preset.get('bayesian_kappa'),
-                'persistence_rho_mean': preset.get('persistence_rho_mean'),
-                'diffusion_delta_mean': preset.get('diffusion_delta_mean'),
-                'mcmc_iterations': preset.get('mcmc_iterations'),
-                'mcmc_warmup': preset.get('mcmc_warmup'),
-                'mcmc_chains': preset.get('mcmc_chains'),
+        presets.append(
+            {
+                "id": key,
+                "name": preset.get("name", key),
+                "description": preset.get("description", ""),
+                "parameters": {
+                    "bayesian_kappa": preset.get("bayesian_kappa"),
+                    "persistence_rho_mean": preset.get("persistence_rho_mean"),
+                    "diffusion_delta_mean": preset.get("diffusion_delta_mean"),
+                    "mcmc_iterations": preset.get("mcmc_iterations"),
+                    "mcmc_warmup": preset.get("mcmc_warmup"),
+                    "mcmc_chains": preset.get("mcmc_chains"),
+                },
             }
-        })
+        )
 
-    return Response({
-        'presets': presets,
-        'count': len(presets),
-    })
+    return Response(
+        {
+            "presets": presets,
+            "count": len(presets),
+        }
+    )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsBearerAuthenticated])
 def apply_preset(request):
     """
@@ -1374,30 +1554,31 @@ def apply_preset(request):
     """
     from .models_config import ParameterConfiguration, PRESET_PROFILES
 
-    preset_name = request.data.get('preset')
-    activate = request.data.get('activate', True)
+    preset_name = request.data.get("preset")
+    activate = request.data.get("activate", True)
 
     if not preset_name:
-        return Response(
-            {'error': 'Missing "preset" field'},
-            status=400
-        )
+        return Response({"error": 'Missing "preset" field'}, status=400)
 
     if preset_name not in PRESET_PROFILES:
         return Response(
-            {'error': f'Unknown preset: {preset_name}', 'valid_presets': list(PRESET_PROFILES.keys())},
-            status=400
+            {
+                "error": f"Unknown preset: {preset_name}",
+                "valid_presets": list(PRESET_PROFILES.keys()),
+            },
+            status=400,
         )
 
     try:
         from .models_config import PRESET_PROFILES
+
         preset = PRESET_PROFILES[preset_name]
-        
+
         # Check if config with this name already exists
         existing = ParameterConfiguration.objects.filter(
-            name__iexact=preset.get('name', preset_name)
+            name__iexact=preset.get("name", preset_name)
         ).first()
-        
+
         if existing:
             # Update existing config and activate it
             existing.apply_preset(preset_name)
@@ -1405,31 +1586,35 @@ def apply_preset(request):
             existing.full_clean()
             existing.save()
             config = existing
-            action = 'Updated'
+            action = "Updated"
         else:
             # Create new config
-            config = ParameterConfiguration.create_from_preset(preset_name, activate=activate)
-            action = 'Created'
+            config = ParameterConfiguration.create_from_preset(
+                preset_name, activate=activate
+            )
+            action = "Created"
 
-        return Response({
-            'status': 'success',
-            'message': f'{action} configuration from preset: {preset_name}',
-            'config': {
-                'id': config.pk,
-                'name': config.name,
-                'description': config.description,
-                'is_active': config.is_active,
-                'mcmc_iterations': config.mcmc_iterations,
-                'mcmc_chains': config.mcmc_chains,
+        return Response(
+            {
+                "status": "success",
+                "message": f"{action} configuration from preset: {preset_name}",
+                "config": {
+                    "id": config.pk,
+                    "name": config.name,
+                    "description": config.description,
+                    "is_active": config.is_active,
+                    "mcmc_iterations": config.mcmc_iterations,
+                    "mcmc_chains": config.mcmc_chains,
+                },
             }
-        })
+        )
 
-    except Exception as e:
+    except Exception:
         logger.exception("apply_preset failed for preset=%s", preset_name)
-        return Response({'error': 'Internal server error applying preset'}, status=500)
+        return Response({"error": "Internal server error applying preset"}, status=500)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def active_config(request):
     """
     Get the currently active parameter configuration.
@@ -1443,41 +1628,46 @@ def active_config(request):
     config = ParameterConfiguration.get_active()
 
     if config:
-        return Response({
-            'has_active_config': True,
-            'config': {
-                'id': config.pk,
-                'name': config.name,
-                'description': config.description,
-                'bayesian_kappa': float(config.bayesian_kappa),
-                'persistence_rho_mean': float(config.persistence_rho_mean),
-                'diffusion_delta_mean': float(config.diffusion_delta_mean),
-                'mcmc_iterations': config.mcmc_iterations,
-                'mcmc_warmup': config.mcmc_warmup,
-                'mcmc_chains': config.mcmc_chains,
-                'bayesian_enabled': config.bayesian_enabled,
-                'weights': {
-                    'rf': float(config.weight_rf),
-                    'gwr': float(config.weight_gwr),
-                    'eta': float(config.weight_eta),
+        return Response(
+            {
+                "has_active_config": True,
+                "config": {
+                    "id": config.pk,
+                    "name": config.name,
+                    "description": config.description,
+                    "bayesian_kappa": float(config.bayesian_kappa),
+                    "persistence_rho_mean": float(config.persistence_rho_mean),
+                    "diffusion_delta_mean": float(config.diffusion_delta_mean),
+                    "mcmc_iterations": config.mcmc_iterations,
+                    "mcmc_warmup": config.mcmc_warmup,
+                    "mcmc_chains": config.mcmc_chains,
+                    "bayesian_enabled": config.bayesian_enabled,
+                    "weights": {
+                        "rf": float(config.weight_rf),
+                        "gwr": float(config.weight_gwr),
+                        "eta": float(config.weight_eta),
+                    },
+                    "updated_at": config.updated_at.isoformat(),
                 },
-                'updated_at': config.updated_at.isoformat(),
             }
-        })
+        )
     else:
         defaults = ParameterConfiguration.get_active_or_defaults()
-        return Response({
-            'has_active_config': False,
-            'config': defaults,
-            'message': 'Using default configuration (no active config in database)',
-        })
+        return Response(
+            {
+                "has_active_config": False,
+                "config": defaults,
+                "message": "Using default configuration (no active config in database)",
+            }
+        )
 
 
 # =============================================================================
 # BAYESIAN PIPELINE EXECUTION (FAZA 3)
 # =============================================================================
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 @permission_classes([IsBearerAuthenticated])
 def bayesian_run(request):
     """
@@ -1499,38 +1689,39 @@ def bayesian_run(request):
     """
     from .tasks_bayesian import run_bayesian_pipeline
     from .models_config import ParameterConfiguration
-    import uuid
 
     # Get parameters from request or use defaults
     try:
-        h_rel = float(request.data.get('h_rel', 0.5))
-        ari = float(request.data.get('ari', 0.7))
-        bandwidth = float(request.data.get('bandwidth', 400.0))
+        h_rel = float(request.data.get("h_rel", 0.5))
+        ari = float(request.data.get("ari", 0.7))
+        bandwidth = float(request.data.get("bandwidth", 400.0))
     except (TypeError, ValueError):
-        return Response({'error': 'h_rel, ari and bandwidth must be numeric'}, status=400)
+        return Response(
+            {"error": "h_rel, ari and bandwidth must be numeric"}, status=400
+        )
 
     # Validate inputs
     errors = []
     if not (0 < h_rel <= 1):
-        errors.append('h_rel must be in (0, 1]')
+        errors.append("h_rel must be in (0, 1]")
     if not (0 <= ari <= 1):
-        errors.append('ari must be in [0, 1]')
+        errors.append("ari must be in [0, 1]")
     if bandwidth <= 0:
-        errors.append('bandwidth must be > 0')
+        errors.append("bandwidth must be > 0")
 
     if errors:
-        return Response({'error': '; '.join(errors)}, status=400)
+        return Response({"error": "; ".join(errors)}, status=400)
 
     # Atomic lock — prevents concurrent 4-hour pipeline runs exhausting workers.
     # cache.add() is atomic: returns True only when the key did NOT exist.
-    BAYESIAN_LOCK_KEY = 'bayesian_pipeline_lock'
+    BAYESIAN_LOCK_KEY = "bayesian_pipeline_lock"
     BAYESIAN_LOCK_TIMEOUT = 14400  # 4 hours max (matches task time_limit)
 
-    if not cache.add(BAYESIAN_LOCK_KEY, 'running', BAYESIAN_LOCK_TIMEOUT):
+    if not cache.add(BAYESIAN_LOCK_KEY, "running", BAYESIAN_LOCK_TIMEOUT):
         return Response(
             {
-                'status': 'already_running',
-                'message': 'Bayesian pipeline already in progress. Check /api/analytics/bayesian/status/',
+                "status": "already_running",
+                "message": "Bayesian pipeline already in progress. Check /api/analytics/bayesian/status/",
             },
             status=409,
         )
@@ -1540,8 +1731,8 @@ def bayesian_run(request):
 
     # Trigger the pipeline
     try:
-        kappa = float(config.get('kappa', 10.0))
-        grid_type = request.data.get('grid_type', 'voronoi')
+        kappa = float(config.get("kappa", 10.0))
+        grid_type = request.data.get("grid_type", "voronoi")
 
         task = run_bayesian_pipeline.delay(
             h_rel=h_rel,
@@ -1556,34 +1747,43 @@ def bayesian_run(request):
 
         # Store task info in cache for polling
         from django.core.cache import cache
-        cache.set(f'bayesian_task:{run_id}', {
-            'task_id': task.id,
-            'status': 'queued',
-            'run_id': run_id,
-        }, timeout=86400)
 
-        return Response({
-            'status': 'queued',
-            'task_id': task.id,
-            'run_id': run_id,
-            'message': 'Bayesian pipeline started',
-            'config': {
-                'h_rel': h_rel,
-                'ari': ari,
-                'bandwidth': bandwidth,
-                'kappa': kappa,
-                'grid_type': grid_type,
+        cache.set(
+            f"bayesian_task:{run_id}",
+            {
+                "task_id": task.id,
+                "status": "queued",
+                "run_id": run_id,
+            },
+            timeout=86400,
+        )
+
+        return Response(
+            {
+                "status": "queued",
+                "task_id": task.id,
+                "run_id": run_id,
+                "message": "Bayesian pipeline started",
+                "config": {
+                    "h_rel": h_rel,
+                    "ari": ari,
+                    "bandwidth": bandwidth,
+                    "kappa": kappa,
+                    "grid_type": grid_type,
+                },
             }
-        })
+        )
 
-    except Exception as e:
+    except Exception:
         # Dispatch failed — release the lock so a retry is possible.
         cache.delete(BAYESIAN_LOCK_KEY)
         logger.exception("bayesian_run dispatch failed")
-        return Response({'error': 'Internal server error starting Bayesian pipeline'}, status=500)
+        return Response(
+            {"error": "Internal server error starting Bayesian pipeline"}, status=500
+        )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def bayesian_diagnostics(request):
     """
     Get MCMC diagnostics from the most recent Bayesian run.
@@ -1600,7 +1800,7 @@ def bayesian_diagnostics(request):
     - divergences: number of divergent transitions
     - convergence_ok: boolean indicating if all diagnostics pass
     """
-    run_id = request.GET.get('run_id')
+    run_id = request.GET.get("run_id")
 
     # Query latest diagnostics from BayesianResult
     query = """
@@ -1626,44 +1826,57 @@ def bayesian_diagnostics(request):
         row = cursor.fetchone()
 
     if not row or row[4] == 0:  # n_cells is 0
-        return Response({
-            'has_diagnostics': False,
-            'message': 'No Bayesian results found. Run the pipeline first.',
-        })
+        return Response(
+            {
+                "has_diagnostics": False,
+                "message": "No Bayesian results found. Run the pipeline first.",
+            }
+        )
 
-    r_hat_max, r_hat_mean, ess_min, ess_mean, n_cells, n_bad_rhat, n_low_ess, last_computed = row
+    (
+        r_hat_max,
+        r_hat_mean,
+        ess_min,
+        ess_mean,
+        n_cells,
+        n_bad_rhat,
+        n_low_ess,
+        last_computed,
+    ) = row
 
     # Check convergence criteria
-    convergence_ok = (
-        (r_hat_max is None or float(r_hat_max) <= 1.01) and
-        (ess_min is None or float(ess_min) >= 400)
+    convergence_ok = (r_hat_max is None or float(r_hat_max) <= 1.01) and (
+        ess_min is None or float(ess_min) >= 400
     )
 
-    return Response({
-        'has_diagnostics': True,
-        'diagnostics': {
-            'r_hat_max': float(r_hat_max) if r_hat_max else None,
-            'r_hat_mean': float(r_hat_mean) if r_hat_mean else None,
-            'ess_min': float(ess_min) if ess_min else None,
-            'ess_mean': float(ess_mean) if ess_mean else None,
-            'n_cells': n_cells,
-            'n_bad_rhat': n_bad_rhat,
-            'n_low_ess': n_low_ess,
-            'convergence_ok': convergence_ok,
-            'last_computed': last_computed.isoformat() if last_computed else None,
-        },
-        'thresholds': {
-            'r_hat_threshold': 1.01,
-            'ess_threshold': 400,
+    return Response(
+        {
+            "has_diagnostics": True,
+            "diagnostics": {
+                "r_hat_max": float(r_hat_max) if r_hat_max else None,
+                "r_hat_mean": float(r_hat_mean) if r_hat_mean else None,
+                "ess_min": float(ess_min) if ess_min else None,
+                "ess_mean": float(ess_mean) if ess_mean else None,
+                "n_cells": n_cells,
+                "n_bad_rhat": n_bad_rhat,
+                "n_low_ess": n_low_ess,
+                "convergence_ok": convergence_ok,
+                "last_computed": last_computed.isoformat() if last_computed else None,
+            },
+            "thresholds": {
+                "r_hat_threshold": 1.01,
+                "ess_threshold": 400,
+            },
         }
-    })
+    )
 
 
 # =============================================================================
 # COMBINED RESULTS FOR RESULTS TABLE (FAZA 5)
 # =============================================================================
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 def combined_results(request):
     """
     Get combined model results for ResultsTable.
@@ -1676,19 +1889,23 @@ def combined_results(request):
 
     Returns aggregated predictions from RF, GWR, ETA, Bayesian.
     """
-    grid_type = request.GET.get('grid_type', 'voronoi')
-    limit = validate_limit(request.GET.get('limit', 100))
-    min_risk = request.GET.get('min_risk')
+    grid_type = request.GET.get("grid_type", "voronoi")
+    limit = validate_limit(request.GET.get("limit", 100))
+    min_risk = request.GET.get("min_risk")
 
     try:
         grid_table = validate_grid_type(grid_type)
     except ValueError:
-        return Response({'error': f'Invalid grid_type: {grid_type}'}, status=400)
+        return Response({"error": f"Invalid grid_type: {grid_type}"}, status=400)
 
     # Query grid cells directly (they have ensemble_risk, gwr_score, area_rank_score)
     # spatial_risk only exists in voronoi table (SAR/SEM output)
     # RF comes from analytics_modelprediction, Bayesian from analytics_bayesian_result
-    gwr_select = "COALESCE(gc.spatial_risk, gc.gwr_score, 0)" if grid_type == "voronoi" else "gc.gwr_score"
+    gwr_select = (
+        "COALESCE(gc.spatial_risk, gc.gwr_score, 0)"
+        if grid_type == "voronoi"
+        else "gc.gwr_score"
+    )
     query = f"""
         SELECT
             gc.id as cell_id,
@@ -1724,29 +1941,31 @@ def combined_results(request):
     for row in rows:
         cell_id, rf, gwr, eta, bayesian, ensemble, prob_above, r_hat, ess = row
         result = {
-            'cell_id': cell_id,
-            'rf': float(rf) if rf else None,
-            'gwr': float(gwr) if gwr else None,
-            'eta': float(eta) if eta else None,
-            'bayesian': float(bayesian) if bayesian else None,
-            'ensemble': float(ensemble) if ensemble else None,
-            'prob_above_threshold': float(prob_above) if prob_above else None,
-            'r_hat': float(r_hat) if r_hat else None,
-            'ess': float(ess) if ess else None,
+            "cell_id": cell_id,
+            "rf": float(rf) if rf else None,
+            "gwr": float(gwr) if gwr else None,
+            "eta": float(eta) if eta else None,
+            "bayesian": float(bayesian) if bayesian else None,
+            "ensemble": float(ensemble) if ensemble else None,
+            "prob_above_threshold": float(prob_above) if prob_above else None,
+            "r_hat": float(r_hat) if r_hat else None,
+            "ess": float(ess) if ess else None,
         }
         results.append(result)
         if ensemble and float(ensemble) > 0.7:
             high_risk_count += 1
 
-    return Response({
-        'results': results,
-        'count': len(results),
-        'high_risk_count': high_risk_count,
-        'grid_type': grid_type,
-    })
+    return Response(
+        {
+            "results": results,
+            "count": len(results),
+            "high_risk_count": high_risk_count,
+            "grid_type": grid_type,
+        }
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def export_results_csv(request):
     """
     Export combined results as CSV.
@@ -1757,14 +1976,18 @@ def export_results_csv(request):
     import csv
     from django.http import HttpResponse
 
-    grid_type = request.GET.get('grid_type', 'voronoi')
+    grid_type = request.GET.get("grid_type", "voronoi")
 
     try:
         grid_table = validate_grid_type(grid_type)
     except ValueError:
-        return HttpResponse(f'Invalid grid_type: {grid_type}', status=400)
+        return HttpResponse(f"Invalid grid_type: {grid_type}", status=400)
     # spatial_risk only exists in voronoi table (SAR/SEM output)
-    gwr_select = "COALESCE(gc.spatial_risk, gc.gwr_score, 0)" if grid_type == "voronoi" else "gc.gwr_score"
+    gwr_select = (
+        "COALESCE(gc.spatial_risk, gc.gwr_score, 0)"
+        if grid_type == "voronoi"
+        else "gc.gwr_score"
+    )
     query = f"""
         SELECT
             gc.id as cell_id,
@@ -1790,11 +2013,25 @@ def export_results_csv(request):
         cursor.execute(query, [grid_type])
         rows = cursor.fetchall()
 
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="risk_results_{grid_type}.csv"'
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="risk_results_{grid_type}.csv"'
+    )
 
     writer = csv.writer(response)
-    writer.writerow(['cell_id', 'rf', 'gwr', 'eta', 'bayesian', 'ensemble', 'prob_above_threshold', 'r_hat', 'ess'])
+    writer.writerow(
+        [
+            "cell_id",
+            "rf",
+            "gwr",
+            "eta",
+            "bayesian",
+            "ensemble",
+            "prob_above_threshold",
+            "r_hat",
+            "ess",
+        ]
+    )
 
     for row in rows:
         writer.writerow(row)
@@ -1806,7 +2043,8 @@ def export_results_csv(request):
 # MODE ROUTER (FAST/PUB/BAYES pipeline separation)
 # =============================================================================
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 @permission_classes([IsBearerAuthenticated])
 def run_mode_pipeline(request):
     """
@@ -1829,16 +2067,19 @@ def run_mode_pipeline(request):
     """
     from .mode_router import run_pipeline, MODE_CONFIG
 
-    mode = request.data.get('mode', 'FAST').upper()
-    run_async = request.data.get('async', False)
+    mode = request.data.get("mode", "FAST").upper()
+    run_async = request.data.get("async", False)
 
     # Validate mode
     if mode not in MODE_CONFIG:
-        return Response({
-            'status': 'error',
-            'message': f'Invalid mode: {mode}',
-            'valid_modes': list(MODE_CONFIG.keys()),
-        }, status=400)
+        return Response(
+            {
+                "status": "error",
+                "message": f"Invalid mode: {mode}",
+                "valid_modes": list(MODE_CONFIG.keys()),
+            },
+            status=400,
+        )
 
     config = MODE_CONFIG[mode]
 
@@ -1846,39 +2087,52 @@ def run_mode_pipeline(request):
         # Async execution via Celery
         task = run_pipeline.delay(mode=mode)
 
-        cache.set(f'pipeline_task:{task.id}', {
-            'task_id': task.id,
-            'mode': mode,
-            'status': 'queued',
-        }, timeout=3600)
+        cache.set(
+            f"pipeline_task:{task.id}",
+            {
+                "task_id": task.id,
+                "mode": mode,
+                "status": "queued",
+            },
+            timeout=3600,
+        )
 
-        return Response({
-            'status': 'queued',
-            'task_id': task.id,
-            'mode': mode,
-            'config': config,
-            'message': f'{mode} pipeline started (async)',
-        })
+        return Response(
+            {
+                "status": "queued",
+                "task_id": task.id,
+                "mode": mode,
+                "config": config,
+                "message": f"{mode} pipeline started (async)",
+            }
+        )
     else:
         # Sync execution (blocking)
         try:
             result = run_pipeline(mode=mode)
-            return Response({
-                'status': result.get('status', 'unknown'),
-                'mode': mode,
-                'config': config,
-                'result': result,
-            })
-        except Exception as e:
-            logger.exception("run_mode_pipeline sync execution failed for mode=%s", mode)
-            return Response({
-                'status': 'error',
-                'mode': mode,
-                'message': 'Internal server error during pipeline execution',
-            }, status=500)
+            return Response(
+                {
+                    "status": result.get("status", "unknown"),
+                    "mode": mode,
+                    "config": config,
+                    "result": result,
+                }
+            )
+        except Exception:
+            logger.exception(
+                "run_mode_pipeline sync execution failed for mode=%s", mode
+            )
+            return Response(
+                {
+                    "status": "error",
+                    "mode": mode,
+                    "message": "Internal server error during pipeline execution",
+                },
+                status=500,
+            )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def pipeline_status(request, task_id):
     """
     Get pipeline task status.
@@ -1888,46 +2142,57 @@ def pipeline_status(request, task_id):
     from django_celery_results.models import TaskResult
 
     # Check cache first
-    cached = cache.get(f'pipeline_task:{task_id}')
+    cached = cache.get(f"pipeline_task:{task_id}")
     if cached:
         # Check if task is finished
         try:
             result = TaskResult.objects.get(task_id=task_id)
-            if result.status == 'SUCCESS':
-                return Response({
-                    'status': 'success',
-                    'task_id': task_id,
-                    'mode': cached.get('mode'),
-                    'result': result.result,
-                })
-            elif result.status == 'FAILURE':
-                return Response({
-                    'status': 'error',
-                    'task_id': task_id,
-                    'mode': cached.get('mode'),
-                    'error': str(result.result),
-                })
+            if result.status == "SUCCESS":
+                return Response(
+                    {
+                        "status": "success",
+                        "task_id": task_id,
+                        "mode": cached.get("mode"),
+                        "result": result.result,
+                    }
+                )
+            elif result.status == "FAILURE":
+                return Response(
+                    {
+                        "status": "error",
+                        "task_id": task_id,
+                        "mode": cached.get("mode"),
+                        "error": str(result.result),
+                    }
+                )
             else:
-                return Response({
-                    'status': 'running',
-                    'task_id': task_id,
-                    'mode': cached.get('mode'),
-                })
+                return Response(
+                    {
+                        "status": "running",
+                        "task_id": task_id,
+                        "mode": cached.get("mode"),
+                    }
+                )
         except TaskResult.DoesNotExist:
-            return Response({
-                'status': 'running',
-                'task_id': task_id,
-                'mode': cached.get('mode'),
-            })
+            return Response(
+                {
+                    "status": "running",
+                    "task_id": task_id,
+                    "mode": cached.get("mode"),
+                }
+            )
 
-    return Response({
-        'status': 'not_found',
-        'task_id': task_id,
-        'message': 'Task not found',
-    }, status=404)
+    return Response(
+        {
+            "status": "not_found",
+            "task_id": task_id,
+            "message": "Task not found",
+        },
+        status=404,
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def pipeline_modes(request):
     """
     Get available pipeline modes and their configurations.
@@ -1936,17 +2201,20 @@ def pipeline_modes(request):
     """
     from .mode_router import MODE_CONFIG
 
-    return Response({
-        'modes': MODE_CONFIG,
-        'default': 'FAST',
-    })
+    return Response(
+        {
+            "modes": MODE_CONFIG,
+            "default": "FAST",
+        }
+    )
 
 
 # =============================================================================
 # ETA and Spatial Model Results (spatialWarsaw compliance)
 # =============================================================================
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 def eta_current(request):
     """
     Get current ETA (Entropy Tessellation for Agglomeration) statistics.
@@ -2010,13 +2278,18 @@ def eta_current(request):
         stats_row = cursor.fetchone()
 
     if not row:
-        return Response({
-            'error': 'No Voronoi tessellation data available',
-            'source': 'spatialWarsaw::ETA()',
-        }, status=404)
+        return Response(
+            {
+                "error": "No Voronoi tessellation data available",
+                "source": "spatialWarsaw::ETA()",
+            },
+            status=404,
+        )
 
     n_tiles, s_ent, h_max, h_rel = row
-    avg_area_rank, min_area_rank, max_area_rank, std_area_rank, avg_area_prop = stats_row or (None,)*5
+    avg_area_rank, min_area_rank, max_area_rank, std_area_rank, avg_area_prop = (
+        stats_row or (None,) * 5
+    )
 
     # Interpretation based on Kopczewska's documentation
     if h_rel and h_rel > 0.9:
@@ -2030,25 +2303,37 @@ def eta_current(request):
     else:
         interpretation = "unknown"
 
-    return Response({
-        'h_rel': round(float(h_rel), 4) if h_rel else None,
-        's_ent': round(float(s_ent), 4) if s_ent else None,
-        'h_max': round(float(h_max), 4) if h_max else None,
-        'n_tiles': n_tiles,
-        'interpretation': interpretation,
-        'cell_stats': {
-            'avg_area_rank_score': round(float(avg_area_rank), 4) if avg_area_rank else None,
-            'min_area_rank_score': round(float(min_area_rank), 4) if min_area_rank else None,
-            'max_area_rank_score': round(float(max_area_rank), 4) if max_area_rank else None,
-            'std_area_rank_score': round(float(std_area_rank), 4) if std_area_rank else None,
-            'avg_area_proportion': round(float(avg_area_prop), 6) if avg_area_prop else None,
-        },
-        'source': 'spatialWarsaw::ETA() — 100% zgodne',
-        'reference': 'spatialWarsaw::ETA() via tessellation',
-    })
+    return Response(
+        {
+            "h_rel": round(float(h_rel), 4) if h_rel else None,
+            "s_ent": round(float(s_ent), 4) if s_ent else None,
+            "h_max": round(float(h_max), 4) if h_max else None,
+            "n_tiles": n_tiles,
+            "interpretation": interpretation,
+            "cell_stats": {
+                "avg_area_rank_score": round(float(avg_area_rank), 4)
+                if avg_area_rank
+                else None,
+                "min_area_rank_score": round(float(min_area_rank), 4)
+                if min_area_rank
+                else None,
+                "max_area_rank_score": round(float(max_area_rank), 4)
+                if max_area_rank
+                else None,
+                "std_area_rank_score": round(float(std_area_rank), 4)
+                if std_area_rank
+                else None,
+                "avg_area_proportion": round(float(avg_area_prop), 6)
+                if avg_area_prop
+                else None,
+            },
+            "source": "spatialWarsaw::ETA() — 100% zgodne",
+            "reference": "spatialWarsaw::ETA() via tessellation",
+        }
+    )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def spatial_current(request):
     """
     Get current spatial regression model results.
@@ -2076,78 +2361,95 @@ def spatial_current(request):
         row = cursor.fetchone()
 
     if not row:
-        return Response({
-            'error': 'No spatial model results available. Run NEW_02_spatial_models.R first.',
-            'source': 'spatialreg::lagsarlm/errorsarlm',
-        }, status=404)
+        return Response(
+            {
+                "error": "No spatial model results available. Run NEW_02_spatial_models.R first.",
+                "source": "spatialreg::lagsarlm/errorsarlm",
+            },
+            status=404,
+        )
 
     id_, computed_at, model_type, n_cells, rho, lambda_, aic, formula = row
 
     # Model interpretation
-    if model_type == 'SAR':
+    if model_type == "SAR":
         description = "Spatial Autoregressive Model (lagsarlm): y = ρWy + Xβ + ε"
-        spatial_param = {'name': 'rho (ρ)', 'value': round(float(rho), 4) if rho else None}
-    elif model_type == 'SEM':
+        spatial_param = {
+            "name": "rho (ρ)",
+            "value": round(float(rho), 4) if rho else None,
+        }
+    elif model_type == "SEM":
         description = "Spatial Error Model (errorsarlm): y = Xβ + u, u = λWu + ε"
-        spatial_param = {'name': 'lambda (λ)', 'value': round(float(lambda_), 4) if lambda_ else None}
+        spatial_param = {
+            "name": "lambda (λ)",
+            "value": round(float(lambda_), 4) if lambda_ else None,
+        }
     else:
         description = f"{model_type} model"
-        spatial_param = {'name': 'N/A', 'value': None}
+        spatial_param = {"name": "N/A", "value": None}
 
-    return Response({
-        'model_type': model_type,
-        'description': description,
-        'n_cells': n_cells,
-        'spatial_param': spatial_param,
-        'rho': round(float(rho), 4) if rho else None,
-        'lambda': round(float(lambda_), 4) if lambda_ else None,
-        'aic': round(float(aic), 2) if aic else None,
-        'formula': formula,
-        'computed_at': computed_at.isoformat() if computed_at else None,
-        'source': 'spatialreg::lagsarlm/errorsarlm',
-        'reference': 'NEW_02_spatial_models.R',
-    })
+    return Response(
+        {
+            "model_type": model_type,
+            "description": description,
+            "n_cells": n_cells,
+            "spatial_param": spatial_param,
+            "rho": round(float(rho), 4) if rho else None,
+            "lambda": round(float(lambda_), 4) if lambda_ else None,
+            "aic": round(float(aic), 2) if aic else None,
+            "formula": formula,
+            "computed_at": computed_at.isoformat() if computed_at else None,
+            "source": "spatialreg::lagsarlm/errorsarlm",
+            "reference": "NEW_02_spatial_models.R",
+        }
+    )
 
 
 # =============================================================================
 # W MATRIX VISUALIZATION
 # =============================================================================
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 def w_matrix_edges(request):
     """
     Get W matrix edges as GeoJSON for visualization.
-    
+
     GET /api/analytics/w-matrix/edges/
-    
+
     Returns LineString features representing spatial neighbor connections.
     Each edge connects two cell centroids that are neighbors in the W matrix.
-    
+
     The file is generated by r_scripts/research/export_w_edges.R during pipeline run.
     """
     import os
-    
-    geojson_path = '/r_data/w_matrix_edges.geojson'
-    
+
+    geojson_path = "/r_data/w_matrix_edges.geojson"
+
     if not os.path.exists(geojson_path):
-        return Response({
-            'error': 'W matrix edges not available. Run the research pipeline first.',
-            'path': geojson_path,
-        }, status=404)
-    
+        return Response(
+            {
+                "error": "W matrix edges not available. Run the research pipeline first.",
+                "path": geojson_path,
+            },
+            status=404,
+        )
+
     # Read and return the GeoJSON file
-    with open(geojson_path, 'r') as f:
+    with open(geojson_path, "r") as f:
         geojson_data = json.load(f)
-    
+
     # Add metadata
-    n_edges = len(geojson_data.get('features', []))
-    
-    return Response({
-        'type': 'FeatureCollection',
-        'metadata': {
-            'n_edges': n_edges,
-            'description': 'Spatial neighbor connections (W matrix edges)',
-            'source': 'research_W.rds via export_w_edges.R',
-        },
-        'features': geojson_data.get('features', []),
-    })
+    n_edges = len(geojson_data.get("features", []))
+
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "metadata": {
+                "n_edges": n_edges,
+                "description": "Spatial neighbor connections (W matrix edges)",
+                "source": "research_W.rds via export_w_edges.R",
+            },
+            "features": geojson_data.get("features", []),
+        }
+    )

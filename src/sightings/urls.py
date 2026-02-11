@@ -7,9 +7,9 @@ from rest_framework.routers import DefaultRouter
 from .views import SightingViewSet, GridCellViewSet
 
 router = DefaultRouter()
-router.register(r'sightings', SightingViewSet, basename='sighting')
-router.register(r'grid', GridCellViewSet, basename='grid')
+router.register(r"sightings", SightingViewSet, basename="sighting")
+router.register(r"grid", GridCellViewSet, basename="grid")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

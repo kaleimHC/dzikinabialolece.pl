@@ -23,76 +23,90 @@ from django.db import models
 # CHOICES
 # =============================================================================
 
+
 class GeometryType(models.TextChoices):
-    VORONOI = 'voronoi', 'Voronoi tessellation'
-    GRID_500 = 'grid_500', 'Regular grid 500m'
+    VORONOI = "voronoi", "Voronoi tessellation"
+    GRID_500 = "grid_500", "Regular grid 500m"
 
 
 class PopulationMethod(models.TextChoices):
-    SPATIAL_JOIN = 'spatial_join', 'Area-weighted spatial join (GUS 500m)'
-    POINTS = 'points', 'Point-in-polygon count'
-    CENTROID = 'centroid', 'Centroid lookup'
+    SPATIAL_JOIN = "spatial_join", "Area-weighted spatial join (GUS 500m)"
+    POINTS = "points", "Point-in-polygon count"
+    CENTROID = "centroid", "Centroid lookup"
 
 
 class YFormula(models.TextChoices):
-    COUNT_POP = 'count_pop', 'sighting_count / population'
-    INV_POP = 'inv_pop', '1 / (population + 1)'
-    LOG_POP = 'log_pop', 'log(population + 1)'
-    LOG_COUNT = 'log_count', 'log(sighting_count + 1)'  # NEW: Direct measure of boar presence
-    BINARY = 'binary', 'binary (0/1 sighting presence)'
+    COUNT_POP = "count_pop", "sighting_count / population"
+    INV_POP = "inv_pop", "1 / (population + 1)"
+    LOG_POP = "log_pop", "log(population + 1)"
+    LOG_COUNT = (
+        "log_count",
+        "log(sighting_count + 1)",
+    )  # NEW: Direct measure of boar presence
+    BINARY = "binary", "binary (0/1 sighting presence)"
 
 
 class WMethod(models.TextChoices):
-    KNN_AIC = 'knn_aic', 'KNN with AIC selection'
-    CONTIGUITY = 'contiguity', 'Queen contiguity'
-    TESSW = 'tessw', 'tessW (spatialWarsaw)'
+    KNN_AIC = "knn_aic", "KNN with AIC selection"
+    CONTIGUITY = "contiguity", "Queen contiguity"
+    TESSW = "tessw", "tessW (spatialWarsaw)"
 
 
 class ModelTypeChoice(models.TextChoices):
-    AUTO = 'auto', 'Auto (select by LM tests)'
-    SAR = 'sar', 'SAR (Spatial Lag)'
-    SEM = 'sem', 'SEM (Spatial Error)'
-    SDM = 'sdm', 'SDM (Spatial Durbin)'
-    PROBIT = 'probit', 'Spatial Probit'
-    LOGIT = 'logit', 'Spatial Logit'
+    AUTO = "auto", "Auto (select by LM tests)"
+    SAR = "sar", "SAR (Spatial Lag)"
+    SEM = "sem", "SEM (Spatial Error)"
+    SDM = "sdm", "SDM (Spatial Durbin)"
+    PROBIT = "probit", "Spatial Probit"
+    LOGIT = "logit", "Spatial Logit"
 
 
 class RegimeType(models.TextChoices):
-    NONE = 'none', 'Brak (jeden globalny model)'
-    TRINARY = 'trinary', 'Trinary (las/miasto/mixed)'
+    NONE = "none", "Brak (jeden globalny model)"
+    TRINARY = "trinary", "Trinary (las/miasto/mixed)"
 
 
 class RunStatus(models.TextChoices):
-    PENDING = 'pending', 'Pending'
-    RUNNING = 'running', 'Running'
-    SUCCESS = 'success', 'Success'
-    FAILED = 'failed', 'Failed'
-    CANCELLED = 'cancelled', 'Cancelled'
+    PENDING = "pending", "Pending"
+    RUNNING = "running", "Running"
+    SUCCESS = "success", "Success"
+    FAILED = "failed", "Failed"
+    CANCELLED = "cancelled", "Cancelled"
 
 
 class StepType(models.TextChoices):
-    R = 'R', 'R script'
-    PYTHON = 'Python', 'Python'
-    SQL = 'SQL', 'SQL query'
+    R = "R", "R script"
+    PYTHON = "Python", "Python"
+    SQL = "SQL", "SQL query"
 
 
 class StepStatus(models.TextChoices):
-    RUNNING = 'running', 'Running'
-    SUCCESS = 'success', 'Success'
-    FAILED = 'failed', 'Failed'
-    SKIPPED = 'skipped', 'Skipped'
+    RUNNING = "running", "Running"
+    SUCCESS = "success", "Success"
+    FAILED = "failed", "Failed"
+    SKIPPED = "skipped", "Skipped"
 
 
 # All available OSM predictor names
 ALL_PREDICTORS = [
-    'forests', 'buildings', 'roads', 'water', 'parks',
-    'meadow', 'farmland', 'allotments', 'scrub', 'railway', 'barriers',
+    "forests",
+    "buildings",
+    "roads",
+    "water",
+    "parks",
+    "meadow",
+    "farmland",
+    "allotments",
+    "scrub",
+    "railway",
+    "barriers",
 ]
 
 
 # =============================================================================
 # ResearchConfig
 # =============================================================================
+
 
 class ResearchConfig(models.Model):
     """
@@ -242,7 +256,7 @@ class ResearchConfig(models.Model):
     class Meta:
         verbose_name = "Research Config"
         verbose_name_plural = "Research Configs"
-        ordering = ['-updated_at']
+        ordering = ["-updated_at"]
 
     def __str__(self):
         active = " [ACTIVE]" if self.is_active else ""
@@ -252,40 +266,50 @@ class ResearchConfig(models.Model):
         errors = {}
 
         # 1. Voronoi + count_pop = bad (count=1 always, no variance)
-        if self.geometry_type == GeometryType.VORONOI and self.y_formula == YFormula.COUNT_POP:
-            errors['y_formula'] = (
+        if (
+            self.geometry_type == GeometryType.VORONOI
+            and self.y_formula == YFormula.COUNT_POP
+        ):
+            errors["y_formula"] = (
                 "Voronoi + count_pop is invalid: Voronoi cells are 1:1 with sightings, "
                 "so sighting_count=1 always (no variance in Y)."
             )
 
         # 2. Voronoi + binary = bad (count>0 always, Y=1 everywhere, no variance)
-        if self.geometry_type == GeometryType.VORONOI and self.y_formula == YFormula.BINARY:
-            errors['y_formula'] = (
+        if (
+            self.geometry_type == GeometryType.VORONOI
+            and self.y_formula == YFormula.BINARY
+        ):
+            errors["y_formula"] = (
                 "Voronoi + binary is invalid: Voronoi cells are 1:1 with sightings, "
                 "so sighting_count>0 always, Y=1 everywhere (no variance)."
             )
 
         # 3. SAR/SEM/SDM + binary = bad (needs continuous Y)
-        if self.model_type in (
-            ModelTypeChoice.SAR,
-            ModelTypeChoice.SEM,
-            ModelTypeChoice.SDM,
-        ) and self.y_formula == YFormula.BINARY:
-            errors['model_type'] = (
+        if (
+            self.model_type
+            in (
+                ModelTypeChoice.SAR,
+                ModelTypeChoice.SEM,
+                ModelTypeChoice.SDM,
+            )
+            and self.y_formula == YFormula.BINARY
+        ):
+            errors["model_type"] = (
                 f"{self.get_model_type_display()} requires continuous Y. "
                 "Use probit or logit for binary Y, or change y_formula."
             )
 
         # 4. k_range_min >= k_range_max
         if self.k_range_min >= self.k_range_max:
-            errors['k_range_min'] = (
+            errors["k_range_min"] = (
                 f"k_range_min ({self.k_range_min}) must be less than "
                 f"k_range_max ({self.k_range_max})."
             )
 
         # 5. date_from > date_to
         if self.date_from and self.date_to and self.date_from > self.date_to:
-            errors['date_from'] = "date_from must be before date_to."
+            errors["date_from"] = "date_from must be before date_to."
 
         if errors:
             raise ValidationError(errors)
@@ -305,37 +329,38 @@ class ResearchConfig(models.Model):
         suitable for passing as environment variables to R scripts.
         """
         env = {
-            'RESEARCH_GEOMETRY_TYPE': self.geometry_type,
-            'RESEARCH_POPULATION_METHOD': self.population_method,
-            'RESEARCH_Y_FORMULA': self.y_formula,
-            'RESEARCH_W_METHOD': self.w_method,
-            'RESEARCH_K_RANGE_MIN': str(self.k_range_min),
-            'RESEARCH_K_RANGE_MAX': str(self.k_range_max),
-            'RESEARCH_MODEL_TYPE': self.model_type,
-            'RESEARCH_ACTIVE_PREDICTORS': ','.join(self.active_predictors or []),
-            'RESEARCH_RUN_MORAN': '1' if self.run_moran else '0',
-            'RESEARCH_RUN_LM_TESTS': '1' if self.run_lm_tests else '0',
-            'RESEARCH_RUN_LISA': '1' if self.run_lisa else '0',
-            'RESEARCH_RUN_ETA': '1' if self.run_eta else '0',
-            'RESEARCH_VIF_THRESHOLD': str(self.vif_threshold),
-            'RESEARCH_ALPHA': str(self.alpha),
-            'RESEARCH_SEED': str(self.seed),
+            "RESEARCH_GEOMETRY_TYPE": self.geometry_type,
+            "RESEARCH_POPULATION_METHOD": self.population_method,
+            "RESEARCH_Y_FORMULA": self.y_formula,
+            "RESEARCH_W_METHOD": self.w_method,
+            "RESEARCH_K_RANGE_MIN": str(self.k_range_min),
+            "RESEARCH_K_RANGE_MAX": str(self.k_range_max),
+            "RESEARCH_MODEL_TYPE": self.model_type,
+            "RESEARCH_ACTIVE_PREDICTORS": ",".join(self.active_predictors or []),
+            "RESEARCH_RUN_MORAN": "1" if self.run_moran else "0",
+            "RESEARCH_RUN_LM_TESTS": "1" if self.run_lm_tests else "0",
+            "RESEARCH_RUN_LISA": "1" if self.run_lisa else "0",
+            "RESEARCH_RUN_ETA": "1" if self.run_eta else "0",
+            "RESEARCH_VIF_THRESHOLD": str(self.vif_threshold),
+            "RESEARCH_ALPHA": str(self.alpha),
+            "RESEARCH_SEED": str(self.seed),
             # Regime model
-            'RESEARCH_USE_REGIME': '1' if self.use_regime_model else '0',
-            'RESEARCH_REGIME_TYPE': self.regime_type,
-            'RESEARCH_REGIME_THRESHOLD': str(self.regime_threshold),
-            'RESEARCH_REGIME_THRESHOLD_URBAN': str(self.regime_threshold_urban),
+            "RESEARCH_USE_REGIME": "1" if self.use_regime_model else "0",
+            "RESEARCH_REGIME_TYPE": self.regime_type,
+            "RESEARCH_REGIME_THRESHOLD": str(self.regime_threshold),
+            "RESEARCH_REGIME_THRESHOLD_URBAN": str(self.regime_threshold_urban),
         }
         if self.date_from:
-            env['RESEARCH_DATE_FROM'] = self.date_from.isoformat()
+            env["RESEARCH_DATE_FROM"] = self.date_from.isoformat()
         if self.date_to:
-            env['RESEARCH_DATE_TO'] = self.date_to.isoformat()
+            env["RESEARCH_DATE_TO"] = self.date_to.isoformat()
         return env
 
 
 # =============================================================================
 # ResearchRun
 # =============================================================================
+
 
 class ResearchRun(models.Model):
     """
@@ -352,7 +377,7 @@ class ResearchRun(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='runs',
+        related_name="runs",
         help_text="Source config (may be null if config deleted)",
     )
     config_snapshot = models.JSONField(
@@ -377,21 +402,22 @@ class ResearchRun(models.Model):
         help_text="Number of spatial units generated",
     )
 
-    error_message = models.TextField(blank=True, default='')
+    error_message = models.TextField(blank=True, default="")
 
     class Meta:
         verbose_name = "Research Run"
         verbose_name_plural = "Research Runs"
-        ordering = ['-started_at']
+        ordering = ["-started_at"]
 
     def __str__(self):
-        cfg = self.config.name if self.config else '(deleted)'
+        cfg = self.config.name if self.config else "(deleted)"
         return f"Run {str(self.id)[:8]} [{self.status}] — {cfg}"
 
 
 # =============================================================================
 # ResearchStepLog
 # =============================================================================
+
 
 class ResearchStepLog(models.Model):
     """
@@ -404,7 +430,7 @@ class ResearchStepLog(models.Model):
     run = models.ForeignKey(
         ResearchRun,
         on_delete=models.CASCADE,
-        related_name='steps',
+        related_name="steps",
     )
 
     step_name = models.CharField(
@@ -444,8 +470,8 @@ class ResearchStepLog(models.Model):
         help_text="Statistics returned by this step",
     )
 
-    stdout = models.TextField(blank=True, default='')
-    stderr = models.TextField(blank=True, default='')
+    stdout = models.TextField(blank=True, default="")
+    stderr = models.TextField(blank=True, default="")
 
     errors = models.JSONField(
         default=list,
@@ -459,8 +485,8 @@ class ResearchStepLog(models.Model):
     class Meta:
         verbose_name = "Research Step Log"
         verbose_name_plural = "Research Step Logs"
-        ordering = ['run', 'step_order']
-        unique_together = ['run', 'step_order']
+        ordering = ["run", "step_order"]
+        unique_together = ["run", "step_order"]
 
     def __str__(self):
         return f"Step {self.step_order}: {self.step_name} [{self.status}]"
@@ -469,6 +495,7 @@ class ResearchStepLog(models.Model):
 # =============================================================================
 # ResearchDiagnostics
 # =============================================================================
+
 
 class ResearchDiagnostics(models.Model):
     """
@@ -481,35 +508,53 @@ class ResearchDiagnostics(models.Model):
     run = models.OneToOneField(
         ResearchRun,
         on_delete=models.CASCADE,
-        related_name='diagnostics',
+        related_name="diagnostics",
         primary_key=True,
     )
 
     # -- Moran's I --
     moran_i = models.FloatField(null=True, blank=True, help_text="Moran's I statistic")
-    moran_expected = models.FloatField(null=True, blank=True, help_text="Expected Moran's I under H0")
-    moran_variance = models.FloatField(null=True, blank=True, help_text="Variance of Moran's I")
+    moran_expected = models.FloatField(
+        null=True, blank=True, help_text="Expected Moran's I under H0"
+    )
+    moran_variance = models.FloatField(
+        null=True, blank=True, help_text="Variance of Moran's I"
+    )
     moran_z = models.FloatField(null=True, blank=True, help_text="Z-score")
     moran_p = models.FloatField(null=True, blank=True, help_text="p-value")
 
     # -- LM tests --
-    lm_lag_stat = models.FloatField(null=True, blank=True, help_text="LM Lag test statistic")
+    lm_lag_stat = models.FloatField(
+        null=True, blank=True, help_text="LM Lag test statistic"
+    )
     lm_lag_p = models.FloatField(null=True, blank=True, help_text="LM Lag p-value")
-    lm_error_stat = models.FloatField(null=True, blank=True, help_text="LM Error test statistic")
+    lm_error_stat = models.FloatField(
+        null=True, blank=True, help_text="LM Error test statistic"
+    )
     lm_error_p = models.FloatField(null=True, blank=True, help_text="LM Error p-value")
-    rlm_lag_stat = models.FloatField(null=True, blank=True, help_text="Robust LM Lag statistic")
-    rlm_lag_p = models.FloatField(null=True, blank=True, help_text="Robust LM Lag p-value")
-    rlm_error_stat = models.FloatField(null=True, blank=True, help_text="Robust LM Error statistic")
-    rlm_error_p = models.FloatField(null=True, blank=True, help_text="Robust LM Error p-value")
+    rlm_lag_stat = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Lag statistic"
+    )
+    rlm_lag_p = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Lag p-value"
+    )
+    rlm_error_stat = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Error statistic"
+    )
+    rlm_error_p = models.FloatField(
+        null=True, blank=True, help_text="Robust LM Error p-value"
+    )
 
     # -- Model fit --
     model_selected = models.CharField(
         max_length=20,
         blank=True,
-        default='',
+        default="",
         help_text="Model actually selected (sar/sem/sdm/probit/logit)",
     )
-    aic = models.FloatField(null=True, blank=True, help_text="Akaike Information Criterion")
+    aic = models.FloatField(
+        null=True, blank=True, help_text="Akaike Information Criterion"
+    )
     log_likelihood = models.FloatField(null=True, blank=True)
     coefficients = models.JSONField(
         null=True,
@@ -519,15 +564,29 @@ class ResearchDiagnostics(models.Model):
     r_squared = models.FloatField(null=True, blank=True, help_text="Pseudo R-squared")
 
     # -- Spatial parameters --
-    rho = models.FloatField(null=True, blank=True, help_text="SAR spatial lag parameter rho")
-    lambda_param = models.FloatField(null=True, blank=True, help_text="SEM spatial error parameter lambda")
+    rho = models.FloatField(
+        null=True, blank=True, help_text="SAR spatial lag parameter rho"
+    )
+    lambda_param = models.FloatField(
+        null=True, blank=True, help_text="SEM spatial error parameter lambda"
+    )
 
     # -- LISA summary --
-    lisa_hh_count = models.PositiveIntegerField(null=True, blank=True, help_text="High-High clusters")
-    lisa_ll_count = models.PositiveIntegerField(null=True, blank=True, help_text="Low-Low clusters")
-    lisa_hl_count = models.PositiveIntegerField(null=True, blank=True, help_text="High-Low outliers")
-    lisa_lh_count = models.PositiveIntegerField(null=True, blank=True, help_text="Low-High outliers")
-    lisa_ns_count = models.PositiveIntegerField(null=True, blank=True, help_text="Not significant")
+    lisa_hh_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="High-High clusters"
+    )
+    lisa_ll_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Low-Low clusters"
+    )
+    lisa_hl_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="High-Low outliers"
+    )
+    lisa_lh_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Low-High outliers"
+    )
+    lisa_ns_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Not significant"
+    )
 
     # -- VIF --
     vif_results = models.JSONField(
@@ -583,6 +642,6 @@ class ResearchDiagnostics(models.Model):
         verbose_name_plural = "Research Diagnostics"
 
     def __str__(self):
-        model = self.model_selected or 'N/A'
+        model = self.model_selected or "N/A"
         aic_str = f"AIC={self.aic:.1f}" if self.aic else "no AIC"
         return f"Diagnostics [{model}] {aic_str}"

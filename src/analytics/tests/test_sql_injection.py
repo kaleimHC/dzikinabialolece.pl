@@ -16,8 +16,8 @@ before the table name touches any cursor.execute() call.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
-from django.test import RequestFactory, TestCase
+from unittest.mock import patch
+from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 
 from analytics.sql_injection_patch import (
@@ -31,20 +31,21 @@ from analytics.sql_injection_patch import (
 # 1. Unit tests for the allowlist validators
 # ---------------------------------------------------------------------------
 
+
 class TestValidateGridType:
     """validate_grid_type() must only pass known suffixes through."""
 
     def test_voronoi_returns_correct_table(self):
-        assert validate_grid_type('voronoi') == 'sightings_gridcell_voronoi'
+        assert validate_grid_type("voronoi") == "sightings_gridcell_voronoi"
 
     def test_square_returns_correct_table(self):
-        assert validate_grid_type('square') == 'sightings_gridcell_square'
+        assert validate_grid_type("square") == "sightings_gridcell_square"
 
     def test_research_returns_correct_table(self):
-        assert validate_grid_type('research') == 'sightings_gridcell_research'
+        assert validate_grid_type("research") == "sightings_gridcell_research"
 
     def test_grid_500_returns_correct_table(self):
-        assert validate_grid_type('grid_500') == 'sightings_gridcell_grid_500'
+        assert validate_grid_type("grid_500") == "sightings_gridcell_grid_500"
 
     # --- attack vectors that must be rejected ---
 
@@ -56,7 +57,9 @@ class TestValidateGridType:
     def test_rejects_union_injection(self):
         """UNION-based data exfiltration via grid_type parameter."""
         with pytest.raises(ValueError, match="Invalid grid_type"):
-            validate_grid_type("voronoi UNION SELECT password,NULL,NULL FROM auth_user--")
+            validate_grid_type(
+                "voronoi UNION SELECT password,NULL,NULL FROM auth_user--"
+            )
 
     def test_rejects_subquery_injection(self):
         with pytest.raises(ValueError, match="Invalid grid_type"):
@@ -100,10 +103,10 @@ class TestValidateGeometryType:
     """validate_geometry_type() used in views_research distributions endpoint."""
 
     def test_grid_500_returns_research_table(self):
-        assert validate_geometry_type('grid_500') == 'research_grid_500m'
+        assert validate_geometry_type("grid_500") == "research_grid_500m"
 
     def test_voronoi_returns_voronoi_table(self):
-        assert validate_geometry_type('voronoi') == 'sightings_gridcell_voronoi'
+        assert validate_geometry_type("voronoi") == "sightings_gridcell_voronoi"
 
     def test_rejects_drop_statement(self):
         with pytest.raises(ValueError, match="Invalid geometry_type"):
@@ -163,6 +166,7 @@ class TestValidateLimit:
 #    These tests mock DB access and verify HTTP 400 is returned for injections.
 # ---------------------------------------------------------------------------
 
+
 class TestDistributionsEndpointRejectsInjection(TestCase):
     """
     GET /api/research/distributions/?geometry_type=<payload>
@@ -172,14 +176,14 @@ class TestDistributionsEndpointRejectsInjection(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
 
-    @patch('analytics.views_research.validate_geometry_type')
+    @patch("analytics.views_research.validate_geometry_type")
     def test_good_geometry_type_passes_validation(self, mock_validate):
         """Confirm validate_geometry_type is called with the request param."""
-        mock_validate.return_value = 'research_grid_500m'
+        mock_validate.return_value = "research_grid_500m"
         # We just check the validator is invoked; full view integration
         # requires a DB so is left to staging tests.
-        mock_validate('grid_500')
-        mock_validate.assert_called_with('grid_500')
+        mock_validate("grid_500")
+        mock_validate.assert_called_with("grid_500")
 
     def test_injection_payload_rejected_by_validator(self):
         """
@@ -219,6 +223,7 @@ class TestBayesianViewRejectsInjection(TestCase):
 #    Confirm that validate_grid_type blocks injection at the task level too.
 # ---------------------------------------------------------------------------
 
+
 class TestTaskGridTypeValidation:
     """
     tasks_rf.py:46      grid_table = f'sightings_gridcell_{grid_type}'
@@ -247,11 +252,11 @@ class TestTaskGridTypeValidation:
             validate_grid_type(payload)
 
     def test_valid_grid_types_all_accepted(self):
-        for gt in ['voronoi', 'square', 'research', 'grid_500']:
+        for gt in ["voronoi", "square", "research", "grid_500"]:
             table = validate_grid_type(gt)
-            assert table.startswith('sightings_gridcell_')
+            assert table.startswith("sightings_gridcell_")
             # Table name must contain only safe characters
-            suffix = table[len('sightings_gridcell_'):]
-            assert suffix.replace('_', '').isalnum(), (
+            suffix = table[len("sightings_gridcell_") :]
+            assert suffix.replace("_", "").isalnum(), (
                 f"Table suffix {suffix!r} contains unexpected characters"
             )

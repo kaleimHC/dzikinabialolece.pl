@@ -9,18 +9,19 @@ Tables isolation:
 - sightings_gridcell_voronoi: Voronoi tessellation (PUB mode)
 - sightings_gridcell_research: Research experiments (RESEARCH mode) [NEW]
 """
+
 from django.db import migrations
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('sightings', '0009_remove_hallucination_columns'),
+        ("sightings", "0009_remove_hallucination_columns"),
     ]
 
     operations = [
         # Tabela RESEARCH (spatialWarsaw research mode)
         migrations.RunSQL(
-            sql='''
+            sql="""
             CREATE TABLE IF NOT EXISTS sightings_gridcell_research (
                 -- Base identifiers
                 id SERIAL PRIMARY KEY,
@@ -80,7 +81,7 @@ class Migration(migrations.Migration):
             CREATE INDEX IF NOT EXISTS idx_research_high_risk
                 ON sightings_gridcell_research(ensemble_risk)
                 WHERE ensemble_risk > 0.7;
-            ''',
-            reverse_sql='DROP TABLE IF EXISTS sightings_gridcell_research CASCADE;'
+            """,
+            reverse_sql="DROP TABLE IF EXISTS sightings_gridcell_research CASCADE;",
         ),
     ]

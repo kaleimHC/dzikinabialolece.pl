@@ -1,5 +1,10 @@
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import LayerToggles from './LayerToggles';
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+} from "framer-motion";
+import LayerToggles from "./LayerToggles";
 
 /**
  * LayersBottomBar - Bottom sheet dla warstw na mobile
@@ -19,10 +24,10 @@ export default function LayersBottomBar({ isOpen, onClose }) {
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ y: '100%' }}
+          initial={{ y: "100%" }}
           animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
+          exit={{ y: "100%" }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
           drag="y"
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={{ top: 0, bottom: 0.6 }}
@@ -30,9 +35,9 @@ export default function LayersBottomBar({ isOpen, onClose }) {
           style={{
             y,
             opacity,
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-            background: 'rgb(var(--color-surface) / 0.95)',
-            borderTop: '1px solid rgb(var(--color-border))'
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            background: "rgb(var(--color-surface) / 0.95)",
+            borderTop: "1px solid rgb(var(--color-border))",
           }}
           className="
             fixed bottom-0 left-0 right-0 z-50

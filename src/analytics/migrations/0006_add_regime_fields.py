@@ -5,30 +5,50 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('analytics', '0005_researchconfig_researchrun_researchsteplog_and_more'),
+        ("analytics", "0005_researchconfig_researchrun_researchsteplog_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='researchconfig',
-            name='regime_threshold',
-            field=models.FloatField(default=0.3, help_text='Forest cover threshold for regime classification (0-1)'),
+            model_name="researchconfig",
+            name="regime_threshold",
+            field=models.FloatField(
+                default=0.3,
+                help_text="Forest cover threshold for regime classification (0-1)",
+            ),
         ),
         migrations.AddField(
-            model_name='researchconfig',
-            name='regime_type',
-            field=models.CharField(choices=[('none', 'Brak (jeden globalny model)'), ('binary', 'Binary regime (forest/urban)')], default='none', help_text='Type of regime classification', max_length=20),
+            model_name="researchconfig",
+            name="regime_type",
+            field=models.CharField(
+                choices=[
+                    ("none", "Brak (jeden globalny model)"),
+                    ("binary", "Binary regime (forest/urban)"),
+                ],
+                default="none",
+                help_text="Type of regime classification",
+                max_length=20,
+            ),
         ),
         migrations.AddField(
-            model_name='researchconfig',
-            name='use_regime_model',
-            field=models.BooleanField(default=False, help_text='Use regime model (binary forest/urban)'),
+            model_name="researchconfig",
+            name="use_regime_model",
+            field=models.BooleanField(
+                default=False, help_text="Use regime model (binary forest/urban)"
+            ),
         ),
         migrations.AlterField(
-            model_name='researchconfig',
-            name='geometry_type',
-            field=models.CharField(choices=[('voronoi', 'Voronoi tessellation'), ('grid_500', 'Regular grid 500m')], default='voronoi', help_text='Spatial unit type for analysis', max_length=20),
+            model_name="researchconfig",
+            name="geometry_type",
+            field=models.CharField(
+                choices=[
+                    ("voronoi", "Voronoi tessellation"),
+                    ("grid_500", "Regular grid 500m"),
+                ],
+                default="voronoi",
+                help_text="Spatial unit type for analysis",
+                max_length=20,
+            ),
         ),
     ]

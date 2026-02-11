@@ -1,11 +1,23 @@
-import { useRef, useEffect, useCallback } from 'react';
-import { animateOpacity, waitForSourceData, waitForMapIdle } from '../utils/animateOpacity';
+import { useRef, useEffect, useCallback } from "react";
+import {
+  animateOpacity,
+  waitForSourceData,
+  waitForMapIdle,
+} from "../utils/animateOpacity";
 
 const FADE_DURATION = 300;
 const FILL_OPACITY = 0.65;
 const OUTLINE_OPACITY = 0.3;
 
-export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, showHeatmap, showResearchGrid, researchGeometry = 'voronoi') {
+export function useGridTransition(
+  mapRef,
+  mapReady,
+  displayMode,
+  showFastGrid,
+  showHeatmap,
+  showResearchGrid,
+  researchGeometry = "voronoi",
+) {
   const transitionTokenRef = useRef(0);
   const abortControllerRef = useRef(null);
   const isFirstLoadRef = useRef(true);
@@ -15,22 +27,23 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
   const isAnimatingRef = useRef(false);
   const crossfadePendingRef = useRef(false);
 
-  const shouldBeVisible = displayMode === 'fast'
-    ? showFastGrid
-    : displayMode === 'research'
-      ? showResearchGrid
-      : showHeatmap;
+  const shouldBeVisible =
+    displayMode === "fast"
+      ? showFastGrid
+      : displayMode === "research"
+        ? showResearchGrid
+        : showHeatmap;
 
   // Helper: determine URL based on display mode and research geometry
   const getGridUrl = (mode, geometry) => {
-    if (mode === 'fast') {
-      return '/api/analytics/grid/';
-    } else if (mode === 'research') {
-      return geometry === 'grid_500'
-        ? '/api/analytics/research-grid-500/'
-        : '/api/analytics/research-grid/';
+    if (mode === "fast") {
+      return "/api/analytics/grid/";
+    } else if (mode === "research") {
+      return geometry === "grid_500"
+        ? "/api/analytics/research-grid-500/"
+        : "/api/analytics/research-grid/";
     } else {
-      return '/api/analytics/voronoi/';
+      return "/api/analytics/voronoi/";
     }
   };
 
@@ -44,12 +57,18 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
     if (modeChanged) return;
 
     // Sprawdź czy visibility się zmieniła
-    const visibilityChanged = prevShouldBeVisibleRef.current !== null &&
-                               prevShouldBeVisibleRef.current !== shouldBeVisible;
+    const visibilityChanged =
+      prevShouldBeVisibleRef.current !== null &&
+      prevShouldBeVisibleRef.current !== shouldBeVisible;
     prevShouldBeVisibleRef.current = shouldBeVisible;
 
     // Jeśli visibility się nie zmieniła lub animacja w toku, skip
-    if (!visibilityChanged || crossfadePendingRef.current || isAnimatingRef.current) return;
+    if (
+      !visibilityChanged ||
+      crossfadePendingRef.current ||
+      isAnimatingRef.current
+    )
+      return;
 
     const runToggleAnimation = async () => {
       isAnimatingRef.current = true;
@@ -57,19 +76,37 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
       const targetFillOpacity = shouldBeVisible ? FILL_OPACITY : 0;
       const targetOutlineOpacity = shouldBeVisible ? OUTLINE_OPACITY : 0;
 
-      const currentFillOpacity = map.getLayer('risk-fill')
-        ? (map.getPaintProperty('risk-fill', 'fill-opacity') || 0)
+      const currentFillOpacity = map.getLayer("risk-fill")
+        ? map.getPaintProperty("risk-fill", "fill-opacity") || 0
         : 0;
-      const currentOutlineOpacity = map.getLayer('risk-outline')
-        ? (map.getPaintProperty('risk-outline', 'line-opacity') || 0)
+      const currentOutlineOpacity = map.getLayer("risk-outline")
+        ? map.getPaintProperty("risk-outline", "line-opacity") || 0
         : 0;
 
       const fadePromises = [];
-      if (map.getLayer('risk-fill')) {
-        fadePromises.push(animateOpacity(map, 'risk-fill', 'fill-opacity', currentFillOpacity, targetFillOpacity, FADE_DURATION));
+      if (map.getLayer("risk-fill")) {
+        fadePromises.push(
+          animateOpacity(
+            map,
+            "risk-fill",
+            "fill-opacity",
+            currentFillOpacity,
+            targetFillOpacity,
+            FADE_DURATION,
+          ),
+        );
       }
-      if (map.getLayer('risk-outline')) {
-        fadePromises.push(animateOpacity(map, 'risk-outline', 'line-opacity', currentOutlineOpacity, targetOutlineOpacity, FADE_DURATION));
+      if (map.getLayer("risk-outline")) {
+        fadePromises.push(
+          animateOpacity(
+            map,
+            "risk-outline",
+            "line-opacity",
+            currentOutlineOpacity,
+            targetOutlineOpacity,
+            FADE_DURATION,
+          ),
+        );
       }
 
       await Promise.all(fadePromises);
@@ -85,7 +122,9 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
     if (!map || !mapReady) return;
 
     const modeChanged = prevDisplayModeRef.current !== displayMode;
-    const geometryChanged = displayMode === 'research' && prevResearchGeometryRef.current !== researchGeometry;
+    const geometryChanged =
+      displayMode === "research" &&
+      prevResearchGeometryRef.current !== researchGeometry;
 
     prevDisplayModeRef.current = displayMode;
     prevResearchGeometryRef.current = researchGeometry;
@@ -109,22 +148,41 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
       isAnimatingRef.current = true;
 
       try {
-        const currentFillOpacity = map.getLayer('risk-fill')
-          ? (map.getPaintProperty('risk-fill', 'fill-opacity') || 0)
+        const currentFillOpacity = map.getLayer("risk-fill")
+          ? map.getPaintProperty("risk-fill", "fill-opacity") || 0
           : 0;
 
         // FAZA 1: Fade-out (tylko jeśli coś jest widoczne)
         if (currentFillOpacity > 0) {
           const fadeOutPromises = [];
-          if (map.getLayer('risk-fill')) {
-            fadeOutPromises.push(animateOpacity(map, 'risk-fill', 'fill-opacity', currentFillOpacity, 0, FADE_DURATION));
+          if (map.getLayer("risk-fill")) {
+            fadeOutPromises.push(
+              animateOpacity(
+                map,
+                "risk-fill",
+                "fill-opacity",
+                currentFillOpacity,
+                0,
+                FADE_DURATION,
+              ),
+            );
           }
-          if (map.getLayer('risk-outline')) {
-            const currentOutline = map.getPaintProperty('risk-outline', 'line-opacity') || 0;
-            fadeOutPromises.push(animateOpacity(map, 'risk-outline', 'line-opacity', currentOutline, 0, FADE_DURATION));
+          if (map.getLayer("risk-outline")) {
+            const currentOutline =
+              map.getPaintProperty("risk-outline", "line-opacity") || 0;
+            fadeOutPromises.push(
+              animateOpacity(
+                map,
+                "risk-outline",
+                "line-opacity",
+                currentOutline,
+                0,
+                FADE_DURATION,
+              ),
+            );
           }
 
-          const fetchPromise = fetch(url, { signal }).then(r => {
+          const fetchPromise = fetch(url, { signal }).then((r) => {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.json();
           });
@@ -135,7 +193,7 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
           if (myToken !== transitionTokenRef.current) return;
 
           // FAZA 2: setData
-          const source = map.getSource('risk');
+          const source = map.getSource("risk");
           if (source) {
             source.setData(data);
 
@@ -143,7 +201,7 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
             if (isLargeDataset) {
               await waitForMapIdle(map, 2000);
             } else {
-              await waitForSourceData(map, 'risk', 500);
+              await waitForSourceData(map, "risk", 500);
             }
           }
 
@@ -152,15 +210,32 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
           // FAZA 3: Fade-in (TYLKO jeśli toggle ON)
           if (shouldBeVisible) {
             const fadeInPromises = [];
-            if (map.getLayer('risk-fill')) {
-              fadeInPromises.push(animateOpacity(map, 'risk-fill', 'fill-opacity', 0, FILL_OPACITY, FADE_DURATION));
+            if (map.getLayer("risk-fill")) {
+              fadeInPromises.push(
+                animateOpacity(
+                  map,
+                  "risk-fill",
+                  "fill-opacity",
+                  0,
+                  FILL_OPACITY,
+                  FADE_DURATION,
+                ),
+              );
             }
-            if (map.getLayer('risk-outline')) {
-              fadeInPromises.push(animateOpacity(map, 'risk-outline', 'line-opacity', 0, OUTLINE_OPACITY, FADE_DURATION));
+            if (map.getLayer("risk-outline")) {
+              fadeInPromises.push(
+                animateOpacity(
+                  map,
+                  "risk-outline",
+                  "line-opacity",
+                  0,
+                  OUTLINE_OPACITY,
+                  FADE_DURATION,
+                ),
+              );
             }
             await Promise.all(fadeInPromises);
           }
-
         } else {
           // Grid był niewidoczny — tylko fetch bez animacji fade-out
           const response = await fetch(url, { signal });
@@ -169,7 +244,7 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
 
           if (myToken !== transitionTokenRef.current) return;
 
-          const source = map.getSource('risk');
+          const source = map.getSource("risk");
           if (source) {
             source.setData(data);
 
@@ -177,7 +252,7 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
             if (isLargeDataset) {
               await waitForMapIdle(map, 2000);
             } else {
-              await waitForSourceData(map, 'risk', 500);
+              await waitForSourceData(map, "risk", 500);
             }
           }
 
@@ -186,28 +261,49 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
           // Fade-in (spójność z główną ścieżką)
           if (shouldBeVisible) {
             const fadeInPromises = [];
-            if (map.getLayer('risk-fill')) {
-              fadeInPromises.push(animateOpacity(map, 'risk-fill', 'fill-opacity', 0, FILL_OPACITY, FADE_DURATION));
+            if (map.getLayer("risk-fill")) {
+              fadeInPromises.push(
+                animateOpacity(
+                  map,
+                  "risk-fill",
+                  "fill-opacity",
+                  0,
+                  FILL_OPACITY,
+                  FADE_DURATION,
+                ),
+              );
             }
-            if (map.getLayer('risk-outline')) {
-              fadeInPromises.push(animateOpacity(map, 'risk-outline', 'line-opacity', 0, OUTLINE_OPACITY, FADE_DURATION));
+            if (map.getLayer("risk-outline")) {
+              fadeInPromises.push(
+                animateOpacity(
+                  map,
+                  "risk-outline",
+                  "line-opacity",
+                  0,
+                  OUTLINE_OPACITY,
+                  FADE_DURATION,
+                ),
+              );
             }
             if (fadeInPromises.length > 0) {
               await Promise.all(fadeInPromises);
             }
           }
         }
-
       } catch (err) {
-        if (err.name === 'AbortError') return;
-        console.error('[GridTransition] Crossfade error:', err);
+        if (err.name === "AbortError") return;
+        console.error("[GridTransition] Crossfade error:", err);
 
         if (myToken === transitionTokenRef.current && shouldBeVisible) {
-          if (map.getLayer('risk-fill')) {
-            map.setPaintProperty('risk-fill', 'fill-opacity', FILL_OPACITY);
+          if (map.getLayer("risk-fill")) {
+            map.setPaintProperty("risk-fill", "fill-opacity", FILL_OPACITY);
           }
-          if (map.getLayer('risk-outline')) {
-            map.setPaintProperty('risk-outline', 'line-opacity', OUTLINE_OPACITY);
+          if (map.getLayer("risk-outline")) {
+            map.setPaintProperty(
+              "risk-outline",
+              "line-opacity",
+              OUTLINE_OPACITY,
+            );
           }
         }
       } finally {
@@ -233,23 +329,29 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
     const url = getGridUrl(displayMode, researchGeometry);
 
     fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        const source = map.getSource('risk');
+      .then((r) => r.json())
+      .then((data) => {
+        const source = map.getSource("risk");
         if (source) {
           source.setData(data);
           // Set initial opacity based on current toggle state
           if (shouldBeVisible) {
-            if (map.getLayer('risk-fill')) {
-              map.setPaintProperty('risk-fill', 'fill-opacity', FILL_OPACITY);
+            if (map.getLayer("risk-fill")) {
+              map.setPaintProperty("risk-fill", "fill-opacity", FILL_OPACITY);
             }
-            if (map.getLayer('risk-outline')) {
-              map.setPaintProperty('risk-outline', 'line-opacity', OUTLINE_OPACITY);
+            if (map.getLayer("risk-outline")) {
+              map.setPaintProperty(
+                "risk-outline",
+                "line-opacity",
+                OUTLINE_OPACITY,
+              );
             }
           }
         }
       })
-      .catch(err => console.error('[GridTransition] Initial load error:', err));
+      .catch((err) =>
+        console.error("[GridTransition] Initial load error:", err),
+      );
   }, [mapRef, mapReady, displayMode, shouldBeVisible, researchGeometry]);
 
   // Event listener voronoi-refresh
@@ -260,29 +362,34 @@ export function useGridTransition(mapRef, mapReady, displayMode, showFastGrid, s
     const url = getGridUrl(displayMode, researchGeometry);
 
     fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        const source = map.getSource('risk');
+      .then((r) => r.json())
+      .then((data) => {
+        const source = map.getSource("risk");
         if (source) {
           source.setData(data);
           // Force layer visibility if it was hidden
-          if (map.getLayer('risk-fill')) {
-            const currentOpacity = map.getPaintProperty('risk-fill', 'fill-opacity') || 0;
+          if (map.getLayer("risk-fill")) {
+            const currentOpacity =
+              map.getPaintProperty("risk-fill", "fill-opacity") || 0;
             if (currentOpacity === 0) {
-              map.setPaintProperty('risk-fill', 'fill-opacity', FILL_OPACITY);
-              if (map.getLayer('risk-outline')) {
-                map.setPaintProperty('risk-outline', 'line-opacity', OUTLINE_OPACITY);
+              map.setPaintProperty("risk-fill", "fill-opacity", FILL_OPACITY);
+              if (map.getLayer("risk-outline")) {
+                map.setPaintProperty(
+                  "risk-outline",
+                  "line-opacity",
+                  OUTLINE_OPACITY,
+                );
               }
             }
           }
         }
       })
-      .catch(err => console.error('[GridTransition] Refresh error:', err));
+      .catch((err) => console.error("[GridTransition] Refresh error:", err));
   }, [mapRef, mapReady, displayMode, researchGeometry]);
 
   useEffect(() => {
-    window.addEventListener('voronoi-refresh', handleRefresh);
-    return () => window.removeEventListener('voronoi-refresh', handleRefresh);
+    window.addEventListener("voronoi-refresh", handleRefresh);
+    return () => window.removeEventListener("voronoi-refresh", handleRefresh);
   }, [handleRefresh]);
 
   return { isAnimating: isAnimatingRef.current };

@@ -10,18 +10,18 @@
  * Falls back to polling if WebSocket fails to connect.
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from "react";
 
 // Pipeline step definitions (must match backend PIPELINE_STEPS)
 const STEP_NAMES = [
-  { name: '01_geometry', description: 'Generate spatial units' },
-  { name: '02_population', description: 'Assign population' },
-  { name: '03_osm_features', description: 'Calculate OSM features' },
-  { name: '04_variable_y', description: 'Compute variable Y' },
-  { name: '05_matrix_w', description: 'Build spatial weights W' },
-  { name: '06_model', description: 'Fit spatial model' },
-  { name: '07_diagnostics', description: 'Run diagnostics' },
-  { name: '08_results', description: 'Generate results' },
+  { name: "01_geometry", description: "Generate spatial units" },
+  { name: "02_population", description: "Assign population" },
+  { name: "03_osm_features", description: "Calculate OSM features" },
+  { name: "04_variable_y", description: "Compute variable Y" },
+  { name: "05_matrix_w", description: "Build spatial weights W" },
+  { name: "06_model", description: "Fit spatial model" },
+  { name: "07_diagnostics", description: "Run diagnostics" },
+  { name: "08_results", description: "Generate results" },
 ];
 
 const INITIAL_STATE = {
@@ -30,7 +30,7 @@ const INITIAL_STATE = {
   totalSteps: STEP_NAMES.length,
   currentStep: 0,
   steps: [],
-  status: 'pending', // pending | running | success | failed
+  status: "pending", // pending | running | success | failed
   error: null,
   runId: null,
 };
@@ -48,7 +48,7 @@ export function usePipelineProgress(runId) {
       return;
     }
 
-    setProgress(prev => ({
+    setProgress((prev) => ({
       ...INITIAL_STATE,
       runId,
       connecting: true,
@@ -59,17 +59,17 @@ export function usePipelineProgress(runId) {
   useEffect(() => {
     if (!runId) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/research/run/${runId}/`;
 
-    console.log('[WS] Connecting to:', wsUrl);
+    console.log("[WS] Connecting to:", wsUrl);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('[WS] Connected');
-      setProgress(prev => ({
+      console.log("[WS] Connected");
+      setProgress((prev) => ({
         ...prev,
         connected: true,
         connecting: false,
@@ -81,25 +81,25 @@ export function usePipelineProgress(runId) {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('[WS] Message:', data.event, data);
+        console.log("[WS] Message:", data.event, data);
         handleProgressEvent(data);
       } catch (e) {
-        console.error('[WS] Parse error:', e);
+        console.error("[WS] Parse error:", e);
       }
     };
 
     ws.onerror = (error) => {
-      console.error('[WS] Error:', error);
-      setProgress(prev => ({
+      console.error("[WS] Error:", error);
+      setProgress((prev) => ({
         ...prev,
-        error: 'WebSocket connection error',
+        error: "WebSocket connection error",
         connecting: false,
       }));
     };
 
     ws.onclose = (event) => {
-      console.log('[WS] Closed:', event.code, event.reason);
-      setProgress(prev => ({
+      console.log("[WS] Closed:", event.code, event.reason);
+      setProgress((prev) => ({
         ...prev,
         connected: false,
         connecting: false,
@@ -108,13 +108,13 @@ export function usePipelineProgress(runId) {
       // Set fallback flag if connection was never established
       if (!fallbackToPollingRef.current && event.code !== 1000) {
         fallbackToPollingRef.current = true;
-        console.log('[WS] Will use polling fallback');
+        console.log("[WS] Will use polling fallback");
       }
     };
 
     return () => {
       if (wsRef.current) {
-        wsRef.current.close(1000, 'Component unmount');
+        wsRef.current.close(1000, "Component unmount");
         wsRef.current = null;
       }
       if (reconnectTimeoutRef.current) {
@@ -125,26 +125,26 @@ export function usePipelineProgress(runId) {
 
   // Handle progress events from WebSocket
   const handleProgressEvent = useCallback((data) => {
-    setProgress(prev => {
+    setProgress((prev) => {
       switch (data.event) {
-        case 'connected':
+        case "connected":
           return {
             ...prev,
             connected: true,
             connecting: false,
           };
 
-        case 'pipeline_start':
+        case "pipeline_start":
           return {
             ...prev,
-            status: 'running',
+            status: "running",
             totalSteps: data.total_steps || STEP_NAMES.length,
             currentStep: 0,
             steps: [],
             error: null,
           };
 
-        case 'step_start': {
+        case "step_start": {
           const stepNum = data.step_number;
           const newSteps = [...prev.steps];
 
@@ -154,8 +154,8 @@ export function usePipelineProgress(runId) {
             newSteps.push({
               number: idx + 1,
               name: STEP_NAMES[idx]?.name || `step_${idx + 1}`,
-              description: STEP_NAMES[idx]?.description || '',
-              status: 'pending',
+              description: STEP_NAMES[idx]?.description || "",
+              status: "pending",
             });
           }
 
@@ -163,8 +163,11 @@ export function usePipelineProgress(runId) {
           newSteps[stepNum - 1] = {
             number: stepNum,
             name: data.step_name,
-            description: data.step_description || STEP_NAMES[stepNum - 1]?.description || '',
-            status: 'running',
+            description:
+              data.step_description ||
+              STEP_NAMES[stepNum - 1]?.description ||
+              "",
+            status: "running",
           };
 
           return {
@@ -174,7 +177,7 @@ export function usePipelineProgress(runId) {
           };
         }
 
-        case 'step_complete': {
+        case "step_complete": {
           const stepNum = data.step_number;
           const newSteps = [...prev.steps];
 
@@ -184,15 +187,18 @@ export function usePipelineProgress(runId) {
             newSteps.push({
               number: idx + 1,
               name: STEP_NAMES[idx]?.name || `step_${idx + 1}`,
-              description: STEP_NAMES[idx]?.description || '',
-              status: 'pending',
+              description: STEP_NAMES[idx]?.description || "",
+              status: "pending",
             });
           }
 
           // Update the completed step
           newSteps[stepNum - 1] = {
             ...newSteps[stepNum - 1],
-            name: data.step_name || newSteps[stepNum - 1]?.name || STEP_NAMES[stepNum - 1]?.name,
+            name:
+              data.step_name ||
+              newSteps[stepNum - 1]?.name ||
+              STEP_NAMES[stepNum - 1]?.name,
             status: data.status,
             duration: data.duration_seconds,
             exitCode: data.exit_code,
@@ -206,19 +212,19 @@ export function usePipelineProgress(runId) {
           };
         }
 
-        case 'pipeline_complete':
+        case "pipeline_complete":
           return {
             ...prev,
             status: data.status,
             error: data.error_message || null,
           };
 
-        case 'pong':
+        case "pong":
           // Heartbeat response, ignore
           return prev;
 
         default:
-          console.log('[WS] Unknown event:', data.event);
+          console.log("[WS] Unknown event:", data.event);
           return prev;
       }
     });

@@ -32,36 +32,34 @@ class PipelineProgressConsumer(AsyncWebsocketConsumer):
         """Handle WebSocket connection."""
         # Reject unauthenticated connections — AuthMiddlewareStack populates scope['user']
         # but does NOT enforce auth — we must check explicitly.
-        if not self.scope['user'].is_authenticated:
+        if not self.scope["user"].is_authenticated:
             await self.close(code=4001)
             return
 
-        self.run_id = self.scope['url_route']['kwargs']['run_id']
-        self.group_name = f'research_{self.run_id}'
+        self.run_id = self.scope["url_route"]["kwargs"]["run_id"]
+        self.group_name = f"research_{self.run_id}"
 
         # Join the channel group for this run
-        await self.channel_layer.group_add(
-            self.group_name,
-            self.channel_name
-        )
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
 
         await self.accept()
         logger.info(f"WebSocket connected: run_id={self.run_id}")
 
         # Send initial connection confirmation
-        await self.send(text_data=json.dumps({
-            'event': 'connected',
-            'run_id': self.run_id,
-            'message': 'Connected to pipeline progress stream',
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "event": "connected",
+                    "run_id": self.run_id,
+                    "message": "Connected to pipeline progress stream",
+                }
+            )
+        )
 
     async def disconnect(self, close_code):
         """Handle WebSocket disconnection."""
         # Leave the channel group
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
         logger.info(f"WebSocket disconnected: run_id={self.run_id}, code={close_code}")
 
     async def receive(self, text_data):
@@ -74,11 +72,15 @@ class PipelineProgressConsumer(AsyncWebsocketConsumer):
         try:
             data = json.loads(text_data)
             # Handle ping messages
-            if data.get('type') == 'ping':
-                await self.send(text_data=json.dumps({
-                    'event': 'pong',
-                    'run_id': self.run_id,
-                }))
+            if data.get("type") == "ping":
+                await self.send(
+                    text_data=json.dumps(
+                        {
+                            "event": "pong",
+                            "run_id": self.run_id,
+                        }
+                    )
+                )
         except json.JSONDecodeError:
             pass
 
@@ -102,4 +104,4 @@ class PipelineProgressConsumer(AsyncWebsocketConsumer):
         }
         """
         # Send the data to the WebSocket client
-        await self.send(text_data=json.dumps(event['data']))
+        await self.send(text_data=json.dumps(event["data"]))

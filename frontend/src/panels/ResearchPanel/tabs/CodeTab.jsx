@@ -3,7 +3,7 @@
  * Źródła: grep-verified z faktycznych plików, z numerami linii
  */
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 const FileRef = ({ path, lines }) => (
   <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
@@ -20,29 +20,35 @@ const Code = ({ children }) => (
 
 const LangBadge = ({ lang }) => {
   const styles = {
-    py: 'bg-blue-900/50 text-blue-300 border-blue-700',
-    r:  'bg-emerald-900/50 text-emerald-300 border-emerald-700',
-    js: 'bg-yellow-900/50 text-yellow-300 border-yellow-700',
+    py: "bg-blue-900/50 text-blue-300 border-blue-700",
+    r: "bg-emerald-900/50 text-emerald-300 border-emerald-700",
+    js: "bg-yellow-900/50 text-yellow-300 border-yellow-700",
   };
   return (
-    <span className={`inline-block px-1.5 py-0.5 rounded text-xs border font-mono ${styles[lang]}`}>
+    <span
+      className={`inline-block px-1.5 py-0.5 rounded text-xs border font-mono ${styles[lang]}`}
+    >
       {lang.toUpperCase()}
     </span>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 const OrchestratorSection = () => (
   <div className="space-y-6 text-gray-300 text-sm">
-    <h2 className="text-xl font-bold text-white">Python: Orkiestrator & Celery</h2>
+    <h2 className="text-xl font-bold text-white">
+      Python: Orkiestrator & Celery
+    </h2>
 
     {/* PIPELINE_STEPS */}
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">PIPELINE_STEPS — definicja 8 kroków</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        PIPELINE_STEPS — definicja 8 kroków
+      </h3>
       <FileRef path="src/analytics/orchestrator_research.py" lines="67–116" />
       <p className="text-gray-400 mb-2">
-        Lista kroków iterowana przez orchestrator. Każdy krok: name, description, type (R/Python), script.
+        Lista kroków iterowana przez orchestrator. Każdy krok: name,
+        description, type (R/Python), script.
       </p>
       <Code>{`PIPELINE_STEPS = [
     { 'name': '01_geometry',     'description': 'Generate spatial units (Voronoi / grid)',
@@ -66,13 +72,15 @@ const OrchestratorSection = () => (
 
     {/* run_r_script */}
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">run_r_script() — Docker runner</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        run_r_script() — Docker runner
+      </h3>
       <FileRef path="src/analytics/orchestrator_research.py" lines="140–218" />
       <p className="text-gray-400 mb-2">
-        Uruchamia skrypt R jako kontener Docker. Zwraca (exit_code, stdout, stderr).
-        Klucz: wolumeny RDS przez{' '}
-        <code className="font-mono text-gray-300">dziki_r_data</code>{' '}
-        (shared między krokami), R scripts montowane jako read-only.
+        Uruchamia skrypt R jako kontener Docker. Zwraca (exit_code, stdout,
+        stderr). Klucz: wolumeny RDS przez{" "}
+        <code className="font-mono text-gray-300">dziki_r_data</code> (shared
+        między krokami), R scripts montowane jako read-only.
       </p>
       <Code>{`def run_r_script(
     script_name: str,
@@ -103,11 +111,14 @@ const OrchestratorSection = () => (
 
     {/* Celery task */}
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Celery task — run_research_pipeline</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Celery task — run_research_pipeline
+      </h3>
       <FileRef path="src/analytics/tasks_research.py" lines="13–75" />
       <p className="text-gray-400 mb-2">
-        Asynchroniczne opakowanie orkiestratora. Queue{' '}
-        <code className="font-mono text-gray-300">q_cpu</code>, soft limit 5 min, hard 6 min, zero retries.
+        Asynchroniczne opakowanie orkiestratora. Queue{" "}
+        <code className="font-mono text-gray-300">q_cpu</code>, soft limit 5
+        min, hard 6 min, zero retries.
       </p>
       <Code>{`@shared_task(
     bind=True,
@@ -132,11 +143,13 @@ def run_research_pipeline(self, run_id: str):
 
     {/* to_env_dict */}
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">ResearchConfig.to_env_dict() — konfiguracja jako ENV</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        ResearchConfig.to_env_dict() — konfiguracja jako ENV
+      </h3>
       <FileRef path="src/analytics/models_research.py" lines="302–333" />
       <p className="text-gray-400 mb-2">
-        Cała konfiguracja research → flat dict stringów → zmienne środowiskowe dla R scripts.
-        Jedyne miejsce mapowania Python config → R runtime.
+        Cała konfiguracja research → flat dict stringów → zmienne środowiskowe
+        dla R scripts. Jedyne miejsce mapowania Python config → R runtime.
       </p>
       <Code>{`def to_env_dict(self):
     env = {
@@ -165,7 +178,6 @@ def run_research_pipeline(self, run_id: str):
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 const TessellationSection = () => (
   <div className="space-y-6 text-gray-300 text-sm">
@@ -175,11 +187,14 @@ const TessellationSection = () => (
     </p>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Voronoi tessellation (ścieżka voronoi)</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Voronoi tessellation (ścieżka voronoi)
+      </h3>
       <FileRef path="r_scripts/01_generate_voronoi.R" lines="150–205" />
       <p className="text-gray-400 mb-2">
-        Jitter punktów przed tessellacją (duplikaty GPS → zdegenerowane komórki).
-        Następnie Voronoi, clip do granicy Białołęki, wykluczenie Wisły.
+        Jitter punktów przed tessellacją (duplikaty GPS → zdegenerowane
+        komórki). Następnie Voronoi, clip do granicy Białołęki, wykluczenie
+        Wisły.
       </p>
       <Code>{`# Jitter dla duplikatów GPS (±~1m, set.seed(42))
 crds$X_coord <- crds$X_coord + rnorm(n_sightings, 0, sd(crds$X_coord) / 1000)
@@ -209,11 +224,13 @@ grid_cells$sighting_count <- lengths(st_intersects(grid_cells, sightings))`}</Co
     </div>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Grid 500m (ścieżka grid_500)</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Grid 500m (ścieżka grid_500)
+      </h3>
       <FileRef path="r_scripts/01_generate_voronoi.R" lines="206–240" />
       <p className="text-gray-400 mb-2">
-        Reużywa siatki GUS 500m zamiast generować nową — bezpośredni JOIN z bazą.
-        Efekt: &lt;100 komórek (granice Białołęki vs pełna siatka GUS).
+        Reużywa siatki GUS 500m zamiast generować nową — bezpośredni JOIN z
+        bazą. Efekt: &lt;100 komórek (granice Białołęki vs pełna siatka GUS).
       </p>
       <Code>{`# grid_500 — reużywamy siatki GUS (1:1 alignment z population grid)
 } else if (geometry_type == "grid_500") {
@@ -235,18 +252,20 @@ grid_cells$sighting_count <- lengths(st_intersects(grid_cells, sightings))`}</Co
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 const VariableYSection = () => (
   <div className="space-y-6 text-gray-300 text-sm">
     <h2 className="text-xl font-bold text-white">R: Zmienna zależna Y</h2>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Zapewnienie kolumn Y w DB</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Zapewnienie kolumn Y w DB
+      </h3>
       <FileRef path="r_scripts/research/04_variable_y.R" lines="113–118" />
       <p className="text-gray-400 mb-2">
         Krok 4 dodaje kolumny idempotentnie (ADD COLUMN IF NOT EXISTS).
-        Wszystkie 5 kolumn Y zawsze istnieje w tabeli — tylko aktywna formula jest obliczana.
+        Wszystkie 5 kolumn Y zawsze istnieje w tabeli — tylko aktywna formula
+        jest obliczana.
       </p>
       <Code>{`# Idempotentne tworzenie kolumn Y
 for (col in c("y_count_pop", "y_inv_pop", "y_log_pop", "y_log_count", "y_binary")) {
@@ -258,12 +277,17 @@ for (col in c("y_count_pop", "y_inv_pop", "y_log_pop", "y_log_count", "y_binary"
     </div>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Formuły Y jako SQL expressions</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Formuły Y jako SQL expressions
+      </h3>
       <FileRef path="r_scripts/research/04_variable_y.R" lines="127–133" />
       <p className="text-gray-400 mb-2">
         Obliczenia w SQL (nie R) — bezpośredni UPDATE per formuła.
-        <code className="font-mono text-gray-300"> switch(y_formula, ...)</code> mapuje
-        na SQL expression wykonywany przez PostgreSQL.
+        <code className="font-mono text-gray-300">
+          {" "}
+          switch(y_formula, ...)
+        </code>{" "}
+        mapuje na SQL expression wykonywany przez PostgreSQL.
       </p>
       <Code>{`# SQL expression dobierany przez switch()
 y_sql <- switch(y_formula,
@@ -277,21 +301,25 @@ y_sql <- switch(y_formula,
     </div>
 
     <div className="bg-gray-800/40 rounded p-3 text-xs text-gray-400">
-      <strong className="text-white">Dlaczego SQL zamiast R?</strong>{' '}
-      Dane są w PostgreSQL. Obliczenie Y w SQL = zero transferu danych do R,
-      zero wektoryzacji w R. UPDATE per komórka na poziomie bazy — szybsze i prostsze.
+      <strong className="text-white">Dlaczego SQL zamiast R?</strong> Dane są w
+      PostgreSQL. Obliczenie Y w SQL = zero transferu danych do R, zero
+      wektoryzacji w R. UPDATE per komórka na poziomie bazy — szybsze i
+      prostsze.
     </div>
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 const MatrixWSection = () => (
   <div className="space-y-6 text-gray-300 text-sm">
-    <h2 className="text-xl font-bold text-white">R: Macierz wag przestrzennych W</h2>
+    <h2 className="text-xl font-bold text-white">
+      R: Macierz wag przestrzennych W
+    </h2>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">contiguity — queen</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        contiguity — queen
+      </h3>
       <FileRef path="r_scripts/research/05_matrix_w.R" lines="123–139" />
       <p className="text-gray-400 mb-2">
         Najprostsza metoda. Sąsiedzi = komórki dzielące krawędź lub narożnik.
@@ -312,17 +340,18 @@ const MatrixWSection = () => (
     </div>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">knn_aic — k-NN z AIC</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        knn_aic — k-NN z AIC
+      </h3>
       <FileRef path="r_scripts/research/05_matrix_w.R" lines="140–282" />
       <p className="text-gray-400 mb-2">
-        Iteruje k od RESEARCH_K_RANGE_MIN do RESEARCH_K_RANGE_MAX.
-        Dla każdego k: fituje{' '}
-        <code className="font-mono text-gray-300">errorsarlm(Y~1, listw)</code>
-        {' '}i zapisuje AIC. Wybiera k z najniższym AIC.
-        Metodologia: wzorowane na{' '}
-        <code className="font-mono text-gray-300">bestW()</code>
-        {' '}z spatialWarsaw (Kopczewska) — własna implementacja.
-        Fallback do contiguity jeśli Y ma zerową wariancję.
+        Iteruje k od RESEARCH_K_RANGE_MIN do RESEARCH_K_RANGE_MAX. Dla każdego
+        k: fituje{" "}
+        <code className="font-mono text-gray-300">errorsarlm(Y~1, listw)</code>{" "}
+        i zapisuje AIC. Wybiera k z najniższym AIC. Metodologia: wzorowane na{" "}
+        <code className="font-mono text-gray-300">bestW()</code> z spatialWarsaw
+        (Kopczewska) — własna implementacja. Fallback do contiguity jeśli Y ma
+        zerową wariancję.
       </p>
       <Code>{`} else if (w_method == "knn_aic") {
 
@@ -352,21 +381,26 @@ const MatrixWSection = () => (
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 const ModelSection = () => (
   <div className="space-y-6 text-gray-300 text-sm">
-    <h2 className="text-xl font-bold text-white">R: Model SAR/SEM — auto-selekcja</h2>
+    <h2 className="text-xl font-bold text-white">
+      R: Model SAR/SEM — auto-selekcja
+    </h2>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Logika wyboru modelu</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Logika wyboru modelu
+      </h3>
       <FileRef path="r_scripts/NEW_02_spatial_models.R" lines="325–380" />
       <p className="text-gray-400 mb-2">
-        Przy{' '}
-        <code className="font-mono text-gray-300">model_type=auto</code>:
-        decyzja przez porównanie AIC —{' '}
-        <code className="font-mono text-green-400">if (sar_result$AIC {'<'} sem_result$AIC)</code>{' '}
-        → SAR, else SEM. Przy wymuszonej wartości (sar/sem/sdm) — bezpośrednia estymacja.
+        Przy <code className="font-mono text-gray-300">model_type=auto</code>:
+        decyzja przez porównanie AIC —{" "}
+        <code className="font-mono text-green-400">
+          if (sar_result$AIC {"<"} sem_result$AIC)
+        </code>{" "}
+        → SAR, else SEM. Przy wymuszonej wartości (sar/sem/sdm) — bezpośrednia
+        estymacja.
       </p>
       <Code>{`# Które modele estymować?
 fit_sar <- model_type %in% c("auto", "sar")
@@ -399,11 +433,13 @@ if (fit_sdm) {
     </div>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Regime model (opcjonalnie)</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Regime model (opcjonalnie)
+      </h3>
       <FileRef path="r_scripts/NEW_02_spatial_models.R" lines="289–318" />
       <p className="text-gray-400 mb-2">
-        Trinary regime (forest/urban/mixed) — interakcje per strefa.
-        Formula z "0 +" usuwa intercept globalny: każdy regime ma swój.
+        Trinary regime (forest/urban/mixed) — interakcje per strefa. Formula z
+        "0 +" usuwa intercept globalny: każdy regime ma swój.
       </p>
       <Code>{`# Regime model — formuła z interakcjami per strefa
 if (use_regime && regime_type == "trinary") {
@@ -419,14 +455,17 @@ eq <- as.formula(eq_str)`}</Code>
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 const DiagnosticsSection = () => (
   <div className="space-y-6 text-gray-300 text-sm">
-    <h2 className="text-xl font-bold text-white">R: Diagnostyki — Moran I, LM, VIF</h2>
+    <h2 className="text-xl font-bold text-white">
+      R: Diagnostyki — Moran I, LM, VIF
+    </h2>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">Moran's I — autokorelacja reszt</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        Moran's I — autokorelacja reszt
+      </h3>
       <FileRef path="r_scripts/research/07_diagnostics.R" lines="298–329" />
       <p className="text-gray-400 mb-2">
         Test na resztach modelu (nie na Y). Jeśli reszty mają autokorelację →
@@ -451,13 +490,14 @@ const DiagnosticsSection = () => (
     </div>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">LM testy — selekcja SAR vs SEM</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        LM testy — selekcja SAR vs SEM
+      </h3>
       <FileRef path="r_scripts/research/07_diagnostics.R" lines="335–360" />
       <p className="text-gray-400 mb-2">
-        Lagrange Multiplier tests z pakietu spdep.{' '}
-        <code className="font-mono text-gray-300">lm.RStests</code>
-        {' '}(następca deprecated{' '}
-        <code className="font-mono text-gray-300">lm.LMtests</code>).
+        Lagrange Multiplier tests z pakietu spdep.{" "}
+        <code className="font-mono text-gray-300">lm.RStests</code> (następca
+        deprecated <code className="font-mono text-gray-300">lm.LMtests</code>).
         Wyniki: RSlag (dla SAR), RSerr (dla SEM), adjRSlag/adjRSerr (Robust LM).
       </p>
       <Code>{`if (run_lm_tests && !is.null(ols_model)) {
@@ -478,14 +518,18 @@ const DiagnosticsSection = () => (
     </div>
 
     <div>
-      <h3 className="text-base font-semibold text-white mb-1">VIF — współczynniki inflacji wariancji</h3>
+      <h3 className="text-base font-semibold text-white mb-1">
+        VIF — współczynniki inflacji wariancji
+      </h3>
       <FileRef path="r_scripts/research/07_diagnostics.R" lines="241–280" />
       <p className="text-gray-400 mb-2">
-        Ręczna implementacja VIF (bez pakietu car) przez{' '}
-        <code className="font-mono text-gray-300">R² regresji każdego predyktora na pozostałe</code>.
-        Predyktory powyżej{' '}
-        <code className="font-mono text-gray-300">RESEARCH_VIF_THRESHOLD</code>
-        {' '}(domyślnie 5.0) trafiają do{' '}
+        Ręczna implementacja VIF (bez pakietu car) przez{" "}
+        <code className="font-mono text-gray-300">
+          R² regresji każdego predyktora na pozostałe
+        </code>
+        . Predyktory powyżej{" "}
+        <code className="font-mono text-gray-300">RESEARCH_VIF_THRESHOLD</code>{" "}
+        (domyślnie 5.0) trafiają do{" "}
         <code className="font-mono text-gray-300">predictors_dropped</code>.
       </p>
       <Code>{`# VIF = 1 / (1 - R²_j) gdzie R²_j z lm(X_j ~ X_-j)
@@ -503,28 +547,27 @@ for (j in seq_len(ncol(X))) {
   </div>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 const SECTIONS = [
-  { id: 'orchestrator',   label: 'Orkiestrator',    lang: 'py' },
-  { id: 'tessellation',   label: 'Tessellacja',     lang: 'r' },
-  { id: 'variable_y',     label: 'Zmienna Y',       lang: 'r' },
-  { id: 'matrix_w',       label: 'Macierz W',       lang: 'r' },
-  { id: 'model',          label: 'Model SAR/SEM',   lang: 'r' },
-  { id: 'diagnostics',    label: 'Diagnostyki',     lang: 'r' },
+  { id: "orchestrator", label: "Orkiestrator", lang: "py" },
+  { id: "tessellation", label: "Tessellacja", lang: "r" },
+  { id: "variable_y", label: "Zmienna Y", lang: "r" },
+  { id: "matrix_w", label: "Macierz W", lang: "r" },
+  { id: "model", label: "Model SAR/SEM", lang: "r" },
+  { id: "diagnostics", label: "Diagnostyki", lang: "r" },
 ];
 
 const CONTENT = {
   orchestrator: <OrchestratorSection />,
   tessellation: <TessellationSection />,
-  variable_y:   <VariableYSection />,
-  matrix_w:     <MatrixWSection />,
-  model:        <ModelSection />,
-  diagnostics:  <DiagnosticsSection />,
+  variable_y: <VariableYSection />,
+  matrix_w: <MatrixWSection />,
+  model: <ModelSection />,
+  diagnostics: <DiagnosticsSection />,
 };
 
 export default function CodeTab() {
-  const [activeSection, setActiveSection] = useState('orchestrator');
+  const [activeSection, setActiveSection] = useState("orchestrator");
 
   return (
     <div className="h-full flex">
@@ -537,9 +580,10 @@ export default function CodeTab() {
                 className={`
                   w-full text-left px-3 py-2 rounded text-sm transition-colors
                   flex items-center gap-2
-                  ${activeSection === section.id
-                    ? 'bg-blue-600/30 text-blue-400'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                  ${
+                    activeSection === section.id
+                      ? "bg-blue-600/30 text-blue-400"
+                      : "text-gray-400 hover:text-white hover:bg-gray-700/50"
                   }
                 `}
               >
