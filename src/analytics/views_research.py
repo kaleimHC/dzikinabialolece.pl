@@ -204,10 +204,14 @@ def _apply_fields(config: ResearchConfig, data: dict):
 # =============================================================================
 
 @api_view(['GET', 'POST'])
+@permission_classes([IsBearerAuthenticated])
 def config_list(request):
     """
     GET  /api/research/configs/   — list all configs
     POST /api/research/configs/   — create new config
+
+    Both methods require authentication: configs are internal admin state
+    (active predictors, model parameters) and must not be publicly readable.
     """
     if request.method == 'GET':
         configs = ResearchConfig.objects.all().order_by('-is_active', '-updated_at')
@@ -216,9 +220,7 @@ def config_list(request):
             'available_predictors': ALL_PREDICTORS,
         })
 
-    # POST — create (requires authentication)
-    if not (request.user and request.user.is_authenticated):
-        return Response({'detail': 'Authentication required.'}, status=401)
+    # POST — create (authentication already enforced by decorator above)
     data = request.data
     if not data.get('name'):
         return Response({'error': 'name is required'}, status=400)
@@ -235,10 +237,13 @@ def config_list(request):
 
 
 @api_view(['GET', 'PUT'])
+@permission_classes([IsBearerAuthenticated])
 def config_detail(request, config_id):
     """
     GET /api/research/configs/{id}/
     PUT /api/research/configs/{id}/
+
+    Both methods require authentication: configs are internal admin state.
     """
     try:
         config = ResearchConfig.objects.get(pk=config_id)
@@ -398,6 +403,7 @@ def run_detail(request, run_id):
 
 
 @api_view(['GET'])
+@permission_classes([IsBearerAuthenticated])
 def run_steps(request, run_id):
     """GET /api/research/runs/{id}/steps/ — step logs for a run."""
     try:
@@ -414,6 +420,7 @@ def run_steps(request, run_id):
 
 
 @api_view(['GET'])
+@permission_classes([IsBearerAuthenticated])
 def run_diagnostics(request, run_id):
     """GET /api/research/runs/{id}/diagnostics/ — diagnostic results."""
     try:

@@ -41,6 +41,13 @@ if (!(geometry_type %in% valid_types)) {
   quit(status = 1)
 }
 
+# Validate TARGET_TABLE against allowlist — prevents injection if env is compromised
+.allowed_tables <- c("research_grid_500m", "sightings_gridcell_voronoi")
+if (!TARGET_TABLE %in% .allowed_tables) {
+  stop(sprintf("Invalid TARGET_TABLE: '%s'. Allowed: %s",
+               TARGET_TABLE, paste(.allowed_tables, collapse = ", ")))
+}
+
 # =============================================================================
 # 1. DATABASE CONNECTION
 # =============================================================================

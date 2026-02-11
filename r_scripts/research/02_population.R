@@ -28,6 +28,14 @@ cat("============================================================\n")
 # -----------------------------------------------------------------------------
 
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
+
+# Validate TARGET_TABLE against allowlist — prevents injection if env is compromised
+.allowed_tables <- c("research_grid_500m", "sightings_gridcell_voronoi")
+if (!TARGET_TABLE %in% .allowed_tables) {
+  stop(sprintf("Invalid TARGET_TABLE: '%s'. Allowed: %s",
+               TARGET_TABLE, paste(.allowed_tables, collapse = ", ")))
+}
+
 population_method <- Sys.getenv("RESEARCH_POPULATION_METHOD", "points")
 seed_val <- as.integer(Sys.getenv("RESEARCH_SEED", "42"))
 

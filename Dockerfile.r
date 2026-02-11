@@ -33,13 +33,15 @@ RUN R -e "install.packages('/app/spatialWarsaw', repos=NULL, type='source')"
 # Copy R scripts
 COPY r_scripts/ /app/r_scripts/
 
-# Environment variables (overridden by docker-compose)
-ENV DB_HOST=pgbouncer
-ENV DB_PORT=6432
-ENV DB_NAME=dziki_db
-ENV DB_USER=dziki_user
-ENV DB_PASSWORD=dziki_dev_password
-ENV OMP_NUM_THREADS=1
+# Environment variables — non-secret defaults only.
+# DB_PASSWORD must be supplied at runtime via docker-compose env_file or -e flag.
+# NEVER bake credentials into the image.
+ENV DB_HOST=pgbouncer \
+    DB_PORT=6432 \
+    DB_NAME=dziki_db \
+    DB_USER=dziki_user \
+    DB_PASSWORD="" \
+    OMP_NUM_THREADS=1
 
 # Default command - SAFE: just show available scripts
 # NEVER run destructive scripts by default!

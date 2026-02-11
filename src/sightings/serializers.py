@@ -40,7 +40,7 @@ class SightingSerializer(GeoFeatureModelSerializer):
             'description',
             'created_at',
         ]
-        read_only_fields = ['id', 'status', 'created_at']
+        read_only_fields = ['id', 'status', 'ip_hash', 'created_at', 'updated_at']
 
 
 class SightingCreateSerializer(serializers.Serializer):

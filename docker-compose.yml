@@ -101,8 +101,11 @@ services:
         APP_GID: 1000
     image: dziki-api:latest
     container_name: dziki-api
-    # DEV ONLY: Run as root for docker socket access
-    user: root
+    # Run as appuser (uid 1000); supplemental group 988 = host docker GID
+    # grants docker.sock access without requiring root.
+    user: "1000:1000"
+    group_add:
+      - "988"
     depends_on:
       pgbouncer:
         condition: service_healthy
@@ -169,8 +172,11 @@ services:
         APP_GID: 1000
     image: dziki-api:latest
     container_name: dziki-worker-py
-    # DEV ONLY: Run as root for docker socket access
-    user: root
+    # Run as appuser (uid 1000); supplemental group 988 = host docker GID
+    # grants docker.sock access without requiring root.
+    user: "1000:1000"
+    group_add:
+      - "988"
     depends_on:
       pgbouncer:
         condition: service_healthy
@@ -224,6 +230,7 @@ services:
         APP_GID: 1000
     image: dziki-api:latest
     container_name: dziki-celery-beat
+    user: "1000:1000"
     depends_on:
       pgbouncer:
         condition: service_healthy
@@ -337,6 +344,8 @@ services:
   frontend:
     image: node:20-alpine
     container_name: dziki-frontend
+    # node:20-alpine ships a built-in 'node' user at uid/gid 1000
+    user: "1000:1000"
     working_dir: /app
     environment:
       - NODE_ENV=development
@@ -349,6 +358,8 @@ services:
       - dziki-app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   dziki-internal:

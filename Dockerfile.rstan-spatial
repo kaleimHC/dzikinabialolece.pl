@@ -1,0 +1,85 @@
+# =============================================================================
+# Dockerfile.rstan-spatial - Bayesian R Worker
+# MASTER_SPEC v2.3 - Bayesian Integration Layer
+#
+# ADR-014: Bayesian Layer Modularity
+# - Dedicated worker for computationally intensive MCMC
+# - brms/rstan for Bayesian modeling
+# - Memory limit: 8GB
+# - Concurrency: 1 (MCMC is memory-intensive)
+# =============================================================================
+
+FROM rocker/geospatial:4.3.2
+
+LABEL maintainer="Dziki na Bialolece"
+LABEL description="Bayesian R worker for MCMC (brms/rstan) and trajectory generation"
+
+# System dependencies for PostGIS and Stan
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    libv8-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure Stan for single-threaded compilation (avoid OOM during build)
+ENV MAKEFLAGS="-j1"
+
+# R packages - core dependencies
+RUN R -e "install.packages(c( \
+    'RPostgres', \
+    'DBI', \
+    'spdep', \
+    'terra' \
+), repos='https://cloud.r-project.org/')"
+
+# Install rstan with specific configuration
+# Note: This can take 20-30 minutes
+RUN R -e "\
+options(mc.cores = 1); \
+install.packages('rstan', repos='https://cloud.r-project.org/', dependencies=TRUE); \
+"
+
+# Install brms (Bayesian Regression Models using Stan)
+RUN R -e "\
+options(mc.cores = 1); \
+install.packages('brms', repos='https://cloud.r-project.org/', dependencies=TRUE); \
+"
+
+# Additional spatial packages for trajectory generation
+RUN R -e "install.packages(c( \
+    'gdistance' \
+), repos='https://cloud.r-project.org/')"
+
+# Working directory
+WORKDIR /app
+
+# Copy spatialWarsaw package (local)
+COPY spatialWarsaw/ /app/spatialWarsaw/
+
+# Install spatialWarsaw from local source
+RUN R -e "install.packages('/app/spatialWarsaw', repos=NULL, type='source')"
+
+# Copy R scripts
+COPY r_scripts/ /app/r_scripts/
+
+# Create data directories
+RUN mkdir -p /app/data /data/mcmc /data/rasters
+
+# Environment variables — non-secret defaults only.
+# DB_PASSWORD and CELERY_BROKER_URL must be supplied at runtime via docker-compose.
+# NEVER bake credentials into the image (visible in docker history/inspect).
+ENV DB_HOST=db \
+    DB_PORT=5432 \
+    DB_NAME=dziki_db \
+    DB_USER=dziki \
+    DB_PASSWORD="" \
+    OMP_NUM_THREADS=1 \
+    STAN_NUM_THREADS=1 \
+    CMDSTAN_PATH=/usr/local/lib/R/site-library/cmdstanr/cmdstan \
+    R_MAX_VSIZE=8Gb \
+    CELERY_BROKER_URL=""
+
+# Default command (overridden by docker-compose)
+CMD ["Rscript", "--vanilla", "/app/r_scripts/06_bayesian_ssm.R"]

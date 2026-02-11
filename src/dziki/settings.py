@@ -28,6 +28,16 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# Fail fast in production if developer credentials are still in use.
+# A misconfigured deploy (missing .env) would silently use the dev key,
+# making session cookies forgeable and CSRF protection void.
+if not DEBUG and 'dev-secret-key-change-in-production' in SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "SECRET_KEY is set to the development default. "
+        "Set SECRET_KEY environment variable before running in production."
+    )
+
 # =============================================================================
 # APPLICATION DEFINITION
 # =============================================================================
