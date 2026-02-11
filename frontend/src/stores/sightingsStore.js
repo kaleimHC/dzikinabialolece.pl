@@ -23,4 +23,22 @@ export const useSightingsStore = create(
       localStorage.setItem('dziki-onboarded', '1')
       set({ hasSeenOnboarding: true })
     },
+
+    // Theme slice — additive (zero breaking dla istniejących subscribers)
+    currentTheme: _getStoredTheme(),
+    setTheme: (name) => {
+      if (!themes[name]) return;
+      set({ currentTheme: name });
+      try { localStorage.setItem('dziki-theme', name); } catch {}
+      _applyTheme(name);
+    },
+
+    // State
+    sightings: [],
+    selectedSighting: null,
+    isLoading: false,
+    error: null,
+
+    // Map state (transient - don't persist)
+    mapCenter: [20.98, 52.33],
 }));
