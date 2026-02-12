@@ -224,13 +224,11 @@ class WarsawBoundary(models.Model):
             return True  # Graceful degradation
 
 
-# =============================================================================
 # OSM TABLES (managed=False - tabele istnieją, tylko dokumentacja)
 # OSM models below (managed=False): retained for migration history only.
 # Not registered in admin.py (see sightings/admin.py and analytics/admin.py for
 # active registrations). All OSM API views use raw SQL (connection.cursor())
 # in analytics/views.py — the ORM is intentionally bypassed for these layers.
-# =============================================================================
 
 
 class OsmForest(models.Model):

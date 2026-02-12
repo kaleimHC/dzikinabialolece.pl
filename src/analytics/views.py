@@ -719,7 +719,6 @@ def buildings(request):
 
 @api_view(["GET"])
 def forests(request):
-    """Get forests as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, ST_AsGeoJSON(geom) as geojson
@@ -743,7 +742,6 @@ def forests(request):
 
 @api_view(["GET"])
 def population(request):
-    """Get GUS 500m population grid cells as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT code, tot, ST_AsGeoJSON(geom) as geojson
@@ -767,7 +765,6 @@ def population(request):
 
 @api_view(["GET"])
 def water(request):
-    """Get water bodies (polygons only) as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
@@ -792,7 +789,6 @@ def water(request):
 
 @api_view(["GET"])
 def waterways(request):
-    """Get waterways (lines - rivers, streams) as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, name, waterway, ST_AsGeoJSON(geom) as geojson
@@ -817,7 +813,6 @@ def waterways(request):
 
 @api_view(["GET"])
 def barriers(request):
-    """Get barriers (fences, walls) as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, barrier_type, permeability, ST_AsGeoJSON(geom) as geojson
@@ -846,7 +841,6 @@ def barriers(request):
 
 @api_view(["GET"])
 def roads(request):
-    """Get roads as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, highway, name, ST_AsGeoJSON(geom) as geojson
@@ -870,7 +864,6 @@ def roads(request):
 
 @api_view(["GET"])
 def allotments(request):
-    """Get allotment gardens as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
@@ -894,7 +887,6 @@ def allotments(request):
 
 @api_view(["GET"])
 def meadows(request):
-    """Get meadows as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, ST_AsGeoJSON(geom) as geojson
@@ -918,7 +910,6 @@ def meadows(request):
 
 @api_view(["GET"])
 def farmland(request):
-    """Get farmland as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, ST_AsGeoJSON(geom) as geojson
@@ -942,7 +933,6 @@ def farmland(request):
 
 @api_view(["GET"])
 def parks(request):
-    """Get parks as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
@@ -966,7 +956,6 @@ def parks(request):
 
 @api_view(["GET"])
 def scrub(request):
-    """Get scrub/bushes as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, ST_AsGeoJSON(geom) as geojson
@@ -990,7 +979,6 @@ def scrub(request):
 
 @api_view(["GET"])
 def railway(request):
-    """Get railway lines as GeoJSON for map layer."""
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT osm_id, name, ST_AsGeoJSON(geom) as geojson
@@ -1012,9 +1000,7 @@ def railway(request):
     return Response({"type": "FeatureCollection", "features": features})
 
 
-# =============================================================================
 # SAMPLE SWITCHING (Test datasets)
-# =============================================================================
 
 VALID_SAMPLES = {
     "mala": {"n": 100, "file": "baza_mala.json"},
@@ -1336,9 +1322,7 @@ def calculate_voronoi_features(request):
     )
 
 
-# =============================================================================
 # BAYESIAN LAYER ENDPOINTS (MASTER_SPEC v2.3)
-# =============================================================================
 
 
 @api_view(["GET"])
@@ -1498,9 +1482,7 @@ def prior_configs(request):
     )
 
 
-# =============================================================================
 # PRESET PROFILES ENDPOINTS
-# =============================================================================
 
 
 @api_view(["GET"])
@@ -1662,9 +1644,7 @@ def active_config(request):
         )
 
 
-# =============================================================================
 # BAYESIAN PIPELINE EXECUTION (FAZA 3)
-# =============================================================================
 
 
 @api_view(["POST"])
@@ -1871,9 +1851,7 @@ def bayesian_diagnostics(request):
     )
 
 
-# =============================================================================
 # COMBINED RESULTS FOR RESULTS TABLE (FAZA 5)
-# =============================================================================
 
 
 @api_view(["GET"])
@@ -2039,9 +2017,7 @@ def export_results_csv(request):
     return response
 
 
-# =============================================================================
 # MODE ROUTER (FAST/PUB/BAYES pipeline separation)
-# =============================================================================
 
 
 @api_view(["POST"])
@@ -2209,9 +2185,7 @@ def pipeline_modes(request):
     )
 
 
-# =============================================================================
 # ETA and Spatial Model Results (spatialWarsaw compliance)
-# =============================================================================
 
 
 @api_view(["GET"])
@@ -2405,9 +2379,7 @@ def spatial_current(request):
     )
 
 
-# =============================================================================
 # W MATRIX VISUALIZATION
-# =============================================================================
 
 
 @api_view(["GET"])

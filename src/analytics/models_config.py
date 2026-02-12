@@ -33,9 +33,7 @@ class ParameterConfiguration(models.Model):
         default=False, help_text="Only one configuration can be active"
     )
 
-    # =========================================================================
     # BAYESIAN PRIORS (ADR-011)
-    # =========================================================================
 
     bayesian_kappa = models.DecimalField(
         default=10.0,
@@ -61,9 +59,7 @@ class ParameterConfiguration(models.Model):
         help_text="Expected diffusion delta (0-0.99). From H_rel via ETA.",
     )
 
-    # =========================================================================
     # MCMC SETTINGS
-    # =========================================================================
 
     mcmc_iterations = models.IntegerField(
         default=2000,
@@ -91,18 +87,14 @@ class ParameterConfiguration(models.Model):
         default=42, help_text="Random seed for reproducibility"
     )
 
-    # =========================================================================
     # FEATURE FLAGS (ADR-014)
-    # =========================================================================
 
     bayesian_enabled = models.BooleanField(
         default=True, help_text="Enable Bayesian SSM layer"
     )
 
-    # =========================================================================
     # ENSEMBLE WEIGHTS (ADR-010)
     # Must sum to 1.0 - validated in clean()
-    # =========================================================================
 
     # WAŻNE: Bayesian jest META-WARSTWĄ, nie składnikiem ensemble!
     # Wagi ensemble: RF + Spatial + ETA = 1.0 (0.30 + 0.40 + 0.30)
@@ -129,9 +121,7 @@ class ParameterConfiguration(models.Model):
         help_text="ETA weight in ensemble",
     )
 
-    # =========================================================================
     # METADATA
-    # =========================================================================
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -349,9 +339,7 @@ class ParameterConfiguration(models.Model):
         return config
 
 
-# =============================================================================
 # PRESET PROFILES (MASTER_SPEC I.5.2)
-# =============================================================================
 
 PRESET_PROFILES = {
     "quick_preview": {
@@ -397,9 +385,7 @@ PRESET_PROFILES = {
 }
 
 
-# =============================================================================
 # N MINIMUM REQUIREMENTS (MASTER_SPEC v2.2 Corrections #2, #3)
-# =============================================================================
 
 N_MINIMUM_REQUIREMENTS = {
     "eta": {

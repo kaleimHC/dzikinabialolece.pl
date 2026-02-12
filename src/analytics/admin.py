@@ -15,9 +15,7 @@ from .models import AnalyticsRun, ModelPrediction
 from .models_bayesian import PriorConfig, BayesianResult
 
 
-# =============================================================================
 # PRIOR CONFIG ADMIN
-# =============================================================================
 
 
 @admin.register(PriorConfig)
@@ -88,7 +86,6 @@ class PriorConfigAdmin(admin.ModelAdmin):
     actions = ["activate_priors", "deactivate_priors"]
 
     def source_display(self, obj):
-        """Display source values in a compact format."""
         parts = []
         if obj.source_h_rel:
             parts.append(f"H_rel={obj.source_h_rel}")
@@ -111,9 +108,7 @@ class PriorConfigAdmin(admin.ModelAdmin):
         self.message_user(request, f"Deactivated {updated} prior configs.")
 
 
-# =============================================================================
 # BAYESIAN RESULT ADMIN (Read-only)
-# =============================================================================
 
 
 @admin.register(BayesianResult)
@@ -212,13 +207,11 @@ class BayesianResultAdmin(admin.ModelAdmin):
         return False  # Read-only
 
     def ci_display(self, obj):
-        """Display 95% CI in compact format."""
         return f"[{obj.ci_lower_95:.3f}, {obj.ci_upper_95:.3f}]"
 
     ci_display.short_description = "95% CI"
 
     def convergence_status(self, obj):
-        """Display convergence status with color coding."""
         if obj.r_hat is None:
             return format_html('<span style="color: gray;">N/A</span>')
 
@@ -238,9 +231,7 @@ class BayesianResultAdmin(admin.ModelAdmin):
     convergence_status.short_description = "Convergence"
 
 
-# =============================================================================
 # ANALYTICS RUN ADMIN
-# =============================================================================
 
 
 @admin.register(AnalyticsRun)
@@ -284,7 +275,6 @@ class AnalyticsRunAdmin(admin.ModelAdmin):
         return False
 
     def status_display(self, obj):
-        """Display status with color coding."""
         colors = {
             "pending": "gray",
             "running": "blue",
@@ -297,7 +287,6 @@ class AnalyticsRunAdmin(admin.ModelAdmin):
     status_display.short_description = "Status"
 
     def duration_display(self, obj):
-        """Display duration in human-readable format."""
         if obj.duration_seconds is None:
             return "-"
         if obj.duration_seconds < 60:
@@ -309,9 +298,7 @@ class AnalyticsRunAdmin(admin.ModelAdmin):
     duration_display.short_description = "Duration"
 
 
-# =============================================================================
 # MODEL PREDICTION ADMIN (existing model)
-# =============================================================================
 
 
 @admin.register(ModelPrediction)
@@ -331,9 +318,7 @@ class ModelPredictionAdmin(admin.ModelAdmin):
     ]
 
 
-# =============================================================================
 # PARAMETER CONFIGURATION ADMIN (MASTER_SPEC v2.3 Section I.5)
-# =============================================================================
 
 from .models_config import ParameterConfiguration
 
@@ -421,7 +406,6 @@ class ParameterConfigurationAdmin(admin.ModelAdmin):
     actions = ["activate_config", "deactivate_config"]
 
     def stationarity_check(self, obj):
-        """Display rho + delta with color coding."""
         rho = float(obj.persistence_rho_mean or 0)
         delta = float(obj.diffusion_delta_mean or 0)
         total = rho + delta
@@ -440,7 +424,6 @@ class ParameterConfigurationAdmin(admin.ModelAdmin):
     stationarity_check.short_description = "Stationarity"
 
     def weights_display(self, obj):
-        """Display weights sum."""
         total = float(obj.weight_rf + obj.weight_gwr + obj.weight_eta)
         color = "green" if 0.99 <= total <= 1.01 else "red"
         return format_html(
@@ -467,9 +450,7 @@ class ParameterConfigurationAdmin(admin.ModelAdmin):
         self.message_user(request, "Configuration(s) deactivated.")
 
 
-# =============================================================================
 # RESEARCH PIPELINE MODELS
-# =============================================================================
 
 from .models_research import (
     ResearchConfig,

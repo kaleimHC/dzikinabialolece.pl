@@ -1,7 +1,5 @@
-# =============================================================================
 # DEBUG MODE - Infrastructure for comprehensive debugging
 # KONIEC PING-PONGA! Każdy krok logowany automatycznie.
-# =============================================================================
 
 import json
 import time
@@ -13,9 +11,7 @@ from django.db import connection
 # Global flag - set to False to disable all debug output
 DEBUG_MODE = True
 
-# =============================================================================
 # DebugLogger - Main class for step-by-step logging
-# =============================================================================
 
 
 class DebugLogger:
@@ -114,12 +110,9 @@ class DebugLogger:
             }
         )
 
-    # =========================================================================
     # Public API
-    # =========================================================================
 
     def start(self, step: str, message: str = "") -> float:
-        """Start a step - returns start time for duration calculation"""
         self._step_times[step] = time.time()
         self._log(step, "START", message)
         return self._step_times[step]
@@ -131,7 +124,6 @@ class DebugLogger:
         values: Optional[Dict] = None,
         start_time: Optional[float] = None,
     ):
-        """Mark step as successful"""
         duration = None
         if start_time:
             duration = int((time.time() - start_time) * 1000)
@@ -146,7 +138,6 @@ class DebugLogger:
         values: Optional[Dict] = None,
         start_time: Optional[float] = None,
     ):
-        """Mark step as failed"""
         duration = None
         if start_time:
             duration = int((time.time() - start_time) * 1000)
@@ -155,16 +146,12 @@ class DebugLogger:
         self._log(step, "ERROR", message, values, duration)
 
     def warning(self, step: str, message: str, values: Optional[Dict] = None):
-        """Log a warning"""
         self._log(step, "WARNING", message, values)
 
     def info(self, step: str, message: str, values: Optional[Dict] = None):
-        """Log info"""
         self._log(step, "INFO", message, values)
 
-    # =========================================================================
     # Data Inspection Helpers
-    # =========================================================================
 
     def inspect(self, name: str, data: Any, sample_size: int = 5):
         """Inspect data distribution - arrays, lists, querysets"""
@@ -232,12 +219,9 @@ class DebugLogger:
         except Exception as e:
             self._log(f"inspect_{name}", "ERROR", f"Failed to inspect: {e}")
 
-    # =========================================================================
     # Summary
-    # =========================================================================
 
     def summary(self) -> Dict:
-        """Print final summary and return stats"""
         if not DEBUG_MODE:
             return {}
 
@@ -286,9 +270,7 @@ class DebugLogger:
         }
 
 
-# =============================================================================
 # Decorator for Celery tasks
-# =============================================================================
 
 
 def debug_task(mode: str, module: str):
@@ -331,13 +313,10 @@ def debug_task(mode: str, module: str):
     return decorator
 
 
-# =============================================================================
 # Quick debug functions for one-off use
-# =============================================================================
 
 
 def quick_debug(mode: str, module: str, step: str, values: Dict):
-    """Quick one-liner debug log"""
     debug = DebugLogger(str(uuid.uuid4())[:8], mode, module)
     debug.info(step, "Quick debug", values)
 
@@ -345,7 +324,6 @@ def quick_debug(mode: str, module: str, step: str, values: Dict):
 def get_debug_logs(
     run_id: str = None, module: str = None, status: str = None, limit: int = 100
 ) -> List[Dict]:
-    """Retrieve debug logs from database"""
     query = "SELECT * FROM analytics_debug_log WHERE 1=1"
     params = []
 
@@ -369,7 +347,6 @@ def get_debug_logs(
 
 
 def clear_debug_logs(older_than_hours: int = 24):
-    """Clear old debug logs"""
     with connection.cursor() as cursor:
         cursor.execute(
             """

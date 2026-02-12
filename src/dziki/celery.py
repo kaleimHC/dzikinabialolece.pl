@@ -38,9 +38,7 @@ def debug_task(self):
     print(f"Request: {self.request!r}")
 
 
-# =============================================================================
 # CELERY BEAT SCHEDULE
-# =============================================================================
 # DR-10 CRITICAL: Each scheduled task MUST have 'options': {'queue': 'name'}
 # Without 'options', tasks go to default 'celery' queue, ignoring TASK_ROUTES!
 
@@ -106,9 +104,7 @@ app.conf.beat_schedule = {
     },
 }
 
-# =============================================================================
 # WORKER CONFIGURATION NOTES
-# =============================================================================
 # DR-8 CRITICAL: Use --max-tasks-per-child=50 (not 1) for R workers
 # --max-tasks-per-child=1 has HIGH overhead (~500ms-1s per restart)
 # --max-tasks-per-child=50 balances memory safety and performance

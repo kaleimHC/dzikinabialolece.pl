@@ -21,9 +21,7 @@ from pathlib import Path
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# =============================================================================
 # SECURITY
-# =============================================================================
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -39,9 +37,7 @@ if not DEBUG and "dev-secret-key-change-in-production" in SECRET_KEY:
         "Set SECRET_KEY environment variable before running in production."
     )
 
-# =============================================================================
 # APPLICATION DEFINITION
-# =============================================================================
 # NotebookLM Q10: Verified required apps
 INSTALLED_APPS = [
     # Daphne ASGI server (must be first for runserver ASGI support)
@@ -107,9 +103,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "dziki.wsgi.application"
 ASGI_APPLICATION = "dziki.asgi.application"
 
-# =============================================================================
 # DJANGO CHANNELS (WebSocket support)
-# =============================================================================
 # Uses Redis for channel layer (same broker, different DB)
 CHANNEL_LAYERS = {
     "default": {
@@ -125,9 +119,7 @@ CHANNEL_LAYERS = {
     },
 }
 
-# =============================================================================
 # DATABASE - PostgreSQL + PostGIS via PgBouncer
-# =============================================================================
 # VERIFIED: DR-5, DR-6, NotebookLM Q6, Q7
 #
 # CRITICAL SETTINGS:
@@ -157,9 +149,7 @@ DATABASES = {
     }
 }
 
-# =============================================================================
 # CACHE - Redis (Dual Setup per C-06)
-# =============================================================================
 # VERIFIED: NotebookLM Q8, DR-7
 #
 # ARCHITECTURE DECISION:
@@ -189,9 +179,7 @@ CACHES = {
     }
 }
 
-# =============================================================================
 # CELERY CONFIGURATION
-# =============================================================================
 # VERIFIED: NotebookLM Q11-Q15, DR-8, DR-9, DR-10
 
 # Broker: redis-broker with noeviction (protects job queue)
@@ -237,9 +225,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TIMEZONE = "Europe/Warsaw"
 CELERY_ENABLE_UTC = True
 
-# =============================================================================
 # REST FRAMEWORK
-# =============================================================================
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -268,17 +254,13 @@ REST_FRAMEWORK = {
     },
 }
 
-# =============================================================================
 # GDAL/GEOS PATHS (usually auto-detected in Docker)
-# =============================================================================
 # DR-1: These may need to be set if auto-detection fails
 # Uncomment if needed (paths for Debian Bookworm)
 # GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 # GEOS_LIBRARY_PATH = '/usr/lib/libgeos_c.so'
 
-# =============================================================================
 # SECURITY SETTINGS (Production)
-# =============================================================================
 _settings_logger = logging.getLogger(__name__)
 
 if not DEBUG:
@@ -299,9 +281,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-# =============================================================================
 # CORS
-# =============================================================================
 CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
@@ -321,9 +301,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.dzikinabialolece.pl",
 ]
 
-# =============================================================================
 # STATIC & MEDIA
-# =============================================================================
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
@@ -331,22 +309,16 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# =============================================================================
 # INTERNATIONALIZATION
-# =============================================================================
 LANGUAGE_CODE = "pl-pl"
 TIME_ZONE = "Europe/Warsaw"
 USE_I18N = True
 USE_TZ = True
 
-# =============================================================================
 # DEFAULT PRIMARY KEY
-# =============================================================================
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# =============================================================================
 # LOGGING
-# =============================================================================
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

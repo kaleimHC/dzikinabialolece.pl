@@ -27,9 +27,7 @@ from analytics.sql_injection_patch import (
 )
 
 
-# ---------------------------------------------------------------------------
 # 1. Unit tests for the allowlist validators
-# ---------------------------------------------------------------------------
 
 
 class TestValidateGridType:
@@ -161,10 +159,8 @@ class TestValidateLimit:
         assert validate_limit(999, default=10, maximum=500) == 500
 
 
-# ---------------------------------------------------------------------------
 # 2. Integration smoke-tests: verify that view endpoints reject bad grid_type
 #    These tests mock DB access and verify HTTP 400 is returned for injections.
-# ---------------------------------------------------------------------------
 
 
 class TestDistributionsEndpointRejectsInjection(TestCase):
@@ -218,10 +214,8 @@ class TestBayesianViewRejectsInjection(TestCase):
         assert safe == 100  # fallback to default
 
 
-# ---------------------------------------------------------------------------
 # 3. Task-layer tests: grid_type flows from API -> Celery task arg -> SQL
 #    Confirm that validate_grid_type blocks injection at the task level too.
-# ---------------------------------------------------------------------------
 
 
 class TestTaskGridTypeValidation:

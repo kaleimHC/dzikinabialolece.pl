@@ -38,9 +38,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
 # CONSTANTS
-# =============================================================================
 
 # Default concentration parameter (ADR-011)
 DEFAULT_KAPPA = Decimal("10.0")
@@ -59,9 +57,7 @@ ESS_THRESHOLD = 400
 ENABLE_BAYESIAN = getattr(settings, "ENABLE_BAYESIAN_ENSEMBLE", True)
 
 
-# =============================================================================
 # N MINIMUM VALIDATION HELPER (MASTER_SPEC v2.2)
-# =============================================================================
 
 
 def check_n_minimum(n_obs: int, model_type: str) -> dict:
@@ -117,9 +113,7 @@ def check_n_minimum(n_obs: int, model_type: str) -> dict:
     return {"ok": True, "warning": None, "error": None, "message": None}
 
 
-# =============================================================================
 # DOCKER SDK HELPER FOR R SCRIPTS
-# =============================================================================
 
 
 def _run_r_script_docker(
@@ -210,9 +204,7 @@ def _run_r_script_docker(
         return (1, "", str(e))
 
 
-# =============================================================================
 # OP-B01: ELICIT PRIORS
-# =============================================================================
 
 
 @shared_task(
@@ -266,9 +258,7 @@ def elicit_priors(
         f"  Inputs: H_rel={h_rel}, ARI={ari}, bandwidth={bandwidth}, kappa={kappa}"
     )
 
-    # -------------------------------------------------------------------------
     # Validation
-    # -------------------------------------------------------------------------
     errors = []
 
     if not (0 < h_rel <= 1):
@@ -292,9 +282,7 @@ def elicit_priors(
             "error": error_msg,
         }
 
-    # -------------------------------------------------------------------------
     # Compute prior hyperparameters
-    # -------------------------------------------------------------------------
     try:
         kappa_d = Decimal(str(kappa))
         h_rel_d = Decimal(str(h_rel))
@@ -321,9 +309,7 @@ def elicit_priors(
             f"  length_scale ~ LogNormal({length_scale_meanlog}, {length_scale_sdlog})"
         )
 
-        # -------------------------------------------------------------------------
         # Save to database
-        # -------------------------------------------------------------------------
         model_version = f"v1.0-run-{run_id[:8]}"
         prior_configs = []
 
@@ -411,9 +397,7 @@ def elicit_priors(
         raise self.retry(exc=exc)
 
 
-# =============================================================================
 # OP-B02: COMPUTE BAYESIAN SSM
-# =============================================================================
 
 
 @shared_task(
@@ -488,9 +472,7 @@ def compute_bayesian_ssm(
         timeout=14400,
     )
 
-    # -------------------------------------------------------------------------
     # Validation
-    # -------------------------------------------------------------------------
     try:
         # Check priors exist
         priors = PriorConfig.objects.filter(id__in=prior_config_ids, is_active=True)
@@ -544,9 +526,7 @@ def compute_bayesian_ssm(
             "error": str(exc),
         }
 
-    # -------------------------------------------------------------------------
     # Run R script (06_bayesian_ssm.R)
-    # -------------------------------------------------------------------------
     cache.set(
         f"bayesian_progress:{run_id}",
         {
@@ -744,7 +724,6 @@ def compute_bayesian_ssm(
 
 
 def _get_mcmc_diagnostics(run_id: str) -> Dict[str, Any]:
-    """Extract MCMC diagnostics from BayesianResult table."""
     from .models_bayesian import BayesianResult
 
     results = BayesianResult.objects.filter(execution__task_id=run_id)
@@ -764,9 +743,7 @@ def _get_mcmc_diagnostics(run_id: str) -> Dict[str, Any]:
     }
 
 
-# =============================================================================
 # OP-B04: AGGREGATE BAYESIAN ENSEMBLE
-# =============================================================================
 
 
 @shared_task(
@@ -912,9 +889,7 @@ def aggregate_bayesian_ensemble(
         raise self.retry(exc=exc)
 
 
-# =============================================================================
 # OP-B05: INVALIDATE BAYESIAN CACHE
-# =============================================================================
 
 
 @shared_task(
@@ -1032,9 +1007,7 @@ def invalidate_bayesian_cache(
         raise self.retry(exc=exc)
 
 
-# =============================================================================
 # HELPER: FULL BAYESIAN PIPELINE
-# =============================================================================
 
 
 @shared_task(

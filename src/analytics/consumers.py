@@ -29,7 +29,6 @@ class PipelineProgressConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
-        """Handle WebSocket connection."""
         # Reject unauthenticated connections — AuthMiddlewareStack populates scope['user']
         # but does NOT enforce auth — we must check explicitly.
         if not self.scope["user"].is_authenticated:
@@ -57,7 +56,6 @@ class PipelineProgressConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
-        """Handle WebSocket disconnection."""
         # Leave the channel group
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
         logger.info(f"WebSocket disconnected: run_id={self.run_id}, code={close_code}")

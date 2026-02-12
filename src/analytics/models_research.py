@@ -19,9 +19,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
 
-# =============================================================================
 # CHOICES
-# =============================================================================
 
 
 class GeometryType(models.TextChoices):
@@ -103,9 +101,7 @@ ALL_PREDICTORS = [
 ]
 
 
-# =============================================================================
 # ResearchConfig
-# =============================================================================
 
 
 class ResearchConfig(models.Model):
@@ -357,9 +353,7 @@ class ResearchConfig(models.Model):
         return env
 
 
-# =============================================================================
 # ResearchRun
-# =============================================================================
 
 
 class ResearchRun(models.Model):
@@ -414,9 +408,7 @@ class ResearchRun(models.Model):
         return f"Run {str(self.id)[:8]} [{self.status}] — {cfg}"
 
 
-# =============================================================================
 # ResearchStepLog
-# =============================================================================
 
 
 class ResearchStepLog(models.Model):
@@ -492,9 +484,7 @@ class ResearchStepLog(models.Model):
         return f"Step {self.step_order}: {self.step_name} [{self.status}]"
 
 
-# =============================================================================
 # ResearchDiagnostics
-# =============================================================================
 
 
 class ResearchDiagnostics(models.Model):

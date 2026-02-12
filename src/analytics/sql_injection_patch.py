@@ -12,9 +12,7 @@ Usage:
     safe_limit = validate_limit(limit_param)             # returns int, clamped
 """
 
-# ---------------------------------------------------------------------------
 # Allowlists — add new values here when the schema changes
-# ---------------------------------------------------------------------------
 
 # Maps user-supplied grid_type string -> exact DB table name suffix
 # Pattern: sightings_gridcell_{suffix}

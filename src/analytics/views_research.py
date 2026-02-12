@@ -32,9 +32,7 @@ from .models_research import (
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
 # SERIALIZERS (dict-based, matching existing project style)
-# =============================================================================
 
 
 def _serialize_config(c: ResearchConfig) -> dict:
@@ -157,9 +155,7 @@ def _serialize_diagnostics(d: ResearchDiagnostics) -> dict:
     }
 
 
-# =============================================================================
 # CONFIG FIELDS — accepted from request body
-# =============================================================================
 
 _CONFIG_WRITABLE_FIELDS = {
     "name": str,
@@ -189,7 +185,6 @@ _CONFIG_WRITABLE_FIELDS = {
 
 
 def _apply_fields(config: ResearchConfig, data: dict):
-    """Apply request data fields to config object."""
     for field, expected_type in _CONFIG_WRITABLE_FIELDS.items():
         if field in data:
             value = data[field]
@@ -200,9 +195,7 @@ def _apply_fields(config: ResearchConfig, data: dict):
                 setattr(config, field, value)
 
 
-# =============================================================================
 # CONFIG ENDPOINTS
-# =============================================================================
 
 
 @api_view(["GET", "POST"])
@@ -292,9 +285,7 @@ def config_activate(request, config_id):
     )
 
 
-# =============================================================================
 # RUN ENDPOINTS
-# =============================================================================
 
 
 @api_view(["POST"])
@@ -361,7 +352,6 @@ def run_pipeline(request):
 
 
 def _snapshot_config(config: ResearchConfig) -> dict:
-    """Serialize config to a JSON-safe dict for reproducibility."""
     return {
         "name": config.name,
         "geometry_type": config.geometry_type,
@@ -386,7 +376,6 @@ def _snapshot_config(config: ResearchConfig) -> dict:
 
 @api_view(["GET"])
 def run_list(request):
-    """GET /api/research/runs/ — list recent runs (last 20)."""
     runs = ResearchRun.objects.select_related("config").order_by("-started_at")[:20]
     return Response(
         {
@@ -398,7 +387,6 @@ def run_list(request):
 @api_view(["DELETE"])
 @permission_classes([IsBearerAuthenticated])
 def run_clear_all(request):
-    """DELETE /api/research/runs/clear/ — delete all run history."""
     count, _ = ResearchRun.objects.all().delete()
     return Response(
         {
@@ -410,7 +398,6 @@ def run_clear_all(request):
 
 @api_view(["GET"])
 def run_detail(request, run_id):
-    """GET /api/research/runs/{id}/ — run details with config snapshot."""
     try:
         run = ResearchRun.objects.select_related("config").get(pk=run_id)
     except (ResearchRun.DoesNotExist, ValueError):
@@ -422,7 +409,6 @@ def run_detail(request, run_id):
 @api_view(["GET"])
 @permission_classes([IsBearerAuthenticated])
 def run_steps(request, run_id):
-    """GET /api/research/runs/{id}/steps/ — step logs for a run."""
     try:
         run = ResearchRun.objects.get(pk=run_id)
     except (ResearchRun.DoesNotExist, ValueError):
@@ -441,7 +427,6 @@ def run_steps(request, run_id):
 @api_view(["GET"])
 @permission_classes([IsBearerAuthenticated])
 def run_diagnostics(request, run_id):
-    """GET /api/research/runs/{id}/diagnostics/ — diagnostic results."""
     try:
         run = ResearchRun.objects.get(pk=run_id)
     except (ResearchRun.DoesNotExist, ValueError):
@@ -466,9 +451,7 @@ def run_diagnostics(request, run_id):
     )
 
 
-# =============================================================================
 # STATUS ENDPOINT
-# =============================================================================
 
 
 @api_view(["GET"])
@@ -502,9 +485,7 @@ def pipeline_status(request):
     )
 
 
-# =============================================================================
 # DISTRIBUTIONS ENDPOINT
-# =============================================================================
 
 # Mapping geometry_type -> table name
 GEOMETRY_TABLE_MAP = {
@@ -743,9 +724,7 @@ def distributions(request):
     )
 
 
-# =============================================================================
 # GENERATE PREVIEW ENDPOINT
-# =============================================================================
 
 
 @api_view(["POST"])
@@ -818,9 +797,7 @@ def preview_status(request, task_id):
     return Response(payload)
 
 
-# =============================================================================
 # IMPACTS ENDPOINT (SAR/SDM only)
-# =============================================================================
 
 
 @api_view(["GET"])

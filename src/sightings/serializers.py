@@ -76,7 +76,6 @@ class SightingCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        """Validate location is within Warsaw."""
         point = Point(data["longitude"], data["latitude"], srid=4326)
 
         if not WarsawBoundary.contains_point(point):
@@ -97,7 +96,6 @@ class SightingCreateSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
-        """Create Sighting instance."""
         point = Point(
             validated_data["longitude"], validated_data["latitude"], srid=4326
         )
@@ -124,7 +122,6 @@ class SightingCreateSerializer(serializers.Serializer):
         return sighting
 
     def _get_client_ip(self, request):
-        """Extract client IP from request."""
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
             return x_forwarded_for.split(",")[0].strip()
@@ -146,7 +143,6 @@ class SightingCreateSerializer(serializers.Serializer):
         return hmac.new(secret.encode(), ip.encode(), hashlib.sha256).hexdigest()
 
     def _assign_grid_cell(self, sighting: Sighting):
-        """Assign sighting to appropriate grid cell."""
         try:
             grid_cell = GridCell.objects.filter(
                 geometry__contains=sighting.location

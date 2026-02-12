@@ -42,9 +42,7 @@ from .models_research import (
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
 # EXCEPTIONS
-# =============================================================================
 
 
 class PipelineError(Exception):
@@ -65,9 +63,7 @@ class PipelineError(Exception):
         super().__init__(message)
 
 
-# =============================================================================
 # PIPELINE STEP DEFINITIONS
-# =============================================================================
 
 PIPELINE_STEPS = [
     {
@@ -121,9 +117,7 @@ PIPELINE_STEPS = [
 ]
 
 
-# =============================================================================
 # DOCKER RUNNER
-# =============================================================================
 
 # Docker image and network constants (match existing infrastructure)
 R_DOCKER_IMAGE = "dziki-worker-r:latest"
@@ -131,7 +125,6 @@ DOCKER_NETWORK = "dziki_dziki-internal"
 
 
 def _build_db_env() -> dict:
-    """Build database connection environment variables."""
     return {
         "DB_HOST": "db",
         "DB_PORT": "5432",
@@ -228,9 +221,7 @@ def run_r_script(
         return (1, "", str(e))
 
 
-# =============================================================================
 # ORCHESTRATOR
-# =============================================================================
 
 
 class ResearchOrchestrator:
@@ -442,9 +433,7 @@ class ResearchOrchestrator:
 
         return self.run
 
-    # -----------------------------------------------------------------
     # Step execution
-    # -----------------------------------------------------------------
 
     def _execute_step(self, order: int, step_def: dict):
         """
@@ -560,9 +549,7 @@ class ResearchOrchestrator:
             stderr=stderr,
         )
 
-    # -----------------------------------------------------------------
     # Helpers
-    # -----------------------------------------------------------------
 
     def _finish_step(
         self,
@@ -573,7 +560,6 @@ class ResearchOrchestrator:
         stderr: str = "",
         output_stats: Optional[dict] = None,
     ):
-        """Finalize a step log entry with timing and results."""
         now = timezone.now()
         step_log.status = status
         step_log.finished_at = now

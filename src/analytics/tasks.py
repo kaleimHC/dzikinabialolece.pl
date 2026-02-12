@@ -26,9 +26,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
 # R SPATIAL TASKS (queue: q_r)
-# =============================================================================
 
 
 @shared_task(
@@ -223,9 +221,7 @@ def compute_sts(self, year: int = None):
         raise
 
 
-# =============================================================================
 # PYTHON ML TASKS (queue: q_cpu)
-# =============================================================================
 
 
 @shared_task(
@@ -276,9 +272,7 @@ def compute_ensemble(self, model_ids: list = None):
         raise
 
 
-# =============================================================================
 # I/O TASKS (queue: q_io)
-# =============================================================================
 
 
 @shared_task(
@@ -320,9 +314,6 @@ def refresh_materialized_views(self):
 
 @shared_task(queue="q_io")
 def generate_tiles(zoom_levels: list = None):
-    """
-    Generate vector tiles for map display.
-    """
     logger.info(f"Starting tile generation (zoom={zoom_levels})")
 
     try:
@@ -336,9 +327,6 @@ def generate_tiles(zoom_levels: list = None):
 
 @shared_task(queue="q_io")
 def warmup_cache():
-    """
-    Warm up frequently accessed cache entries.
-    """
     logger.info("Starting cache warmup")
 
     try:
@@ -367,9 +355,7 @@ def warmup_cache():
         raise
 
 
-# =============================================================================
 # DEV: Full R Pipeline (on-demand recalculation)
-# =============================================================================
 
 
 @shared_task(
@@ -559,9 +545,7 @@ def run_r_pipeline_dev(self):
     return {"status": "success", "steps_completed": total_steps}
 
 
-# =============================================================================
 # RISK PREDICTION (simplified for MVP)
-# =============================================================================
 
 
 @shared_task(queue="q_cpu")
@@ -613,9 +597,7 @@ def generate_risk_predictions():
         raise
 
 
-# =============================================================================
 # RECALCULATE RISK MODEL (Python-based, no R required)
-# =============================================================================
 
 
 @shared_task(bind=True, queue="q_cpu", soft_time_limit=120, time_limit=180)
@@ -804,9 +786,7 @@ def recalculate_risk_model(self):
         raise
 
 
-# =============================================================================
 # SAMPLE SWITCHING (Test datasets)
-# =============================================================================
 
 SAMPLE_FILES = {
     "mala": "baza_mala.json",
@@ -964,10 +944,8 @@ def switch_sample_task(self, sample: str):
         raise
 
 
-# =============================================================================
 # BAYESIAN LAYER TASKS (MASTER_SPEC v2.3)
 # Import to make Celery autodiscover these tasks
-# =============================================================================
 from analytics.tasks_bayesian import (  # noqa: F401, E402
     elicit_priors,
     compute_bayesian_ssm,
@@ -976,32 +954,20 @@ from analytics.tasks_bayesian import (  # noqa: F401, E402
     run_bayesian_pipeline,
 )
 
-# =============================================================================
 # RANDOM FOREST TASK
-# =============================================================================
 from analytics.tasks_rf import compute_rf  # noqa: F401, E402
 
-# =============================================================================
 # GWR TASK (DEBUG-FIRST)
-# =============================================================================
 from analytics.tasks_gwr import compute_gwr  # noqa: F401, E402
 
-# =============================================================================
 # ETA TASK (DEBUG-FIRST)
-# =============================================================================
 from analytics.tasks_eta import compute_eta as compute_eta_debug  # noqa: F401, E402
 
-# =============================================================================
 # GWR HEURISTIC (FAST mode proxy)
-# =============================================================================
 from analytics.tasks_gwr_heuristic import compute_gwr_heuristic  # noqa: F401, E402
 
-# =============================================================================
 # MODE ROUTER (FAST/PUB/BAYES pipeline separation)
-# =============================================================================
 from analytics.mode_router import run_pipeline, MODE_CONFIG  # noqa: F401, E402
 
-# =============================================================================
 # RESEARCH PIPELINE TASK (spatialWarsaw async)
-# =============================================================================
 from analytics.tasks_research import run_research_pipeline  # noqa: F401, E402

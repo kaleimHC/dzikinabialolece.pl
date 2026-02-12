@@ -35,8 +35,6 @@ class SightingThrottle(AnonRateThrottle):
 
 
 class SightingCursorPagination(CursorPagination):
-    """Cursor pagination for efficient large dataset handling."""
-
     page_size = 5000  # Increased to show all sightings on map
     ordering = "-observed_at"
     cursor_query_param = "cursor"
@@ -55,13 +53,11 @@ class SightingViewSet(viewsets.ModelViewSet):
     pagination_class = SightingCursorPagination
 
     def get_throttles(self):
-        """Apply throttle only to create action."""
         if self.action == "create":
             return [SightingThrottle()]
         return []
 
     def get_permissions(self):
-        """Restrict destructive actions to admin users."""
         from rest_framework.permissions import IsAdminUser
 
         if self.action in ("destroy", "update", "partial_update"):
@@ -69,7 +65,6 @@ class SightingViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_serializer_class(self):
-        """Use different serializer for create."""
         if self.action == "create":
             return SightingCreateSerializer
         return SightingSerializer
@@ -195,7 +190,6 @@ class GridCellViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None  # Return all cells (typically <1000)
 
     def get_queryset(self):
-        """Filter by district if specified."""
         queryset = super().get_queryset()
 
         district = self.request.query_params.get("district")
