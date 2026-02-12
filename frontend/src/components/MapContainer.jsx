@@ -47,7 +47,6 @@ export default function MapContainer() {
   // OSM layer transition (fade in/out animation)
   useOsmLayerTransition(mapRef, mapReady, visibleLayers);
 
-  // Update circle sizes based on dataset size and zoom
   const updateCircleSizes = useCallback((map, n, zoom) => {
     if (!map || n === 0) return;
 
@@ -55,7 +54,6 @@ export default function MapContainer() {
     const baseRadius = getPointRadius(n, zoom);
     const strokeWidth = getStrokeWidth(baseRadius);
 
-    // Update individual point layers
     ["encounters-point", "ryjowisko-point"].forEach((layer) => {
       if (map.getLayer(layer)) {
         map.setPaintProperty(layer, "circle-radius", radiusExpr);
@@ -63,7 +61,6 @@ export default function MapContainer() {
       }
     });
 
-    // Update hover rings proportionally
     ["encounters-hover-ring", "ryjowisko-hover-ring"].forEach((layer) => {
       if (map.getLayer(layer)) {
         // Hover ring is ~2.5x the point radius
@@ -95,7 +92,6 @@ export default function MapContainer() {
         data: { type: "FeatureCollection", features: [] },
       });
       // OSM Layers - UNDER grid (order matters!)
-      // Forests (dark green, underneath)
       map.addSource("forests", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -107,7 +103,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.forests, "fill-opacity": 0.5 },
       });
 
-      // Water bodies (blue polygons)
       map.addSource("water", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -119,7 +114,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.water, "fill-opacity": 0.6 },
       });
 
-      // Waterways (blue lines - rivers, streams)
       map.addSource("waterways", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -135,7 +129,6 @@ export default function MapContainer() {
         },
       });
 
-      // Buildings (gray)
       map.addSource("buildings", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -147,7 +140,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.buildings, "fill-opacity": 0.7 },
       });
 
-      // Roads (amber lines)
       map.addSource("roads", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -163,7 +155,6 @@ export default function MapContainer() {
         },
       });
 
-      // Barriers (red lines - fences, walls)
       map.addSource("barriers", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -179,7 +170,6 @@ export default function MapContainer() {
         },
       });
 
-      // Allotments (pink - garden plots)
       map.addSource("allotments", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -191,7 +181,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.allotments, "fill-opacity": 0.5 },
       });
 
-      // Meadows (lime - grasslands)
       map.addSource("meadows", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -203,7 +192,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.meadows, "fill-opacity": 0.5 },
       });
 
-      // Farmland (amber/brown - agricultural)
       map.addSource("farmland", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -215,7 +203,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.farmland, "fill-opacity": 0.4 },
       });
 
-      // Parks (cyan - green spaces)
       map.addSource("parks", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -227,7 +214,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.parks, "fill-opacity": 0.5 },
       });
 
-      // Scrub (olive - dense vegetation)
       map.addSource("scrub", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -239,7 +225,6 @@ export default function MapContainer() {
         paint: { "fill-color": tk.osm.scrub, "fill-opacity": 0.5 },
       });
 
-      // Railway (purple lines)
       map.addSource("railway", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -703,7 +688,6 @@ export default function MapContainer() {
     if (encSrc) encSrc.setData({ type: "FeatureCollection", features: enc });
     if (rykSrc) rykSrc.setData({ type: "FeatureCollection", features: ryk });
 
-    // Apply adaptive circle sizing based on dataset size
     updateCircleSizes(mapRef.current, sightings.length, currentZoom);
   }, [mapReady, sightings, currentZoom, updateCircleSizes]);
   // Fetch boundaries (Białołęka + Wisła)
@@ -979,7 +963,6 @@ export default function MapContainer() {
     };
 
     const handleBayesianRefresh = () => {
-      // Refresh both layers
       const bayesianSrc = map.getSource("bayesian-results");
       if (bayesianSrc) {
         fetch("/api/analytics/bayesian/")
