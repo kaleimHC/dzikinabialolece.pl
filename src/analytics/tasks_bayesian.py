@@ -83,18 +83,16 @@ def check_n_minimum(n_obs: int, model_type: str) -> dict:
 
     req = N_MINIMUM_REQUIREMENTS[model_type]
 
-    if "min" in req:
-        # Hard minimum (error if below)
-        if n_obs < req["min"]:
-            return {
-                "ok": False,
-                "warning": None,
-                "error": True,
-                "message": f"{req['message']}. N={n_obs} < {req['min']}",
-            }
+    # Hard minimum (error if below)
+    if "min" in req and n_obs < req["min"]:
+        return {
+            "ok": False,
+            "warning": None,
+            "error": True,
+            "message": f"{req['message']}. N={n_obs} < {req['min']}",
+        }
 
     if "warn" in req:
-        # Soft minimum (warning)
         if n_obs < req["warn"]:
             return {
                 "ok": False,
@@ -102,7 +100,7 @@ def check_n_minimum(n_obs: int, model_type: str) -> dict:
                 "error": True,
                 "message": f"{req['message']}. N={n_obs} < {req['warn']}",
             }
-        elif n_obs < req.get("recommended", req["warn"]):
+        if n_obs < req.get("recommended", req["warn"]):
             return {
                 "ok": True,
                 "warning": True,
