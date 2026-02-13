@@ -1,14 +1,11 @@
 #!/usr/bin/env Rscript
-# ============================================================
 # NEW_02_spatial_models.R — SAR/SEM według Kopczewskiej
-# ============================================================
 # ŹRÓDŁO: spatialWarsaw (lagsarlm, errorsarlm, sacsarlm)
 # PAPER: Elhorst (2010) "Raising the bar"
 #
 # MODYFIKACJE:
 #   - Friction features jako predyktory (wildlife ecology)
 #   - Zapis do bazy (integracja Django)
-# ============================================================
 
 cat("============================================================\n")
 cat("NEW_02_spatial_models.R — SAR/SEM według Kopczewskiej\n")
@@ -26,9 +23,7 @@ if (!requireNamespace("spatialreg", quietly = TRUE)) {
 }
 library(spatialreg)
 
-# ============================================================
 # 1. LOAD DATA
-# ============================================================
 
 cat("\n[1] Łączenie z bazą danych...\n")
 
@@ -164,9 +159,7 @@ if (!any_nonzero) {
   quit(status = 1)
 }
 
-# ============================================================
 # 2. BUILD LISTW FROM VORONOI CELLS (spatialWarsaw-style)
-# ============================================================
 
 cat("\n[3] Budowanie macierzy wag listw z komórek Voronoi...\n")
 
@@ -218,9 +211,7 @@ cat(sprintf("  Utworzono listw: %d regionów, style=%s\n",
 cat(sprintf("  Średnia liczba sąsiadów: %.1f\n",
             mean(card(nb))))
 
-# ============================================================
 # 3. PREPARE VARIABLES
-# ============================================================
 
 cat("\n[4] Przygotowanie zmiennych...\n")
 
@@ -287,9 +278,7 @@ for (col in active_columns) {
 
 cat(sprintf("  Standaryzacja z-score zakonczona: %d predyktorow.\n", length(z_names)))
 
-# ============================================================
 # 4. FIT MODELS
-# ============================================================
 
 # Dynamiczna formula z aktywnych predyktorow
 # Check for binary/trinary regime model (both use same 3-way classification)
@@ -450,9 +439,7 @@ if (!is_binary) {
   cat("  UWAGA: GLM nie modeluje autokorelacji przestrzennej.\n")
 }
 
-# ============================================================
 # 5. MODEL SELECTION (by AIC)
-# ============================================================
 
 cat("\n[7] Selekcja modelu (AIC)...\n")
 
@@ -571,9 +558,7 @@ if (is_binary) {
 
 cat(sprintf("\nModel koncowy: %s (Y formula: %s)\n", best_result$type, y_formula))
 
-# ============================================================
 # 6. COMPUTE IMPACTS (SAR/SDM only)
-# ============================================================
 # LeSage & Pace (2009): dla SAR/SDM współczynniki β nie mają prostej
 # interpretacji marginalnej z powodu mnożnika (I - ρW)⁻¹.
 # Direct effects  = wpływ zmiany X_i na Y_i (z feedbackiem)
@@ -581,7 +566,6 @@ cat(sprintf("\nModel koncowy: %s (Y formula: %s)\n", best_result$type, y_formula
 # Total effects = Direct + Indirect
 #
 # Dla SEM/OLS impacts NIE są potrzebne (β jak w OLS).
-# ============================================================
 
 impacts_result <- NULL
 
@@ -641,9 +625,7 @@ if (best_result$type %in% c("SAR", "SDM")) {
   cat(sprintf("\n[7b] Pominieto impacts (model %s nie wymaga).\n", best_result$type))
 }
 
-# ============================================================
 # 7. NORMALIZE AND SAVE
-# ============================================================
 
 cat("\n[8] Normalizacja i zapis do bazy...\n")
 
@@ -742,9 +724,7 @@ dbExecute(conn, sprintf("
 
 cat("Metadane zapisane.\n")
 
-# ============================================================
 # 10. SAVE MODEL RDS FOR DIAGNOSTICS (step 07)
-# ============================================================
 
 model_rds_path <- "/app/data/research_model.rds"
 cat(sprintf("\n[10] Zapis modelu do %s...\n", model_rds_path))
@@ -770,9 +750,7 @@ model_for_diag <- list(
 saveRDS(model_for_diag, file = model_rds_path)
 cat(sprintf("Zapisano (%.0f KB).\n", file.size(model_rds_path) / 1024))
 
-# ============================================================
 # 11. CLEANUP
-# ============================================================
 
 dbDisconnect(conn)
 

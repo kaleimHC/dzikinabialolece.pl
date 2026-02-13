@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # 01_generate_voronoi.R (aka 01_geometry.R)
 # Generuje geometrie przestrzenne: Voronoi tessellation LUB regular grids
 # Zapisuje do PostGIS jako GridCell
@@ -12,16 +11,13 @@
 # ENV VARIABLES:
 #   RESEARCH_GEOMETRY_TYPE  — voronoi/grid_500
 #   RESEARCH_TARGET_TABLE   — target table name
-# =============================================================================
 
 library(sf)
 library(DBI)
 library(RPostgres)
 library(spdep)
 
-# =============================================================================
 # CONFIGURATION
-# =============================================================================
 
 geometry_type <- Sys.getenv("RESEARCH_GEOMETRY_TYPE", "voronoi")
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
@@ -48,9 +44,7 @@ if (!TARGET_TABLE %in% .allowed_tables) {
                TARGET_TABLE, paste(.allowed_tables, collapse = ", ")))
 }
 
-# =============================================================================
 # 1. DATABASE CONNECTION
-# =============================================================================
 cat("\n[1] Laczenie z baza danych...\n")
 
 conn <- dbConnect(
@@ -69,9 +63,7 @@ on.exit({
   if (exists("conn") && dbIsValid(conn)) dbDisconnect(conn)
 }, add = TRUE)
 
-# =============================================================================
 # 2. LOAD SIGHTINGS
-# =============================================================================
 cat("\n[2] Pobieranie obserwacji...\n")
 
 sightings_raw <- dbGetQuery(conn, "
@@ -91,9 +83,7 @@ if (geometry_type == "voronoi" && n_sightings < 3) {
   quit(status = 2)
 }
 
-# =============================================================================
 # 3. LOAD REGION BOUNDARY
-# =============================================================================
 cat("\n[3] Pobieranie granic Bialoleki...\n")
 
 bialoleka_raw <- dbGetQuery(conn, "
@@ -135,9 +125,7 @@ if (nrow(wisla_raw) > 0 && !is.na(wisla_raw$wkt[1])) {
   cat("Brak Wisly w bazie - pomijam wykluczenie.\n")
 }
 
-# =============================================================================
 # 4. GEOMETRY GENERATION — CONDITIONAL BY TYPE
-# =============================================================================
 
 cat(sprintf("\n[4] Generowanie geometrii: %s\n", toupper(geometry_type)))
 
@@ -289,9 +277,7 @@ if (geometry_type == "voronoi") {
   cat(sprintf("Columns after cleanup: %s\n", paste(names(grid_cells), collapse = ", ")))
 }
 
-# =============================================================================
 # 5. STATISTICS
-# =============================================================================
 cat("\n[5] Statystyki...\n")
 
 cat(sprintf("  Liczba komorek: %d\n", nrow(grid_cells)))
@@ -309,9 +295,7 @@ if (total_in_cells != n_sightings) {
   cat("  (Normalne dla gridow regularnych - niektore punkty poza granica)\n")
 }
 
-# =============================================================================
 # 6. SAVE TO DATABASE
-# =============================================================================
 cat(sprintf("\n[6] Zapisywanie do %s...\n", TARGET_TABLE))
 
 # Remove centroid column for saving (can't save two geometry columns)
@@ -357,9 +341,7 @@ if (geometry_type == "grid_500") {
 
 cat("Zapisano do bazy.\n")
 
-# =============================================================================
 # 7. VERIFICATION
-# =============================================================================
 cat("\n[7] Weryfikacja...\n")
 
 verify <- dbGetQuery(conn, sprintf("
@@ -374,9 +356,7 @@ cat(sprintf("  Komorki w bazie: %d\n", as.integer(verify$n_cells)))
 cat(sprintf("  Suma sightings: %d\n", as.integer(verify$total_sightings)))
 cat(sprintf("  Komorki z obserwacjami: %d\n", as.integer(verify$cells_with_sightings)))
 
-# =============================================================================
 # 8. DONE
-# =============================================================================
 cat("\n============================================================\n")
 cat("=== 01_geometry.R ZAKONCZONY POMYSLNIE ===\n")
 cat("============================================================\n")

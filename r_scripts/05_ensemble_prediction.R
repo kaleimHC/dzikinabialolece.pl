@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # 05_ensemble_prediction.R
 # ETAP 6: Ensemble prediction
 # Łączy ETA (gęstość) + SAR/SEM (proces przestrzenny) + density
@@ -9,7 +8,6 @@
 # - spatial_risk zastępuje gwr_risk (SAR/SEM z NEW_02)
 # - COALESCE fallback dla kompatybilności wstecznej
 # - Usuwa zależność od halucynacji eta_local/eta_weighted
-# =============================================================================
 
 library(DBI)
 library(RPostgres)
@@ -40,9 +38,7 @@ if (use_population) {
   cat(">>> TRYB STANDARDOWY: używam spatial_risk (bez korekty populacyjnej)\n")
 }
 
-# -----------------------------------------------------------------------------
 # 1. Polaczenie z baza
-# -----------------------------------------------------------------------------
 cat("Laczenie z baza danych...\n")
 
 conn <- dbConnect(
@@ -56,9 +52,7 @@ conn <- dbConnect(
 
 cat("Polaczono.\n")
 
-# -----------------------------------------------------------------------------
 # 2. Pobranie danych z GridCell
-# -----------------------------------------------------------------------------
 cat("Pobieranie danych z GridCell...\n")
 # WAŻNE: Obliczamy area_proportion BEZPOŚREDNIO z geometrii!
 # Spatial join w 02_compute_tessw_eta.R często zawodzi dla komórek przy krawędzi.
@@ -91,9 +85,7 @@ gridcells <- dbGetQuery(conn, query)
 n_cells <- nrow(gridcells)
 cat(sprintf("Pobrano %d cells.\n", n_cells))
 
-# -----------------------------------------------------------------------------
 # 3. Obliczenie GĘSTOŚCI OBSERWACJI (główny predyktor!)
-# -----------------------------------------------------------------------------
 cat("Obliczanie gestosci obserwacji...\n")
 
 # KLUCZOWE: gestosc = sighting_count / area_proportion
@@ -140,14 +132,12 @@ cat(sprintf("  Spatial score (z NEW_03 percentile rank): min=%.3f, max=%.3f\n",
             max(gridcells$spatial_score_final, na.rm=TRUE)))
 # spatial_score_final już ustawione powyżej (bez re-normalizacji)
 
-# -----------------------------------------------------------------------------
 # 4. Obliczenie ensemble
 #
 # Wagi:
 # - 30% density (gęstość obserwacji per cell)
 # - 40% spatial (SAR/SEM z NEW_02_spatial_models.R)
 # - 30% ETA (clustering z area_proportion)
-# -----------------------------------------------------------------------------
 cat("Obliczanie ensemble prediction...\n")
 
 W_DENSITY <- 0.30   # 30% - gęstość obserwacji
@@ -174,7 +164,6 @@ if (max_sightings > 0) {
 gridcells$confidence[gridcells$sighting_count > 0] <-
   pmax(gridcells$confidence[gridcells$sighting_count > 0], 0.1)
 
-# -----------------------------------------------------------------------------
 # 4a. PROXIMITY FACTOR - tłumienie ryzyka dla komórek daleko od obserwacji
 #
 # Problem: GWR predykuje wysokie ryzyko na podstawie środowiska,
@@ -184,7 +173,6 @@ gridcells$confidence[gridcells$sighting_count > 0] <-
 # proximity_weight = 1 / (1 + dist_to_nearest_sighting / DECAY_DISTANCE)
 #
 # DECAY_DISTANCE = 200m - ryzyko spada o połowę co 200m od obserwacji
-# -----------------------------------------------------------------------------
 cat("\nObliczanie proximity factor...\n")
 
 DECAY_DISTANCE <- 200  # metry - parametr tłumienia
@@ -265,9 +253,7 @@ cat(sprintf("  Confidence: min=%.3f, max=%.3f, mean=%.3f\n",
             max(gridcells$confidence, na.rm = TRUE),
             mean(gridcells$confidence, na.rm = TRUE)))
 
-# -----------------------------------------------------------------------------
 # 5. Zapis do bazy
-# -----------------------------------------------------------------------------
 cat("\nZapisywanie do bazy...\n")
 
 # Dodaj kolumny jesli nie istnieja (w tym proximity_weight)
@@ -347,9 +333,7 @@ dbExecute(conn, sprintf("
 cat(sprintf("Ensemble weights: density=%.0f%%, spatial=%.0f%%, ETA=%.0f%%\n",
             W_DENSITY*100, W_SPATIAL*100, W_ETA*100))
 
-# -----------------------------------------------------------------------------
 # 6. Cleanup
-# -----------------------------------------------------------------------------
 dbDisconnect(conn)
 
 cat("\n=== ETAP 6 ZAKONCZONY ===\n")

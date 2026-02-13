@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # 04_variable_y.R
 # Obliczenie zmiennej zaleznej Y wedlug wybranej formuly
 #
@@ -16,7 +15,6 @@
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 #   RESEARCH_TARGET_TABLE  (default: sightings_gridcell_voronoi)
 #   RESEARCH_Y_FORMULA     (count_pop / inv_pop / log_pop / binary)
-# =============================================================================
 
 library(DBI)
 library(RPostgres)
@@ -25,9 +23,7 @@ cat("============================================================\n")
 cat("04_variable_y.R — Zmienna zalezna Y\n")
 cat("============================================================\n")
 
-# -----------------------------------------------------------------------------
 # 1. Parametry z ENV
-# -----------------------------------------------------------------------------
 
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
 
@@ -51,9 +47,7 @@ if (!(y_formula %in% VALID_FORMULAS)) {
   quit(status = 1)
 }
 
-# -----------------------------------------------------------------------------
 # 2. Polaczenie z baza
-# -----------------------------------------------------------------------------
 
 cat("\n[1] Laczenie z baza danych...\n")
 
@@ -72,9 +66,7 @@ on.exit({
   if (exists("conn") && dbIsValid(conn)) dbDisconnect(conn)
 }, add = TRUE)
 
-# -----------------------------------------------------------------------------
 # 3. Walidacja: sprawdz dane wejsciowe
-# -----------------------------------------------------------------------------
 
 cat("\n[2] Sprawdzanie danych wejsciowych...\n")
 
@@ -111,9 +103,7 @@ if (input_stats$pop_zero > 0) {
   ", TARGET_TABLE))
 }
 
-# -----------------------------------------------------------------------------
 # 4. Ensure Y columns exist
-# -----------------------------------------------------------------------------
 
 cat("\n[3] Sprawdzanie kolumn Y...\n")
 
@@ -124,9 +114,7 @@ for (col in c("y_count_pop", "y_inv_pop", "y_log_pop", "y_log_count", "y_binary"
   ", TARGET_TABLE, col))
 }
 
-# -----------------------------------------------------------------------------
 # 5. Oblicz Y i zapisz
-# -----------------------------------------------------------------------------
 
 cat(sprintf("\n[4] Obliczanie Y (formula: %s)...\n", y_formula))
 
@@ -164,9 +152,7 @@ n2 <- dbExecute(conn, sprintf("
 
 cat(sprintf("  Zaktualizowano %d kafli (spatial_risk).\n", n2))
 
-# -----------------------------------------------------------------------------
 # 6. Statystyki i walidacja
-# -----------------------------------------------------------------------------
 
 cat(sprintf("\n[5] Statystyki Y (%s):\n", y_formula))
 
@@ -243,9 +229,7 @@ if (y_formula == "count_pop") {
   cat("  Dla Voronoi 1:1: Y=1 wszedzie (brak wariancji!)\n")
 }
 
-# =============================================================================
 # 7. REGIME CLASSIFICATION (Binary forest/urban)
-# =============================================================================
 
 use_regime <- Sys.getenv("RESEARCH_USE_REGIME", "0") == "1"
 regime_type <- Sys.getenv("RESEARCH_REGIME_TYPE", "none")

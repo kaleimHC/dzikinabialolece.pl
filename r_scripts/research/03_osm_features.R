@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # 03_osm_features.R
 # Obliczenie predyktorow srodowiskowych (OSM) dla kafli Voronoi
 #
@@ -20,7 +19,6 @@
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 #   RESEARCH_TARGET_TABLE       (default: sightings_gridcell_voronoi)
 #   RESEARCH_ACTIVE_PREDICTORS  (comma-separated, empty = all)
-# =============================================================================
 
 library(DBI)
 library(RPostgres)
@@ -29,9 +27,7 @@ cat("============================================================\n")
 cat("03_osm_features.R — Predyktory srodowiskowe OSM\n")
 cat("============================================================\n")
 
-# -----------------------------------------------------------------------------
 # 1. Parametry z ENV
-# -----------------------------------------------------------------------------
 
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
 active_predictors_raw <- Sys.getenv("RESEARCH_ACTIVE_PREDICTORS", "")
@@ -66,9 +62,7 @@ if (length(predictors_to_run) == 0) {
   quit(status = 0)
 }
 
-# -----------------------------------------------------------------------------
 # 2. Definicje predyktorow
-# -----------------------------------------------------------------------------
 # Trzy typy obliczen:
 #   "area"     — % powierzchni kafla pokrytej obiektem (polygon layers)
 #   "line"     — km linii / km² kafla (line layers)
@@ -132,9 +126,7 @@ PREDICTOR_DEFS <- list(
   )
 )
 
-# -----------------------------------------------------------------------------
 # 3. Polaczenie z baza
-# -----------------------------------------------------------------------------
 
 cat("\n[1] Laczenie z baza danych...\n")
 
@@ -153,9 +145,7 @@ on.exit({
   if (exists("conn") && dbIsValid(conn)) dbDisconnect(conn)
 }, add = TRUE)
 
-# -----------------------------------------------------------------------------
 # 4. Walidacja: czy sa kafle Voronoi?
-# -----------------------------------------------------------------------------
 
 n_voronoi <- as.integer(dbGetQuery(conn,
   sprintf("SELECT COUNT(*) as n FROM %s WHERE geometry IS NOT NULL", TARGET_TABLE)
@@ -168,9 +158,7 @@ if (n_voronoi == 0) {
   quit(status = 1)
 }
 
-# -----------------------------------------------------------------------------
 # 5. Ensure columns exist (railway_density may be missing)
-# -----------------------------------------------------------------------------
 
 cat("\n[3] Sprawdzanie kolumn...\n")
 
@@ -179,9 +167,7 @@ dbExecute(conn, sprintf("
   ADD COLUMN IF NOT EXISTS railway_density DOUBLE PRECISION DEFAULT 0
 ", TARGET_TABLE))
 
-# -----------------------------------------------------------------------------
 # 6. SQL templates
-# -----------------------------------------------------------------------------
 
 # Template: area coverage (polygon layers)
 # Cover = sum(intersection area) / cell area
@@ -238,9 +224,7 @@ sql_distance <- function(osm_table, column, target_table) {
   ", target_table, column, target_table, osm_table)
 }
 
-# -----------------------------------------------------------------------------
 # 7. Oblicz predyktory
-# -----------------------------------------------------------------------------
 
 cat("\n[4] Obliczanie predyktorow...\n\n")
 
@@ -334,9 +318,7 @@ dbExecute(conn, sprintf("UPDATE %s SET updated_at = NOW()", TARGET_TABLE))
 
 total_elapsed <- (proc.time() - total_time)["elapsed"]
 
-# -----------------------------------------------------------------------------
 # 8. Podsumowanie
-# -----------------------------------------------------------------------------
 
 cat("\n============================================================\n")
 cat("PODSUMOWANIE\n")

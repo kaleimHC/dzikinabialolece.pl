@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # 05_matrix_w.R
 # Budowanie macierzy wag przestrzennych W
 #
@@ -17,7 +16,6 @@
 #   RESEARCH_W_METHOD     (contiguity / knn_aic / tessw)
 #   RESEARCH_K_RANGE_MIN  (dla knn_aic, default: 2)
 #   RESEARCH_K_RANGE_MAX  (dla knn_aic, default: 50)
-# =============================================================================
 
 library(sf)
 library(spdep)
@@ -28,9 +26,7 @@ cat("============================================================\n")
 cat("05_matrix_w.R — Macierz wag przestrzennych W\n")
 cat("============================================================\n")
 
-# -----------------------------------------------------------------------------
 # 1. Parametry z ENV
-# -----------------------------------------------------------------------------
 
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
 w_method <- Sys.getenv("RESEARCH_W_METHOD", "contiguity")
@@ -57,9 +53,7 @@ if (w_method == "knn_aic") {
   }
 }
 
-# -----------------------------------------------------------------------------
 # 2. Polaczenie z baza
-# -----------------------------------------------------------------------------
 
 cat("\n[1] Laczenie z baza danych...\n")
 
@@ -78,9 +72,7 @@ on.exit({
   if (exists("conn") && dbIsValid(conn)) dbDisconnect(conn)
 }, add = TRUE)
 
-# -----------------------------------------------------------------------------
 # 3. Wczytaj kafle Voronoi
-# -----------------------------------------------------------------------------
 
 cat(sprintf("\n[2] Pobieranie kafli z %s...\n", TARGET_TABLE))
 
@@ -112,9 +104,7 @@ cat(sprintf("Y (spatial_risk): min=%.4f, max=%.4f, sd=%.4f\n",
             max(voronoi_raw$spatial_risk),
             sd(voronoi_raw$spatial_risk)))
 
-# -----------------------------------------------------------------------------
 # 4. Budowa macierzy W
-# -----------------------------------------------------------------------------
 
 cat(sprintf("\n[3] Budowanie W (metoda: %s)...\n", w_method))
 
@@ -376,9 +366,7 @@ if (w_method == "contiguity") {
 elapsed <- (proc.time() - t0)["elapsed"]
 cat(sprintf("  Czas budowy W: %.1f s\n", elapsed))
 
-# -----------------------------------------------------------------------------
 # 5. Statystyki macierzy W
-# -----------------------------------------------------------------------------
 
 cat(sprintf("\n[4] Statystyki macierzy W (%s):\n", build_result$method))
 
@@ -410,9 +398,7 @@ for (val in names(nb_table)) {
   cat(sprintf("    %2s sasiadow: %d kafli\n", val, nb_table[val]))
 }
 
-# -----------------------------------------------------------------------------
 # 6. Zapis do RDS
-# -----------------------------------------------------------------------------
 
 rds_path <- "/app/data/research_W.rds"
 cat(sprintf("\n[5] Zapis do %s...\n", rds_path))
@@ -435,9 +421,7 @@ if (!is.null(verify$listw) && inherits(verify$listw, "listw")) {
   quit(status = 1)
 }
 
-# -----------------------------------------------------------------------------
 # 6b. Eksport krawedzi W do GeoJSON (dla wizualizacji)
-# -----------------------------------------------------------------------------
 
 cat("\n[6] Eksport krawedzi macierzy W do GeoJSON...\n")
 
@@ -487,9 +471,7 @@ tryCatch({
   # Non-fatal - kontynuuj pipeline
 })
 
-# -----------------------------------------------------------------------------
 # 7. Podsumowanie
-# -----------------------------------------------------------------------------
 
 cat("\n============================================================\n")
 cat("05_matrix_w ZAKONCZONY POMYSLNIE\n")

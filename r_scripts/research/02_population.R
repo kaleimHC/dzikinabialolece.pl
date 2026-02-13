@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # 02_population.R
 # Obliczenie populacji dla kafli grid metoda punktow populacyjnych
 # (Kopczewska: 1 punkt = 100 osob)
@@ -13,7 +12,6 @@
 #   RESEARCH_TARGET_TABLE       (default: sightings_gridcell_voronoi)
 #   RESEARCH_POPULATION_METHOD  (only "points" supported)
 #   RESEARCH_SEED               (for reproducibility)
-# =============================================================================
 
 library(sf)
 library(DBI)
@@ -23,9 +21,7 @@ cat("============================================================\n")
 cat("02_population.R — Populacja dla kafli\n")
 cat("============================================================\n")
 
-# -----------------------------------------------------------------------------
 # 1. Parametry z ENV
-# -----------------------------------------------------------------------------
 
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
 
@@ -52,9 +48,7 @@ if (!(population_method %in% c("points", "spatial_join"))) {
 
 set.seed(seed_val)
 
-# -----------------------------------------------------------------------------
 # 2. Polaczenie z baza
-# -----------------------------------------------------------------------------
 
 cat("\n[1] Laczenie z baza danych...\n")
 
@@ -74,9 +68,7 @@ on.exit({
   if (exists("conn") && dbIsValid(conn)) dbDisconnect(conn)
 }, add = TRUE)
 
-# =============================================================================
 # SPATIAL_JOIN METHOD: Population already set from GUS in 01_geometry
-# =============================================================================
 if (population_method == "spatial_join") {
   cat("\n[SPATIAL_JOIN] Populacja juz ustawiona w kroku 01_geometry (GUS direct)\n")
 
@@ -115,13 +107,9 @@ if (population_method == "spatial_join") {
   quit(status = 0)
 }
 
-# =============================================================================
 # POINTS METHOD: Original implementation for Voronoi
-# =============================================================================
 
-# -----------------------------------------------------------------------------
 # 3. Wczytaj kafle
-# -----------------------------------------------------------------------------
 
 cat(sprintf("\n[2] Pobieranie kafli z %s...\n", TARGET_TABLE))
 
@@ -143,9 +131,7 @@ if (n_voronoi == 0) {
 voronoi_sf <- st_as_sf(voronoi_raw, wkt = "wkt", crs = 4326)
 voronoi_sf <- st_make_valid(voronoi_sf)
 
-# -----------------------------------------------------------------------------
 # 4. Wczytaj gridy GUS 500m
-# -----------------------------------------------------------------------------
 
 cat("\n[3] Pobieranie gridow GUS 500m...\n")
 
@@ -170,9 +156,7 @@ gus_sf <- st_make_valid(gus_sf)
 cat(sprintf("Populacja GUS: min=%d, max=%d, sum=%d\n",
             min(gus_raw$tot), max(gus_raw$tot), sum(gus_raw$tot)))
 
-# -----------------------------------------------------------------------------
 # 5. Generuj punkty populacyjne (metoda Kopczewskiej)
-# -----------------------------------------------------------------------------
 # Kazda komorka GUS generuje floor(population / 100) punktow
 # 1 punkt = 100 osob
 
@@ -240,9 +224,7 @@ cat(sprintf("Laczna liczba punktow: %d\n", length(pop_points)))
 pop_points_sf <- st_sf(geometry = pop_points)
 st_crs(pop_points_sf) <- 4326
 
-# -----------------------------------------------------------------------------
 # 6. Zlicz punkty w kaflach
-# -----------------------------------------------------------------------------
 
 cat("\n[5] Zliczanie punktow populacyjnych w kaflach...\n")
 
@@ -255,9 +237,7 @@ voronoi_population <- point_counts * 100L
 
 cat(sprintf("Zliczono punkty. Rozmiar: %d kafli.\n", length(voronoi_population)))
 
-# -----------------------------------------------------------------------------
 # 7. Obsluz population = 0 (lasy, woda — brak mieszkancow)
-# -----------------------------------------------------------------------------
 
 n_zeros <- sum(voronoi_population == 0)
 cat(sprintf("\n[6] Kafle z populacja=0: %d (%.1f%%)\n",
@@ -266,9 +246,7 @@ cat(sprintf("\n[6] Kafle z populacja=0: %d (%.1f%%)\n",
 # Ustaw minimum na 1 (unikniecie dzielenia przez 0)
 voronoi_population[voronoi_population == 0] <- 1L
 
-# -----------------------------------------------------------------------------
 # 8. UPDATE bazy danych
-# -----------------------------------------------------------------------------
 
 cat("\n[7] Zapis do bazy (UPDATE population)...\n")
 
@@ -300,9 +278,7 @@ for (start_idx in seq(1, n_voronoi, by = batch_size)) {
 
 cat(sprintf("Zaktualizowano %d kafli.\n", n_updated))
 
-# -----------------------------------------------------------------------------
 # 9. Podsumowanie
-# -----------------------------------------------------------------------------
 
 cat("\n[8] Podsumowanie:\n")
 cat(sprintf("  Kafli:                %d\n", n_voronoi))

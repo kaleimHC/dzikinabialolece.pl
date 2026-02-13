@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # 07_diagnostics.R
 # Testy diagnostyczne modelu przestrzennego
 #
@@ -28,7 +27,6 @@
 #   RESEARCH_RUN_ETA         (1/0, default: 0)
 #   RESEARCH_ALPHA           (poziom istotnosci, default: 0.05)
 #   RESEARCH_VIF_THRESHOLD   (prog VIF, default: 5.0)
-# =============================================================================
 
 library(sf)
 library(spdep)
@@ -39,9 +37,7 @@ cat("============================================================\n")
 cat("07_diagnostics.R — Testy diagnostyczne\n")
 cat("============================================================\n")
 
-# -----------------------------------------------------------------------------
 # 1. Parametry z ENV
-# -----------------------------------------------------------------------------
 
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
 run_id        <- Sys.getenv("RESEARCH_RUN_ID", "")
@@ -63,9 +59,7 @@ if (nchar(run_id) == 0) {
   cat("UWAGA: Brak RESEARCH_RUN_ID — wyniki nie beda zapisane do bazy.\n")
 }
 
-# -----------------------------------------------------------------------------
 # 2. Wczytaj dane z RDS
-# -----------------------------------------------------------------------------
 
 cat("\n[1] Wczytywanie danych...\n")
 
@@ -120,9 +114,7 @@ if (!requireNamespace("spatialreg", quietly = TRUE)) {
 }
 library(spatialreg)
 
-# =============================================================================
 # Storage for results (will be inserted into DB at the end)
-# =============================================================================
 
 diag <- list(
   # Moran I
@@ -162,9 +154,7 @@ diag$log_likelihood <- tryCatch({
   as.numeric(logLik(best_result$model))
 }, error = function(e) NA_real_)
 
-# =============================================================================
 # 3. Coefficients & Pseudo-R²
-# =============================================================================
 
 cat("\n[2] Wspolczynniki modelu...\n")
 
@@ -234,9 +224,7 @@ if (!is.null(resids) && length(resids) == length(Y)) {
   cat("  Brak residuow — nie mozna obliczyc R².\n")
 }
 
-# =============================================================================
 # 4. VIF (Variance Inflation Factor)
-# =============================================================================
 
 cat("\n[3] VIF (multicollinearity)...\n")
 
@@ -291,9 +279,7 @@ if (!is.null(ols_model)) {
   cat("  OLS nie zbiegnal — brak VIF.\n")
 }
 
-# =============================================================================
 # 5. Moran's I (residuals)
-# =============================================================================
 
 if (run_moran) {
   cat("\n[4] Moran's I na resztach modelu...\n")
@@ -328,9 +314,7 @@ if (run_moran) {
   cat("\n[4] Moran's I: POMINIETY\n")
 }
 
-# =============================================================================
 # 6. LM Tests (Lagrange Multiplier)
-# =============================================================================
 
 if (run_lm_tests && !is.null(ols_model)) {
   cat("\n[5] LM tests (lag vs error)...\n")
@@ -411,9 +395,7 @@ if (run_lm_tests && !is.null(ols_model)) {
   cat("\n[5] LM tests: POMINIETY\n")
 }
 
-# =============================================================================
 # 7. LISA (Local Indicators of Spatial Association)
-# =============================================================================
 
 if (run_lisa) {
   cat("\n[6] LISA (Local Moran)...\n")
@@ -461,9 +443,7 @@ if (run_lisa) {
   cat("\n[6] LISA: POMINIETY\n")
 }
 
-# =============================================================================
 # 8. ETA (Entropy of Tessellation)
-# =============================================================================
 
 # Initialize eta_result (will be populated if run_eta=TRUE)
 eta_result <- NULL
@@ -516,9 +496,7 @@ if (run_eta) {
   cat("\n[7] ETA: POMINIETY\n")
 }
 
-# =============================================================================
 # 8b. IMPACTS (SAR/SDM only)
-# =============================================================================
 
 cat("\n[8] Impacts (SAR/SDM)...\n")
 
@@ -580,9 +558,7 @@ if (has_impacts) {
   cat(sprintf("  Model %s nie wymaga impacts (β jak w OLS).\n", best_result$type))
 }
 
-# =============================================================================
 # 9. Zapis do bazy
-# =============================================================================
 
 cat("\n[8] Zapis do bazy (analytics_researchdiagnostics)...\n")
 
@@ -698,9 +674,7 @@ if (nchar(run_id) == 0) {
   }
 }
 
-# =============================================================================
 # 10. Podsumowanie
-# =============================================================================
 
 cat("\n============================================================\n")
 cat("PODSUMOWANIE DIAGNOSTYKI\n")

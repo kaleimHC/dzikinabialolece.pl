@@ -1,10 +1,8 @@
 #!/usr/bin/env Rscript
-# =============================================================================
 # export_w_edges.R
 # Eksportuje krawędzie macierzy W jako GeoJSON do wizualizacji
 #
 # Output: /app/data/w_matrix_edges.geojson
-# =============================================================================
 
 library(sf)
 library(spdep)
@@ -15,9 +13,7 @@ cat("============================================================\n")
 cat("export_w_edges.R — Eksport krawędzi macierzy W\n")
 cat("============================================================\n")
 
-# -----------------------------------------------------------------------------
 # 1. Wczytaj macierz W
-# -----------------------------------------------------------------------------
 
 w_rds_path <- "/app/data/research_W.rds"
 if (!file.exists(w_rds_path)) {
@@ -34,9 +30,7 @@ cat(sprintf("Macierz W: metoda=%s, k=%s, regiony=%d\n",
             ifelse(is.null(w_data$k_optimal), "N/A", w_data$k_optimal),
             n_regions))
 
-# -----------------------------------------------------------------------------
 # 2. Pobierz centroidy z bazy
-# -----------------------------------------------------------------------------
 
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "research_grid_500m")
 cat(sprintf("Tabela: %s\n", TARGET_TABLE))
@@ -72,9 +66,7 @@ if (nrow(centroids) != n_regions) {
   n_regions <- min(nrow(centroids), n_regions)
 }
 
-# -----------------------------------------------------------------------------
 # 3. Zbuduj krawędzie (linie od-do)
-# -----------------------------------------------------------------------------
 
 cat("Budowanie krawędzi...\n")
 
@@ -102,9 +94,7 @@ for (i in 1:n_regions) {
 
 cat(sprintf("Utworzono %d krawędzi\n", length(edges)))
 
-# -----------------------------------------------------------------------------
 # 4. Utwórz obiekt sf i zapisz GeoJSON
-# -----------------------------------------------------------------------------
 
 edges_sfc <- st_sfc(edges, crs = 4326)
 edges_sf <- st_sf(
