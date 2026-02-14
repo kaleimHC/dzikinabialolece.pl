@@ -944,18 +944,6 @@ def switch_sample_task(self, sample: str):
         raise
 
 
-# RANDOM FOREST TASK
-from analytics.tasks_rf import compute_rf  # noqa: F401, E402
-
-# GWR TASK (DEBUG-FIRST)
-from analytics.tasks_gwr import compute_gwr  # noqa: F401, E402
-
-# ETA TASK (DEBUG-FIRST)
-from analytics.tasks_eta import compute_eta as compute_eta_debug  # noqa: F401, E402
-
-# GWR HEURISTIC (FAST mode proxy)
-from analytics.tasks_gwr_heuristic import compute_gwr_heuristic  # noqa: F401, E402
-
 # MODE ROUTER (FAST/PUB/BAYES pipeline separation)
 from analytics.mode_router import run_pipeline, MODE_CONFIG  # noqa: F401, E402
 
