@@ -944,16 +944,6 @@ def switch_sample_task(self, sample: str):
         raise
 
 
-# BAYESIAN LAYER TASKS (MASTER_SPEC v2.3)
-# Import to make Celery autodiscover these tasks
-from analytics.tasks_bayesian import (  # noqa: F401, E402
-    elicit_priors,
-    compute_bayesian_ssm,
-    aggregate_bayesian_ensemble,
-    invalidate_bayesian_cache,
-    run_bayesian_pipeline,
-)
-
 # RANDOM FOREST TASK
 from analytics.tasks_rf import compute_rf  # noqa: F401, E402
 

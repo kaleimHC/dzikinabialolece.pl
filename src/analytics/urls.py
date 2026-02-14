@@ -48,7 +48,6 @@ urlpatterns = [
     ),
     # Bayesian Layer (MASTER_SPEC v2.3)
     path("bayesian/", views.bayesian_results, name="bayesian-results"),
-    path("bayesian/run/", views.bayesian_run, name="bayesian-run"),
     path(
         "bayesian/diagnostics/", views.bayesian_diagnostics, name="bayesian-diagnostics"
     ),

@@ -482,7 +482,6 @@ class TestRadiusParameterCap(TestCase):
 PROTECTED_ENDPOINTS = [
     ('POST', '/api/research/run/'),
     ('DELETE', '/api/research/runs/clear/'),
-    ('POST', '/api/analytics/bayesian/run/'),
     ('POST', '/api/analytics/recalculate/'),
     ('POST', '/api/analytics/samples/switch/'),
     ('POST', '/api/analytics/config/apply-preset/'),
