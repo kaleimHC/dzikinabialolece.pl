@@ -1,15 +1,5 @@
 """
-MODE ROUTER - FAST/PUB/BAYES pipeline separation
-DEBUG-FIRST: Every step logged!
-
-MODES:
-- FAST: Voronoi grid + RF + GWR heuristic + simple ETA (real-time API)
-- PUB: Square grid + real GWR (R) + full ETA (publication quality)
-- BAYES: Square grid + MCMC + CAR spatial model (research)
-
-Usage:
-    from analytics.mode_router import run_pipeline
-    result = run_pipeline.delay(mode='FAST')
+MODE ROUTER — FAST/PUB pipeline dispatcher.
 """
 
 import uuid
@@ -18,7 +8,6 @@ from celery import shared_task
 from django.db import connection
 
 from analytics.debug_mode import DebugLogger
-from analytics.sql_injection_patch import validate_grid_type
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +70,8 @@ def run_pipeline(self, mode: str = "FAST", run_id: str = None):
             result = _run_fast_pipeline(run_id, config, debug)
         elif mode == "PUB":
             result = _run_pub_pipeline(run_id, config, debug)
+        else:
+            return {"status": "error", "message": f"Mode {mode} not implemented"}
 
         debug.success(
             "run_pipeline", f"{mode} pipeline completed", values=result, start_time=t
@@ -222,47 +213,6 @@ def _run_fast_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
         results["error"] = str(e)
 
     return results
-
-
-def _compute_simple_eta(grid_type: str, run_id: str, debug: DebugLogger) -> dict:
-    """
-    Simple ETA based on distance to last sighting.
-    Formula: eta_score = 1 / (1 + days_since_sighting/30)
-    """
-    grid_table = validate_grid_type(grid_type)
-
-    with connection.cursor() as cursor:
-        # Calculate days since last sighting for each cell
-        cursor.execute(f"""
-            UPDATE {grid_table} gc
-            SET eta_score = ROUND((
-                1.0 / (1.0 + COALESCE(
-                    (SELECT MIN(EXTRACT(EPOCH FROM (NOW() - s.observed_at)) / 86400)
-                     FROM sightings_sighting s
-                     WHERE ST_Contains(gc.geometry, s.location)),
-                    365
-                ) / 30.0)
-            )::numeric, 6)
-        """)
-        updated = cursor.rowcount
-
-    # Verify
-    with connection.cursor() as cursor:
-        cursor.execute(f"""
-            SELECT MIN(eta_score), MAX(eta_score), AVG(eta_score),
-                   COUNT(DISTINCT ROUND(eta_score::numeric, 4))
-            FROM {grid_table}
-        """)
-        stats = cursor.fetchone()
-
-    return {
-        "status": "success",
-        "updated": updated,
-        "eta_min": round(float(stats[0]), 4) if stats[0] else None,
-        "eta_max": round(float(stats[1]), 4) if stats[1] else None,
-        "eta_mean": round(float(stats[2]), 4) if stats[2] else None,
-        "unique_values": stats[3],
-    }
 
 
 def _calculate_osm_features(debug: DebugLogger) -> dict:
@@ -479,26 +429,12 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
     5. NEW_03_inverse_area_risk.R - Inverse area risk
     6. 05_ensemble_prediction.R - Ensemble prediction
     """
-    # ═══════════════════════════════════════════════════════════════
-    # RE-ENABLED: 2026-01-19 - spatialWarsaw integration complete
-    # SAR/SEM replaces GWR, tessW/ETA available but optional
-    # ═══════════════════════════════════════════════════════════════
-
     import docker
     import os
 
     grid_type = config["grid_type"]  # 'voronoi'
     results = {"mode": "PUB", "grid_type": grid_type, "steps": {}}
 
-    # Pipeline steps (R scripts + Python OSM features)
-    # ETAP G4 (2026-01-19): Added OSM features calculation between Voronoi and SEM
-    # ETAP G6 (2026-01-19): Replaced SAR/SEM with INVERSE_AREA (fixes Voronoi 1:1 problem)
-    #   1. 01_generate_voronoi.R: Generate cells (TRUNCATES table!)
-    #   2. _calculate_osm_features(): Fill forest_cover, building_density, etc.
-    #   3. _calculate_population(): Area-weighted population from GUS 500m grid
-    #   4. NEW_02_spatial_models.R: SAR/SEM with Y=log(population+1)
-    #   5. NEW_03_inverse_area_risk.R: Inverse area risk
-    #   6. 05_ensemble_prediction.R: Ensemble with COALESCE(spatial_risk, gwr_risk)
     r_scripts = [
         ("01_generate_voronoi.R", "Generate Voronoi from current sightings"),
         ("NEW_02_spatial_models.R", "SAR/SEM spatial models (Y=log(population+1))"),
@@ -553,18 +489,11 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
                     stderr=True,
                 )
 
-                container_output.decode("utf-8") if isinstance(
-                    container_output, bytes
-                ) else str(container_output)
                 results["steps"][script] = "success"
                 debug.success(
                     f"step{step_num}", f"{script} completed", start_time=t_step
                 )
 
-                # ═══════════════════════════════════════════════════════════════
-                # ETAP G4: After 01_generate_voronoi.R, calculate OSM features
-                # This MUST happen before NEW_02_spatial_models.R which needs them!
-                # ═══════════════════════════════════════════════════════════════
                 if script == "01_generate_voronoi.R":
                     step_num += 1
                     osm_result = _calculate_osm_features(debug)
