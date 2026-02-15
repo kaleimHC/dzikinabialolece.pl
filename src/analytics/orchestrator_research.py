@@ -100,7 +100,7 @@ PIPELINE_STEPS = [
         "name": "06_model",
         "description": "Fit spatial model (SAR/SEM/SDM/probit/logit)",
         "type": StepType.R,
-        "script": "NEW_02_spatial_models.R",
+        "script": "02_spatial_models.R",
     },
     {
         "name": "07_diagnostics",

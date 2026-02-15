@@ -425,8 +425,8 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
     1. 01_generate_voronoi.R - Generate Voronoi cells from sightings
     2. _calculate_osm_features() - Calculate OSM environmental features (Python/SQL)
     3. _calculate_population() - Area-weighted population from GUS 500m grid (Python/SQL)
-    4. NEW_02_spatial_models.R - SAR/SEM with Y=log(population+1)
-    5. NEW_03_inverse_area_risk.R - Inverse area risk
+    4. 02_spatial_models.R - SAR/SEM with Y=log(population+1)
+    5. 03_inverse_area_risk.R - Inverse area risk
     6. 05_ensemble_prediction.R - Ensemble prediction
     """
     import docker
@@ -437,8 +437,8 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
 
     r_scripts = [
         ("01_generate_voronoi.R", "Generate Voronoi from current sightings"),
-        ("NEW_02_spatial_models.R", "SAR/SEM spatial models (Y=log(population+1))"),
-        ("NEW_03_inverse_area_risk.R", "Inverse area risk"),
+        ("02_spatial_models.R", "SAR/SEM spatial models (Y=log(population+1))"),
+        ("03_inverse_area_risk.R", "Inverse area risk"),
         ("05_ensemble_prediction.R", "Ensemble prediction"),
     ]
 
