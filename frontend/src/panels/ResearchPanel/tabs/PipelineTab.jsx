@@ -17,6 +17,7 @@ import { RESEARCH_PRESETS, PRESET_GROUPS, getPresetsByGroup } from "../presets";
 import RegimeThresholdControl from "../components/RegimeThresholdControl";
 import { usePipelineProgress } from "../../../hooks/usePipelineProgress";
 import LiveStepsProgress from "../components/LiveStepsProgress";
+import { STATUS_ICON, STATUS_COLOR } from "../../../utils/pipelineHelpers";
 
 // SŁOWNIKI DLA TRYBU PROSTEGO
 
@@ -1130,19 +1131,8 @@ function RunSection({
 
 function RunStepsList({ run }) {
   const [expandedStep, setExpandedStep] = useState(null);
-
-  const statusIcon = {
-    success: "✓",
-    failed: "✗",
-    skipped: "−",
-    running: "…",
-  };
-  const statusColor = {
-    success: "text-green-400",
-    failed: "text-red-400",
-    skipped: "text-gray-500",
-    running: "text-blue-400",
-  };
+  const statusIcon = STATUS_ICON;
+  const statusColor = STATUS_COLOR;
 
   return (
     <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
@@ -1383,19 +1373,8 @@ function SimpleView({ diagnostics, configSnapshot }) {
 
 function FullDebugView({ diagnostics, steps, configSnapshot }) {
   const [expandedStep, setExpandedStep] = useState(null);
-
-  const statusIcon = {
-    success: "✓",
-    failed: "✗",
-    skipped: "−",
-    running: "…",
-  };
-  const statusColor = {
-    success: "text-green-400",
-    failed: "text-red-400",
-    skipped: "text-gray-500",
-    running: "text-blue-400",
-  };
+  const statusIcon = STATUS_ICON;
+  const statusColor = STATUS_COLOR;
 
   return (
     <div className="space-y-3">
