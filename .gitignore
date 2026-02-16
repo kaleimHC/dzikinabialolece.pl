@@ -63,3 +63,4 @@ config/pgbouncer/userlist.txt
 # Internal process docs
 DECISIONS.md
 REFACTOR_LOG.md
+docs_internal/
