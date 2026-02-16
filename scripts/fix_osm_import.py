@@ -7,7 +7,6 @@ Naprawia:
 2. Brakujące warstwy (allotments, meadow, farmland, park, scrub, railway)
 3. Dane poza granicą (clip do Białołęki)
 
-Autor: Claude Code
 Data: 2024-01-11
 """
 

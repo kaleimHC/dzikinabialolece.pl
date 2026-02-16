@@ -13,7 +13,6 @@ Przelicza dla każdej komórki Voronoi:
 9. NOWE: meadow_cover - % pokrycia łąkami
 10. NOWE: park_cover - % pokrycia parkami
 
-Autor: Claude Code
 Data: 2024-01-11
 """
 
