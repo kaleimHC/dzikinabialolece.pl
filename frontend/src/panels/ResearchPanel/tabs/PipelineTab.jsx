@@ -1308,6 +1308,21 @@ export default function PipelineTab() {
         />
       </section>
 
+      {/* ── RUN PIPELINE ── */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          Uruchomienie
+        </h2>
+        <RunSection
+          hasActiveConfig={!!activeConfigId}
+          onRun={handleRun}
+          runResult={runResult}
+          isRunning={isRunning}
+          wsProgress={wsProgress}
+          currentRunId={currentRunId}
+        />
+      </section>
+
       {/* ── CONFIGS ── */}
       <section>
         {activateError && (
@@ -1370,21 +1385,6 @@ export default function PipelineTab() {
             </motion.div>
           )}
         </AnimatePresence>
-      </section>
-
-      {/* ── RUN PIPELINE ── */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
-          Uruchomienie
-        </h2>
-        <RunSection
-          hasActiveConfig={!!activeConfigId}
-          onRun={handleRun}
-          runResult={runResult}
-          isRunning={isRunning}
-          wsProgress={wsProgress}
-          currentRunId={currentRunId}
-        />
       </section>
 
       {/* ── HISTORY ── */}
