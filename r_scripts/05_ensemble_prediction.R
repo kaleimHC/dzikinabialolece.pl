@@ -17,7 +17,7 @@ cat("=== ETAP 6: Ensemble Prediction ===\n")
 # Target table
 TARGET_TABLE <- Sys.getenv("RESEARCH_TARGET_TABLE", "sightings_gridcell_voronoi")
 
-.allowed_tables <- c("research_grid_500m", "sightings_gridcell_voronoi")
+.allowed_tables <- c("research_grid_500m", "sightings_gridcell_voronoi", "sightings_gridcell_research")
 if (!TARGET_TABLE %in% .allowed_tables) {
   stop(sprintf("Invalid TARGET_TABLE: '%s'. Allowed: %s",
                TARGET_TABLE, paste(.allowed_tables, collapse = ", ")))
