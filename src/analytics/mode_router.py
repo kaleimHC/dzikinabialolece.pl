@@ -454,6 +454,7 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
         debug.info("docker", "Docker connected")
 
         step_num = 0
+        failed_steps = []
 
         for i, (script, description) in enumerate(r_scripts, 1):
             step_num += 1
@@ -511,12 +512,25 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
                         results["population_stats"] = pop_result["stats"]
 
             except docker.errors.ContainerError as e:
-                stderr = e.stderr.decode("utf-8")[:200] if e.stderr else str(e)
+                stderr = e.stderr.decode("utf-8")[:300] if e.stderr else str(e)
                 results["steps"][script] = f"error: {stderr}"
+                failed_steps.append(script)
+                logger.error(
+                    "[PUB] Step %s FAILED (ContainerError): %s",
+                    script,
+                    stderr[:300],
+                )
                 debug.error(f"step{step_num}", f"{script} failed: {stderr}")
 
             except Exception as e:
                 results["steps"][script] = f"error: {str(e)}"
+                failed_steps.append(script)
+                logger.error(
+                    "[PUB] Step %s FAILED (%s): %s",
+                    script,
+                    type(e).__name__,
+                    str(e)[:300],
+                )
                 debug.error(f"step{step_num}", f"{script} error: {str(e)}")
 
         # Get final stats from VORONOI
@@ -539,10 +553,25 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
             "critical_cells": critical,
         }
 
-        debug.success(
-            "pub_pipeline", "PUB completed", values=results["ensemble"], start_time=t
-        )
-        results["status"] = "success"
+        if failed_steps:
+            results["status"] = "partial_success"
+            results["failed_steps"] = failed_steps
+            logger.warning(
+                "[PUB] Pipeline completed with %d failed step(s): %s",
+                len(failed_steps),
+                ", ".join(failed_steps),
+            )
+            debug.success(
+                "pub_pipeline",
+                f"PUB completed (partial — {len(failed_steps)} step(s) failed)",
+                values=results["ensemble"],
+                start_time=t,
+            )
+        else:
+            results["status"] = "success"
+            debug.success(
+                "pub_pipeline", "PUB completed", values=results["ensemble"], start_time=t
+            )
 
     except docker.errors.DockerException as e:
         debug.error("docker", f"Docker error: {str(e)}")

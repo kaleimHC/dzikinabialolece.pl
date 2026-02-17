@@ -61,6 +61,5 @@ config/pgbouncer/userlist.txt
 *.key
 
 # Internal process docs
-DECISIONS.md
 REFACTOR_LOG.md
 docs_internal/
