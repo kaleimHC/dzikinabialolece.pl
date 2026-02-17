@@ -16,7 +16,7 @@ import os
 import subprocess
 import tempfile
 from celery import shared_task
-from .tasks_bayesian import check_n_minimum
+from .models_config import check_n_minimum
 from celery.exceptions import SoftTimeLimitExceeded
 from django.core.cache import cache
 from django.db import connection

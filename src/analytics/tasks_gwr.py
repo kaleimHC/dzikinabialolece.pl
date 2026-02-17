@@ -12,7 +12,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from django.db import connection
 
 from analytics.debug_mode import DebugLogger
-from analytics.tasks_bayesian import check_n_minimum
+from analytics.models_config import check_n_minimum
 
 logger = logging.getLogger(__name__)
 
