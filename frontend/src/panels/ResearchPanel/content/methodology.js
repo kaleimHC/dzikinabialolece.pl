@@ -325,7 +325,7 @@ export const SAR_CURRENT = {
   },
   interpretation: "Umiarkowana autokorelacja błędów (λ=0.37)",
   computed_at: "2026-01-19",
-  source: "NEW_02_spatial_models.R",
+  source: "02_spatial_models.R",
   note: "SEM wybrany automatycznie (niższe AIC niż SAR)",
 };
 
@@ -416,7 +416,7 @@ export const REMOVED_HALLUCINATIONS = [
     `.trim(),
     evidence: 'grep -n "0.015" /opt/dziki/spatialWarsaw/R/*.R → brak wyników',
     fixed: "2026-01-18",
-    fixedIn: "NEW_01_tessellation.R",
+    fixedIn: "01_generate_voronoi.R",
   },
   {
     what: "eta_local (per-cell ETA)",
@@ -430,7 +430,7 @@ export const REMOVED_HALLUCINATIONS = [
     evidence:
       'grep -n "eta_local" /opt/dziki/spatialWarsaw/R/*.R → brak wyników',
     fixed: "2026-01-18",
-    fixedIn: "NEW_01_tessellation.R",
+    fixedIn: "01_generate_voronoi.R",
   },
   {
     what: "eta_weighted",
@@ -443,7 +443,7 @@ export const REMOVED_HALLUCINATIONS = [
     evidence:
       'grep -n "eta_weighted" /opt/dziki/spatialWarsaw/R/*.R → brak wyników',
     fixed: "2026-01-18",
-    fixedIn: "NEW_01_tessellation.R",
+    fixedIn: "01_generate_voronoi.R",
   },
   {
     what: "h_rel_rescaled ≠ h_rel_raw",
@@ -455,7 +455,7 @@ export const REMOVED_HALLUCINATIONS = [
     evidence: "SELECT id=11: h_rel_raw=0.867, h_rel_rescaled=0.877 (BŁĄD)",
     fixed: "2026-01-18",
     fixedIn:
-      "NEW_01_tessellation.R zapisuje h_rel_raw = h_rel_rescaled, m_n_factor = 1.0",
+      "01_generate_voronoi.R zapisuje h_rel_raw = h_rel_rescaled, m_n_factor = 1.0",
   },
 ];
 
@@ -473,7 +473,7 @@ export const CURRENT_VALUES_FALLBACK = {
   h_rel: 0.8739,
   interpretation: "lekkie skupienie",
   computed_at: "2026-01-18",
-  source: "NEW_01_tessellation.R",
+  source: "01_generate_voronoi.R",
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -573,7 +573,7 @@ export const SPATIALWARSAW_FUNCTIONS = {
       name: "ETA()",
       file: "spatialWarsaw/R/eta.R:68-142",
       purpose: "Miara aglomeracji (względna entropia Shannona)",
-      ourFile: "r_scripts/NEW_01_tessellation.R",
+      ourFile: "r_scripts/01_generate_voronoi.R",
       status: "implemented",
       note: "Używane jako metryka diagnostyczna + INSPIRACJA dla inverse_area",
     },

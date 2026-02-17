@@ -100,7 +100,7 @@ const PipelineOverview = () => (
               "research/05_matrix_w.R",
               "research_W.rds + w_matrix_edges.geojson",
             ],
-            ["06", "model", "NEW_02_spatial_models.R", "research_model.rds"],
+            ["06", "model", "02_spatial_models.R", "research_model.rds"],
             [
               "07",
               "diagnostics",
@@ -351,14 +351,17 @@ const ModelNotes = () => (
     <p className="text-gray-500">
       Skrypt:{" "}
       <code className="font-mono text-green-400">
-        r_scripts/NEW_02_spatial_models.R
+        r_scripts/02_spatial_models.R
       </code>
     </p>
     <p className="text-gray-500 text-xs">
-      Wspólny skrypt PUB i RESEARCH. W RESEARCH czyta{" "}
+      Tylko RESEARCH — krok 6 nie ma zastosowania w PUB (brak wariancji Y,
+      Voronoi 1:1 daje <code className="font-mono">count=1</code> zawsze).
+      W RESEARCH czyta{" "}
       <code className="font-mono">research_W.rds</code> z kroku 5, zapisuje{" "}
-      <code className="font-mono">research_model.rds</code>. Diagnostyki dopiero
-      w kroku 7.
+      <code className="font-mono">research_model.rds</code> i{" "}
+      <code className="font-mono">model_fitted</code> do tabeli. Diagnostyki w
+      kroku 7.
     </p>
 
     <h3 className="text-lg font-semibold text-white mt-4">
@@ -429,7 +432,7 @@ const ModelNotes = () => (
       .
     </p>
 
-    <Code>{`# r_scripts/NEW_02_spatial_models.R:536-561
+    <Code>{`# r_scripts/02_spatial_models.R:536-561
 # --- auto: wybor przez AIC ---
 if (sar_result$success && sem_result$success) {
   if (sar_result$AIC < sem_result$AIC) {

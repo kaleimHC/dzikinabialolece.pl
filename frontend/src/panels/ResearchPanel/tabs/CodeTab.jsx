@@ -62,7 +62,7 @@ const OrchestratorSection = () => (
     { 'name': '05_matrix_w',     'description': 'Build spatial weights matrix W',
       'type': StepType.R,        'script': 'research/05_matrix_w.R' },
     { 'name': '06_model',        'description': 'Fit spatial model (SAR/SEM/SDM/probit/logit)',
-      'type': StepType.R,        'script': 'NEW_02_spatial_models.R' },
+      'type': StepType.R,        'script': '02_spatial_models.R' },
     { 'name': '07_diagnostics',  'description': "Run diagnostics (Moran's I, LM tests, LISA)",
       'type': StepType.R,        'script': 'research/07_diagnostics.R' },
     { 'name': '08_results',      'description': 'Ensemble prediction and final risk map',
@@ -392,7 +392,7 @@ const ModelSection = () => (
       <h3 className="text-base font-semibold text-white mb-1">
         Logika wyboru modelu
       </h3>
-      <FileRef path="r_scripts/NEW_02_spatial_models.R" lines="325–380" />
+      <FileRef path="r_scripts/02_spatial_models.R" lines="325–380" />
       <p className="text-gray-400 mb-2">
         Przy <code className="font-mono text-gray-300">model_type=auto</code>:
         decyzja przez porównanie AIC —{" "}
@@ -436,7 +436,7 @@ if (fit_sdm) {
       <h3 className="text-base font-semibold text-white mb-1">
         Regime model (opcjonalnie)
       </h3>
-      <FileRef path="r_scripts/NEW_02_spatial_models.R" lines="289–318" />
+      <FileRef path="r_scripts/02_spatial_models.R" lines="289–318" />
       <p className="text-gray-400 mb-2">
         Trinary regime (forest/urban/mixed) — interakcje per strefa. Formula z
         "0 +" usuwa intercept globalny: każdy regime ma swój.

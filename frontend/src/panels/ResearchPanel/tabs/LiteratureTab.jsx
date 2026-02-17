@@ -169,7 +169,7 @@ const PAPERS = [
     rejected:
       "Odrzuciłem LM cascade (LM-Lag → LM-Error → Robust LM-Lag → Robust LM-Error → decision tree) z trzech powodów. (A) AIC to mainstream kryterium porównania modeli (Burnham & Anderson 2002) — niski koszt poznawczy dla odbiorcy. LM cascade jest niszowy w spatial econometrics. (B) Prostsza implementacja: 2 fity + 1 porównanie AIC kontra 4 testy + drzewo decyzyjne. (E) AIC trywialnie rozszerza się na SDM, SLX, SAC — LM cascade wymaga osobnych rodzin testów dla każdego.\n\nŚwiadomy trade-off: AIC selekcjonuje model o lepszym ficie, ale nie identyfikuje mechanizmu strukturalnego — czy zależność przestrzenna tkwi w Y (SAR) czy w resztach (SEM). LM cascade Elhorst by to rozróżnił. Wybrałem prostotę nad pryncypialną selekcją.\n\nMoja interpretacja: Elhorst (2010) to fundament metodologiczny projektu — SAR/SEM jako właściwa odpowiedź na problem autokorelacji przestrzennej w danych aglomeracyjnych. Moją decyzją było uproszczenie mechanizmu wyboru, nie odejście od rodziny modeli.",
     inCode:
-      "r_scripts/NEW_02_spatial_models.R:536-561 (# --- auto: wybor przez AIC ---; if (sar_result$AIC < sem_result$AIC) → SAR, else SEM)\nr_scripts/NEW_02_spatial_models.R:582-587 (impacts() — direct/indirect/total, Elhorst framework, SAR only)\nr_scripts/research/07_diagnostics.R:338-358 (lm.RStests() jako post-hoc diagnostics — obliczane i zapisywane do DB, NIE kryterium wyboru modelu)",
+      "r_scripts/02_spatial_models.R:536-561 (# --- auto: wybor przez AIC ---; if (sar_result$AIC < sem_result$AIC) → SAR, else SEM)\nr_scripts/02_spatial_models.R:582-587 (impacts() — direct/indirect/total, Elhorst framework, SAR only)\nr_scripts/research/07_diagnostics.R:338-358 (lm.RStests() jako post-hoc diagnostics — obliczane i zapisywane do DB, NIE kryterium wyboru modelu)",
   },
   {
     type: "paper",
@@ -180,7 +180,7 @@ const PAPERS = [
     venue: "Scandinavian Journal of Statistics, 50(3), 1391–1419",
     doi: "10.1111/sjos.12636",
     adopted:
-      "Ideja PAM clustering do wyboru reprezentatywnej podpróby oraz Voronoi jako kalibracji przestrzeni dała mi framework dla logiki ensemble. Zaimplementowałem trójskładnikowe ważenie: 0.30×density + 0.40×spatial + 0.30×ETA — wagi dobrane analogicznie do strategii ważonego prognozowania z pracy.\n\nMoja interpretacja: paper uzasadnił architekturę ensemble zamiast single-model prediction. Trzy komponenty pokrywają trzy wymiary ryzyka: gęstość obserwacji (data-driven), SAR/SEM (structural spatial process), ETA (tessellation quality check).",
+      "Ideja PAM clustering do wyboru reprezentatywnej podpróby oraz Voronoi jako kalibracji przestrzeni dała mi framework dla logiki ensemble. Zaimplementowałem trójskładnikowe ważenie: 0.30×density + 0.40×spatial + 0.30×ETA — wagi dobrane analogicznie do strategii ważonego prognozowania z pracy.\n\nMoja interpretacja: paper uzasadnił architekturę ensemble zamiast single-model prediction. W RESEARCH: trzy składniki — density_score (gęstość obserwacji, data-driven), model_fitted/SAR/SEM (structural spatial process), area_rank_score (geometria tessellacji). W PUB: dwa sygnały geometryczne oparte na polu kafla — SAR/SEM nie ma zastosowania (brak wariancji Y, Voronoi 1:1).",
     rejected:
       "BootSpatReg() właściwy – algorytm bootstrap dla danych count (zliczenia dzików na kafel) ma problem z wariancją zero gdy count=1. Out-of-sample forecasting dla nowych lokalizacji – poza scope projektu portfolio.",
     inCode:
@@ -248,7 +248,7 @@ const LECTURES = [
     rejected:
       "Podejście OLS-only – jak wykazano w materiale, MNK jest obciążone i niezgodne w obecności autokorelacji przestrzennej zmiennej zależnej. Duża próba nie pomaga.",
     inCode:
-      "r_scripts/NEW_02_spatial_models.R:340-408 (SAR: lagsarlm via MLE + SEM: errorsarlm via MLE)\nr_scripts/research/07_diagnostics.R:525-580 (impacts display — direct/indirect/total)",
+      "r_scripts/02_spatial_models.R:340-408 (SAR: lagsarlm via MLE + SEM: errorsarlm via MLE)\nr_scripts/research/07_diagnostics.R:525-580 (impacts display — direct/indirect/total)",
   },
   {
     type: "lecture",
@@ -264,7 +264,7 @@ const LECTURES = [
     rejected:
       "Pełny model interakcji przestrzennych (gravity model z macierzą T przepływów). Nie obserwujemy realnych przepływów dzika między kaflami, tylko zliczenia obecności per kafel.",
     inCode:
-      "r_scripts/NEW_02_spatial_models.R:340-408 (ρ w SAR: lagsarlm, λ w SEM: errorsarlm)",
+      "r_scripts/02_spatial_models.R:340-408 (ρ w SAR: lagsarlm, λ w SEM: errorsarlm)",
   },
   {
     type: "lecture",
@@ -343,7 +343,7 @@ const PACKAGES = [
     rejected:
       "Bezpośredniego importu pakietu (library(spatialWarsaw)) nie użyłem. Pakiet zainstalowany w Dockerfile.r ze source, ale nigdy nie ładowany w aktywnych skryptach R (grep library(spatialWarsaw) = zero hits w r_scripts/).\n\nReliance na transitive dependency chain dla spatialreg — CC paranoid audit 2026-05-26 zweryfikował empirycznie że spatialreg pochodzi z rocker/geospatial:4.3.2 base image (Built 2024-02-07), niezależnie od spatialWarsaw chain. spatialWarsaw DESCRIPTION deklaruje spatialreg jako Imports, ale base image wyprzedza spatialWarsaw step w build order — usunięcie pakietu nie złamałoby spatialreg ani aktywnego pipeline'u.\n\nGitHub install (devtools::install_github) — pakiet nie jest na CRAN, GitHub-based install dla production worker-r wprowadza coupling z external repo dostępnością + ryzyko silent install failure (empirycznie zaobserwowane: current image z 2026-01-18 nie ma spatialWarsaw mimo install step w Dockerfile.r). Wybrałem local-source install z kopią pakietu w repo.\n\nWłasna implementacja daje audytowalność każdej operacji.",
     inCode:
-      'library(spatialreg) ×3 (bezpośrednio, nie via spatialWarsaw):\nr_scripts/NEW_02_spatial_models.R:27\nr_scripts/research/05_matrix_w.R:150\nr_scripts/research/07_diagnostics.R:121\n\nMethodology references (komentarze):\nr_scripts/NEW_02_spatial_models.R:5 — "# ŹRÓDŁO: spatialWarsaw (lagsarlm, errorsarlm, sacsarlm)"\nr_scripts/research/05_matrix_w.R:284-314 — tessW reimplementation (custom)\nr_scripts/research/05_matrix_w.R:140-200 — bestW reimplementation z AIC selection\nr_scripts/research/07_diagnostics.R:465-516 — ETA Shannon entropy reimplementation\n\n0 calls library(spatialWarsaw) w aktywnych r_scripts/\n0 calls spatialWarsaw:: poza komentarzami',
+      'library(spatialreg) ×3 (bezpośrednio, nie via spatialWarsaw):\nr_scripts/02_spatial_models.R:27\nr_scripts/research/05_matrix_w.R:150\nr_scripts/research/07_diagnostics.R:121\n\nMethodology references (komentarze):\nr_scripts/02_spatial_models.R:5 — "# ŹRÓDŁO: spatialWarsaw (lagsarlm, errorsarlm, sacsarlm)"\nr_scripts/research/05_matrix_w.R:284-314 — tessW reimplementation (custom)\nr_scripts/research/05_matrix_w.R:140-200 — bestW reimplementation z AIC selection\nr_scripts/research/07_diagnostics.R:465-516 — ETA Shannon entropy reimplementation\n\n0 calls library(spatialWarsaw) w aktywnych r_scripts/\n0 calls spatialWarsaw:: poza komentarzami',
   },
   {
     type: "package",
@@ -357,7 +357,7 @@ const PACKAGES = [
     rejected:
       "SLX (Spatial Lag of X) – nie przetestowano, LM tests nie wskazały potrzeby. spBreg_*() (MCMC Bayesian) – zbędna złożoność obliczeniowa dla naszej skali (PUB ~870 cells, FAST 9875 cells) względem benefit nad SAR/SEM. SDM z SDM-specific impacts – Elhorst (2010) uzasadnia parsimony.",
     inCode:
-      "r_scripts/NEW_02_spatial_models.R:340-408 (lagsarlm — SAR, errorsarlm — SEM, oba via MLE)\nr_scripts/research/07_diagnostics.R:525-580 (impacts display — direct/indirect/total spillovers)",
+      "r_scripts/02_spatial_models.R:340-408 (lagsarlm — SAR, errorsarlm — SEM, oba via MLE)\nr_scripts/research/07_diagnostics.R:525-580 (impacts display — direct/indirect/total spillovers)",
   },
 ];
 
