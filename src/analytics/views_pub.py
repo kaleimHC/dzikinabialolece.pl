@@ -728,7 +728,7 @@ def spatial_current(request):
     if not row:
         return Response(
             {
-                "error": "No spatial model results available. Run NEW_02_spatial_models.R first.",
+                "error": "No spatial model results available. Run 02_spatial_models.R first.",
                 "source": "spatialreg::lagsarlm/errorsarlm",
             },
             status=404,
@@ -764,7 +764,7 @@ def spatial_current(request):
             "formula": formula,
             "computed_at": computed_at.isoformat() if computed_at else None,
             "source": "spatialreg::lagsarlm/errorsarlm",
-            "reference": "NEW_02_spatial_models.R",
+            "reference": "02_spatial_models.R",
         }
     )
 
