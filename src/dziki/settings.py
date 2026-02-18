@@ -205,16 +205,8 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # For R workers (prevents Head-of-Line Bl
 # Task routing (NotebookLM Q9, DR-10)
 # VERIFIED: Correct queue assignments
 CELERY_TASK_ROUTES = {
-    # R Spatial tasks -> q_r queue (rocker/geospatial worker)
-    "analytics.tasks.compute_gwr_weekly": {"queue": "q_r"},
-    "analytics.tasks.compute_eta": {"queue": "q_r"},
-    "analytics.tasks.compute_sts": {"queue": "q_r"},
-    # Python ML tasks -> q_cpu queue
-    "analytics.tasks.train_random_forest": {"queue": "q_cpu"},
-    "analytics.tasks.compute_ensemble": {"queue": "q_cpu"},
     # I/O tasks -> q_io queue
     "analytics.tasks.refresh_materialized_views": {"queue": "q_io"},
-    "analytics.tasks.generate_tiles": {"queue": "q_io"},
     "analytics.tasks.warmup_cache": {"queue": "q_io"},
 }
 
