@@ -15,24 +15,11 @@ logger = logging.getLogger(__name__)
 MODE_CONFIG = {
     "FAST": {
         "grid_type": "square",  # FAST = SQUARE grid (9875 cells)
-        "gwr_method": "heuristic",  # Python formula
-        "eta_method": "simple",  # Distance-based
-        "ensemble_weights": {"rf": 0.30, "gwr": 0.40, "eta": 0.30},
         "description": "Real-time API responses",
     },
     "PUB": {
         "grid_type": "voronoi",  # PUB = VORONOI grid (100-500 cells)
-        "gwr_method": "r_gwr",  # Full GWR in R
-        "eta_method": "full",  # Full ETA in R
-        "ensemble_weights": {"rf": 0.25, "gwr": 0.45, "eta": 0.30},
-        "description": "Publication quality",
-    },
-    "BAYES": {
-        "grid_type": "square",
-        "gwr_method": "mcmc",  # MCMC in R
-        "eta_method": "car",  # CAR spatial model
-        "ensemble_weights": {"rf": 0.20, "gwr": 0.40, "eta": 0.40},
-        "description": "Research/Bayesian",
+        "description": "Publication quality (Voronoi + area-rank)",
     },
 }
 
