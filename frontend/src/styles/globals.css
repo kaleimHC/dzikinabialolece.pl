@@ -37,6 +37,36 @@
   --color-text:            209 213 219;
 }
 
+[data-theme="editorial-swiss"] {
+  --color-primary:           163  58  42;
+  --color-primary-dark:      122  42  30;
+  --color-bg:                247 245 243;
+  --color-surface:           255 255 255;
+  --color-surface-2:         235 230 228;
+  --color-border:            213 205 204;
+  --color-muted:             110 102 104;
+
+  --color-gray-300:          247 245 243;
+  --color-gray-400:          235 230 228;
+  --color-gray-500:          213 205 204;
+  --color-gray-600:          142 134 136;
+  --color-gray-700:          110 102 104;
+  --color-gray-800:           90  80  82;
+  --color-gray-900:           26  22  24;
+  --color-gray-950:           10   8  12;
+
+  --color-layer-wmatrix:        163  58  42;
+  --color-layer-population:     163  58  42;
+  --color-layer-research:       122  42  30;
+  --color-link-xor:             163  58  42;
+  --color-link-sync:            105  85  98;
+  --color-warning:              163  58  42;
+
+  --radius-base: 0;
+  --border-width: 1px;
+  --color-text:               26  22  24;
+}
+
 * {
   margin: 0;
   padding: 0;
