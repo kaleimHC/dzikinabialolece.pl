@@ -18,7 +18,8 @@ RUN R -e "install.packages(c( \
     'RPostgres', \
     'DBI', \
     'spdep', \
-    'sp' \
+    'sp', \
+    'spatialreg' \
 ), repos='https://cloud.r-project.org/')"
 
 # Working directory
