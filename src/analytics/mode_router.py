@@ -404,7 +404,7 @@ def _calculate_population(debug: DebugLogger) -> dict:
 
 def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
     """
-    PUB pipeline: VORONOI grid + full R pipeline (GWR, ETA, ensemble).
+    PUB pipeline: VORONOI grid + area-rank risk.
 
     IZOLACJA: Tylko VORONOI grid, NIE dotyka SQUARE (FAST mode).
 
@@ -412,9 +412,8 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
     1. 01_generate_voronoi.R - Generate Voronoi cells from sightings
     2. _calculate_osm_features() - Calculate OSM environmental features (Python/SQL)
     3. _calculate_population() - Area-weighted population from GUS 500m grid (Python/SQL)
-    4. 02_spatial_models.R - SAR/SEM with Y=log(population+1)
-    5. 03_inverse_area_risk.R - Inverse area risk
-    6. 05_ensemble_prediction.R - Ensemble prediction
+    4. 03_inverse_area_risk.R - Inverse area risk (area-rank, D-01)
+    5. 05_ensemble_prediction.R - Ensemble prediction
     """
     import docker
     import os
@@ -422,16 +421,17 @@ def _run_pub_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
     grid_type = config["grid_type"]  # 'voronoi'
     results = {"mode": "PUB", "grid_type": grid_type, "steps": {}}
 
+    # D-05: 02_spatial_models.R removed from PUB — it always fails (no RESEARCH_TARGET_TABLE)
+    # and its output is overwritten by 03_inverse_area_risk.R anyway (D-01).
     r_scripts = [
         ("01_generate_voronoi.R", "Generate Voronoi from current sightings"),
-        ("02_spatial_models.R", "SAR/SEM spatial models (Y=log(population+1))"),
         ("03_inverse_area_risk.R", "Inverse area risk"),
         ("05_ensemble_prediction.R", "Ensemble prediction"),
     ]
 
     t = debug.start(
         "pub_pipeline",
-        "PUB: Running pipeline (4 R scripts + OSM features + population)",
+        "PUB: Running pipeline (3 R scripts + OSM features + population)",
     )
 
     try:
