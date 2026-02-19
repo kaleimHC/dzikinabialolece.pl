@@ -67,6 +67,33 @@
   --color-text:               26  22  24;
 }
 
+[data-theme="field-station"] {
+  --color-primary:           181  98  64;
+  --color-primary-dark:      138  71  44;
+  --color-bg:                 30  28  25;
+  --color-surface:            37  35  31;
+  --color-surface-2:          45  43  39;
+  --color-border:             53  51  48;
+  --color-muted:             154 150 146;
+  --color-gray-300:          240 238 232;
+  --color-gray-400:          213 209 200;
+  --color-gray-500:          154 150 146;
+  --color-gray-600:          122 118 111;
+  --color-gray-700:           88  84  78;
+  --color-gray-800:           53  51  48;
+  --color-gray-900:           30  28  25;
+  --color-gray-950:           18  16  14;
+  --color-layer-wmatrix:     201 117  84;
+  --color-layer-population:   94 161 111;
+  --color-layer-research:    216 168  81;
+  --color-link-xor:          201 117  84;
+  --color-link-sync:          94 161 111;
+  --color-warning:           216 168  81;
+  --radius-base:  2px;
+  --border-width: 1px;
+  --color-text:            240 238 232;
+}
+
 * {
   margin: 0;
   padding: 0;
