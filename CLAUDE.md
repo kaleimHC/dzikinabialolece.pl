@@ -1,8 +1,8 @@
 # CLAUDE.md — Instructions for Claude Code in /opt/dziki
 
-**Always read `docs/PROJECT_STATUS.md` FIRST at start of every session.**
-That file is the source of truth for project state, working patterns, 
-and anti-patterns to avoid.
+**At start of every session:** read `docs_internal/state/00_GIT_STATE.md` for current
+branch/commit state, and `docs_internal/state/CHECKPOINT_*.md` (latest) for active context.
+`docs/PROJECT_STATUS.md` no longer exists — use the state files above.
 
 ## Quick context
 
@@ -11,8 +11,9 @@ Portfolio project: wild boar risk mapping for Białołęka district (Warsaw).
 - **Stack:** Django 5 + PostGIS · React 18 + MapLibre GL · R 4.3 + spatialreg · Docker
 - **3 modes:** FAST (Python+SQL square grid) · PUB (R Voronoi) · RESEARCH (8-step R+Python pipeline)
 - **Goal:** publish-ready portfolio for technical recruiters
+- **Branch:** `refactor/phase-1` | **Decisions log:** `docs/DECISIONS.md`
 
-## Working rules (full list in PROJECT_STATUS.md)
+## Working rules
 
 1. Spec → Diff → Apply — never skip Diff
 2. Read before Write — show current state before any change
@@ -24,7 +25,8 @@ Portfolio project: wild boar risk mapping for Białołęka district (Warsaw).
 
 | What | Where |
 |------|-------|
-| Current state, milestones, backlog | `docs/PROJECT_STATUS.md` |
+| Current state / checkpoints | `docs_internal/state/CHECKPOINT_*.md` |
+| Architectural decisions | `docs/DECISIONS.md` |
 | Architecture overview | `docs/ARCHITECTURE.md` |
 | Database schema | `docs/DATABASE.md` |
 | Research pipeline (8-step R) | `docs/RESEARCH_PIPELINE.md` |
@@ -41,4 +43,3 @@ Portfolio project: wild boar risk mapping for Białołęka district (Warsaw).
 - Don't make claims about code without grep/view evidence
 - Don't auto-decide "reasonable" actions when STOP condition exists
 - Don't overwrite files that already exist — ask first
-- Full anti-patterns list: see PROJECT_STATUS.md "Anti-patterns" section
