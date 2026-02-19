@@ -24,7 +24,6 @@ const LAYERS = [
   { key: "railway", label: "Kolej", description: "Linie kolejowe" },
 ];
 
-// Grid z checkboxami warstw - wyodrebniony dla reużycia
 function LayerGrid({ columns = 2 }) {
   const { visibleLayers, toggleLayer } = useSightingsStore();
   const currentTheme = useSightingsStore((s) => s.currentTheme);

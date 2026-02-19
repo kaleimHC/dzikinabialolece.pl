@@ -1,6 +1,5 @@
 """
 Models for Analytics app.
-MASTER_SPEC v2.2 Architecture
 """
 
 from django.contrib.gis.db import models
@@ -18,35 +17,22 @@ class ModelPrediction(models.Model):
         RF = "rf", "Random Forest"
         ENSEMBLE = "ensemble", "Ensemble (GWR + RF)"
 
-    # Reference to grid cell
     grid_cell = models.ForeignKey(
         "sightings.GridCell", on_delete=models.CASCADE, related_name="predictions"
     )
-
-    # Model metadata
     model_type = models.CharField(
         max_length=20, choices=ModelType.choices, default=ModelType.ENSEMBLE
     )
     model_version = models.CharField(max_length=50)
-
-    # Prediction
     prediction_value = models.FloatField(
         help_text="Predicted encounter probability (0-1)"
     )
     confidence_lower = models.FloatField(null=True, blank=True)
     confidence_upper = models.FloatField(null=True, blank=True)
-
-    # Temporal
     prediction_date = models.DateField(help_text="Date this prediction is valid for")
     created_at = models.DateTimeField(auto_now_add=True)
-
-    # GWR-specific fields
-    local_r_squared = models.FloatField(
-        null=True, blank=True, help_text="Local R² from GWR"
-    )
-    bandwidth = models.FloatField(
-        null=True, blank=True, help_text="GWR bandwidth in meters"
-    )
+    local_r_squared = models.FloatField(null=True, blank=True, help_text="Local R² from GWR")
+    bandwidth = models.FloatField(null=True, blank=True, help_text="GWR bandwidth in meters")
 
     class Meta:
         ordering = ["-prediction_date", "grid_cell"]
@@ -76,17 +62,11 @@ class AnalyticsRun(models.Model):
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
-
-    # Timing
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     duration_seconds = models.FloatField(null=True, blank=True)
-
-    # Results
     result_summary = models.JSONField(null=True, blank=True)
     error_message = models.TextField(blank=True)
-
-    # Input parameters
     parameters = models.JSONField(default=dict)
 
     class Meta:
@@ -96,4 +76,3 @@ class AnalyticsRun(models.Model):
         return f"{self.task_name} ({self.status}) - {self.started_at.date()}"
 
 
-# Import Bayesian models (MASTER_SPEC v2.3)

@@ -1,12 +1,7 @@
 """
 API Views for Sightings app.
-MASTER_SPEC v2.2 Architecture
 
-Endpoints:
-- POST /api/sightings/ - Create new sighting (rate limited)
-- GET /api/sightings/ - List sightings (paginated, filterable)
-- GET /api/sightings/{id}/ - Retrieve single sighting
-- GET /api/grid/ - Grid cell aggregations
+Endpoints: POST/GET /api/sightings/, GET /api/sightings/{id}/, GET /api/grid/
 """
 
 from rest_framework import viewsets, status

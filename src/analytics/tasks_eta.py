@@ -1,5 +1,5 @@
 """
-ETA Task with DEBUG-FIRST logging.
+ETA computation task.
 """
 
 import os
@@ -31,7 +31,6 @@ def compute_eta(self, grid_id: str = None, run_id: str = None):
     run_id = run_id or str(uuid.uuid4())[:12]
     debug = DebugLogger(run_id, mode="FAST", module="ETA")
 
-    # Check N minimum
     t = debug.start("check_n_minimum", "Checking data requirements")
     with connection.cursor() as cursor:
         cursor.execute(
@@ -53,7 +52,6 @@ def compute_eta(self, grid_id: str = None, run_id: str = None):
         return {"status": "skipped", "reason": n_check["message"], "run_id": run_id}
 
     try:
-        # Prepare R script
         t = debug.start("prepare_r", "Preparing R environment")
         r_script = "/app/r_scripts/compute_eta.R"
 
@@ -73,7 +71,6 @@ def compute_eta(self, grid_id: str = None, run_id: str = None):
             start_time=t,
         )
 
-        # Run R script
         t = debug.start("run_r", "Executing R ETA computation")
         result = subprocess.run(
             cmd,
@@ -94,7 +91,6 @@ def compute_eta(self, grid_id: str = None, run_id: str = None):
         )
 
         if result.returncode == 0:
-            # Get ETA stats from DB
             with connection.cursor() as cursor:
                 cursor.execute("""
                     SELECT COUNT(*), MIN(area_rank_score), MAX(area_rank_score), AVG(area_rank_score)

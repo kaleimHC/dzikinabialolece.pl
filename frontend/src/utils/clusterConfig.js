@@ -45,8 +45,6 @@
  * @version 1.0.0
  */
 
-// CONFIGURATION CONSTANTS
-
 /**
  * Base multiplier for radius calculation.
  * Higher value = larger circles overall.
@@ -86,8 +84,6 @@ const MIN_ZOOM_FACTOR = 0.5;
  * Maximum zoom factor (at very high zoom levels).
  */
 const MAX_ZOOM_FACTOR = 2.0;
-
-// CORE FUNCTIONS
 
 /**
  * Calculate adaptive point radius based on dataset size and zoom level.

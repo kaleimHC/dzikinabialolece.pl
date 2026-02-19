@@ -1,5 +1,5 @@
 """
-GWR Task with DEBUG-FIRST logging.
+GWR computation task.
 """
 
 import os
@@ -33,7 +33,6 @@ def compute_gwr(self, run_id: str = None):
     run_id = run_id or str(uuid.uuid4())[:12]
     debug = DebugLogger(run_id, mode="PUB", module="GWR")
 
-    # Check N minimum
     t = debug.start("check_n_minimum", "Checking data requirements")
     with connection.cursor() as cursor:
         cursor.execute(
@@ -55,7 +54,6 @@ def compute_gwr(self, run_id: str = None):
         return {"status": "skipped", "reason": n_check["message"], "run_id": run_id}
 
     try:
-        # Prepare R script
         t = debug.start("prepare_r", "Preparing R environment")
         r_script = "/app/r_scripts/compute_gwr.R"
 
@@ -74,7 +72,6 @@ def compute_gwr(self, run_id: str = None):
             start_time=t,
         )
 
-        # Run R script
         t = debug.start("run_r", "Executing R GWR computation")
         result = subprocess.run(
             ["Rscript", r_script, "--output", output_path],

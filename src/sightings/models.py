@@ -1,11 +1,5 @@
 """
 GeoDjango Models for Sightings app.
-MASTER_SPEC v2.2 Architecture
-
-CRITICAL INDEXES (to add via migrations):
-- SPGIST for location (10-30% faster than GIST for points)
-- BRIN for observed_at (12.8x faster for range queries)
-- Partial index for status='pending'
 """
 
 from django.contrib.gis.db import models
@@ -37,14 +31,12 @@ class Sighting(models.Model):
         ENCOUNTER = "encounter", "Spotkanie"
         RYJOWISKO = "ryjowisko", "Ryjowisko"
 
-    # Geometry (SRID 4326 = WGS84)
     location = models.PointField(
         srid=4326,
         spatial_index=True,  # Creates GIST index by default
         help_text="Lokalizacja zgłoszenia (WGS84)",
     )
 
-    # Temporal
     observed_at = models.DateTimeField(
         default=timezone.now,
         db_index=True,  # Standard B-tree; consider BRIN in production
@@ -53,15 +45,13 @@ class Sighting(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Moderation
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.VERIFIED,  # TODO: PENDING when moderation ready
+        default=Status.VERIFIED,
         db_index=True,
     )
 
-    # Details
     boar_count = models.CharField(
         max_length=10,
         choices=BoarCount.choices,
@@ -83,7 +73,6 @@ class Sighting(models.Model):
         max_length=64, blank=True, help_text="HMAC-SHA256 hash of IP for anti-spam"
     )
 
-    # Foreign key to grid cell (for aggregation)
     grid_cell = models.ForeignKey(
         "GridCell",
         on_delete=models.SET_NULL,
@@ -119,10 +108,7 @@ class GridCell(models.Model):
     - Row-standardized weights for smoothing
     """
 
-    # Grid identifier
     grid_id = models.CharField(max_length=20, unique=True)
-
-    # Geometry (polygon) - WGS84 for storage/display
     geometry = models.PolygonField(srid=4326, spatial_index=True)
 
     # Geometry in EPSG:2180 (PUWG 1992) for metric calculations
@@ -132,17 +118,13 @@ class GridCell(models.Model):
         srid=2180, spatial_index=True, null=True, blank=True
     )
 
-    # Centroid (for display)
     centroid = models.PointField(srid=4326, null=True, blank=True)
-
-    # District reference
     district = models.CharField(max_length=100, blank=True)
 
     # Statistics (denormalized for performance)
     sighting_count = models.PositiveIntegerField(default=0)
     last_sighting_at = models.DateTimeField(null=True, blank=True)
 
-    # Density and risk scores (v1.2+)
     sighting_density = models.FloatField(default=0, help_text="Sightings per km²")
     ensemble_risk = models.FloatField(default=0, help_text="Final risk score 0-1")
     area_rank_score = models.FloatField(
@@ -163,7 +145,6 @@ class GridCell(models.Model):
     spatial_risk = models.FloatField(
         null=True, blank=True, help_text="Spatial risk from SAR/SEM model (0-1)"
     )
-    # Raw values for debugging
     eta_contribution = models.FloatField(
         null=True,
         blank=True,

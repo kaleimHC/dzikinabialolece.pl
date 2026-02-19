@@ -1,9 +1,5 @@
 """
-Bayesian Parameter Configuration (MASTER_SPEC v2.3 Section I.5)
-
-Central configuration model for Bayesian layer parameters.
-ADR-011: Prior Elicitation Strategy
-ADR-014: Feature Flag + Graceful Degradation
+Bayesian Parameter Configuration.
 """
 
 from django.db import models
@@ -15,12 +11,7 @@ class ParameterConfiguration(models.Model):
     """
     Central configuration for Bayesian layer parameters.
 
-    Only ONE configuration can be active at a time.
-    Provides:
-    - Prior hyperparameters (kappa, rho_mean, delta_mean)
-    - MCMC settings (iterations, warmup, chains)
-    - Ensemble weights (must sum to 1.0)
-    - Feature flags (bayesian_enabled)
+    Singleton-active: only one configuration can be active at a time.
     """
 
     name = models.CharField(
@@ -32,8 +23,6 @@ class ParameterConfiguration(models.Model):
     is_active = models.BooleanField(
         default=False, help_text="Only one configuration can be active"
     )
-
-    # BAYESIAN PRIORS (ADR-011)
 
     bayesian_kappa = models.DecimalField(
         default=10.0,
@@ -58,8 +47,6 @@ class ParameterConfiguration(models.Model):
         validators=[MinValueValidator(0.0), MaxValueValidator(0.99)],
         help_text="Expected diffusion delta (0-0.99). From H_rel via ETA.",
     )
-
-    # MCMC SETTINGS
 
     mcmc_iterations = models.IntegerField(
         default=2000,
@@ -87,14 +74,11 @@ class ParameterConfiguration(models.Model):
         default=42, help_text="Random seed for reproducibility"
     )
 
-    # FEATURE FLAGS (ADR-014)
-
     bayesian_enabled = models.BooleanField(
         default=True, help_text="Enable Bayesian SSM layer"
     )
 
-    # ENSEMBLE WEIGHTS (ADR-010)
-    # Must sum to 1.0 - validated in clean()
+    # Ensemble weights — must sum to 1.0, validated in clean()
 
     # WAŻNE: Bayesian jest META-WARSTWĄ, nie składnikiem ensemble!
     # Wagi ensemble: RF + Spatial + ETA = 1.0 (0.30 + 0.40 + 0.30)
@@ -121,8 +105,6 @@ class ParameterConfiguration(models.Model):
         help_text="ETA weight in ensemble",
     )
 
-    # METADATA
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -133,12 +115,6 @@ class ParameterConfiguration(models.Model):
         ordering = ["-is_active", "-updated_at"]
 
     def clean(self):
-        """
-        Critical validations:
-        1. rho + delta < 1.0 (stationarity requirement)
-        2. weights sum to 1.0
-        3. warmup < iterations
-        """
         super().clean()
 
         # VALIDATION #1: rho + delta < 1.0 (stationarity)
@@ -176,9 +152,7 @@ class ParameterConfiguration(models.Model):
                 )
 
     def save(self, *args, **kwargs):
-        """Ensure only one active configuration."""
         if self.is_active:
-            # Deactivate all other configs
             ParameterConfiguration.objects.filter(is_active=True).exclude(
                 pk=self.pk
             ).update(is_active=False)
@@ -190,10 +164,7 @@ class ParameterConfiguration(models.Model):
 
     @classmethod
     def get_active(cls):
-        """
-        Get active configuration or return None.
-        Tasks should use defaults if None returned.
-        """
+        """Return active config or None."""
         try:
             return cls.objects.get(is_active=True)
         except cls.DoesNotExist:
@@ -201,10 +172,7 @@ class ParameterConfiguration(models.Model):
 
     @classmethod
     def get_active_or_defaults(cls):
-        """
-        Get active configuration values as dict.
-        Returns defaults if no active config.
-        """
+        """Return active config values as dict, or hardcoded defaults."""
         config = cls.get_active()
         if config:
             return {
@@ -217,7 +185,6 @@ class ParameterConfiguration(models.Model):
                 "mcmc_adapt_delta": float(config.mcmc_adapt_delta),
                 "mcmc_seed": config.mcmc_seed,
                 "bayesian_enabled": config.bayesian_enabled,
-                # Bayesian is META-layer, not part of ensemble weights
                 "weights": {
                     "rf": float(config.weight_rf),
                     "gwr": float(config.weight_gwr),
@@ -225,8 +192,6 @@ class ParameterConfiguration(models.Model):
                 },
             }
         else:
-            # Default values matching MASTER_SPEC v2.3
-            # Bayesian is META-layer, weights: 0.30 RF + 0.40 Spatial (SAR/SEM) + 0.30 ETA = 1.0
             return {
                 "kappa": 10.0,
                 "rho_mean": 0.82,
@@ -245,18 +210,6 @@ class ParameterConfiguration(models.Model):
             }
 
     def apply_preset(self, preset_name: str) -> bool:
-        """
-        Apply a preset profile to this configuration.
-
-        Args:
-            preset_name: One of 'quick_preview', 'conservative', 'aggressive', 'publication'
-
-        Returns:
-            True if preset was applied successfully
-
-        Raises:
-            ValueError if preset_name is not valid
-        """
         from decimal import Decimal
         from .models_config import PRESET_PROFILES
 
@@ -267,11 +220,9 @@ class ParameterConfiguration(models.Model):
 
         preset = PRESET_PROFILES[preset_name]
 
-        # Helper to convert to Decimal with proper precision
         def to_dec(val, places=3):
             return Decimal(str(val)).quantize(Decimal(10) ** -places)
 
-        # Apply preset values with proper Decimal conversion
         decimal_fields = [
             "bayesian_kappa",
             "persistence_rho_mean",
@@ -288,7 +239,6 @@ class ParameterConfiguration(models.Model):
             if field in preset:
                 setattr(self, field, preset[field])
 
-        # Update name and description
         self.name = f"{preset.get('name', preset_name)}"
         self.description = preset.get("description", "")
 
@@ -296,16 +246,6 @@ class ParameterConfiguration(models.Model):
 
     @classmethod
     def create_from_preset(cls, preset_name: str, activate: bool = False):
-        """
-        Create a new configuration from a preset.
-
-        Args:
-            preset_name: Preset to use
-            activate: Whether to make this the active config
-
-        Returns:
-            New ParameterConfiguration instance (saved)
-        """
         from decimal import Decimal
         from .models_config import PRESET_PROFILES
 
@@ -314,7 +254,6 @@ class ParameterConfiguration(models.Model):
 
         preset = PRESET_PROFILES[preset_name]
 
-        # Helper to convert float to Decimal with proper precision
         def to_dec(val, places=3):
             return Decimal(str(val)).quantize(Decimal(10) ** -places)
 
@@ -329,7 +268,6 @@ class ParameterConfiguration(models.Model):
             mcmc_warmup=preset.get("mcmc_warmup", 1000),
             mcmc_chains=preset.get("mcmc_chains", 4),
             mcmc_adapt_delta=to_dec(0.95),
-            # Bayesian is META-layer, ensemble: 0.30 RF + 0.40 GWR + 0.30 ETA = 1.0
             weight_rf=to_dec(0.30),
             weight_gwr=to_dec(0.40),
             weight_eta=to_dec(0.30),
@@ -339,7 +277,7 @@ class ParameterConfiguration(models.Model):
         return config
 
 
-# PRESET PROFILES (MASTER_SPEC I.5.2)
+# PRESET PROFILES
 
 PRESET_PROFILES = {
     "quick_preview": {
@@ -385,7 +323,7 @@ PRESET_PROFILES = {
 }
 
 
-# N MINIMUM REQUIREMENTS (MASTER_SPEC v2.2 Corrections #2, #3)
+# N MINIMUM REQUIREMENTS
 
 N_MINIMUM_REQUIREMENTS = {
     "eta": {

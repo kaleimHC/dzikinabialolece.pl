@@ -20,7 +20,6 @@ import PipelineTab from "./tabs/PipelineTab";
 import CodeTab from "./tabs/CodeTab";
 import LiteratureTab from "./tabs/LiteratureTab";
 
-// Taby panelu badawczego
 const TABS = [
   { id: "pipeline", label: "Konfiguracja", icon: "⚙️", status: "active" },
   { id: "docs", label: "Dokumentacja", icon: "📚", status: "active" },
@@ -107,10 +106,6 @@ const ResearchPanel = () => {
     </AnimatePresence>
   );
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PLACEHOLDER COMPONENTS
-// ═══════════════════════════════════════════════════════════════════════════
 
 const TabPlaceholder = ({ name }) => (
   <div className="h-full flex items-center justify-center">

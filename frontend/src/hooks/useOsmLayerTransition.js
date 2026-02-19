@@ -3,7 +3,6 @@ import { animateOpacity, waitForMapIdle } from "../utils/animateOpacity";
 
 const FADE_DURATION = 300;
 
-// Konfiguracja warstw OSM
 const LAYER_CONFIG = {
   forests: {
     layerId: "forests-fill",

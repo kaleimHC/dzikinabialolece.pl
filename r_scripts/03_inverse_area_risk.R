@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# NEW_03_inverse_area_risk.R — Inverse Area jako proxy ryzyka
+# 03_inverse_area_risk.R — Inverse Area jako proxy ryzyka
 # ŹRÓDŁO INSPIRACJI: spatialWarsaw/R/eta.R (funkcja ETA używa relative_area)
 #
 # UZASADNIENIE METODOLOGICZNE:
@@ -20,12 +20,9 @@
 # NORMALIZACJA: PERCENTILE RANK (nie min-max!)
 #   - Min-max: outliers (małe komórki) powodują że 96% ma risk < 0.2
 #   - Percentile rank: równomierny rozkład ~20% w każdym przedziale
-#
-# DATA: 2026-01-19
-# WERSJA: 2.0.0 (percentile rank)
 
 cat("============================================================\n")
-cat("NEW_03_inverse_area_risk.R — Inverse Area Risk v2.0\n")
+cat("03_inverse_area_risk.R — Inverse Area Risk\n")
 cat("============================================================\n")
 cat("Normalizacja: PERCENTILE RANK (równomierny rozkład)\n")
 cat("Inspiracja: spatialWarsaw::ETA() → relative_area\n")
@@ -131,9 +128,7 @@ cat(sprintf("  intensity: min=%.2f, max=%.2f, mean=%.2f\n",
             mean(gridcells_raw$intensity)))
 
 # 5. NORMALIZACJA DO [0,1] → spatial_risk (PERCENTILE RANK)
-# ZMIANA v2.0: Używamy PERCENTILE RANK zamiast min-max!
-#
-# Problem z min-max:
+# Problem z min-max (uzasadnienie dla percentile rank):
 #   - Outliers (bardzo małe komórki) dostają risk=1.0
 #   - Reszta jest "zgnieciona" do bardzo niskich wartości
 #   - Dla n=500: 96% komórek miało risk < 0.2

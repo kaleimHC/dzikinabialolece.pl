@@ -3,11 +3,7 @@
 # ETAP 6: Ensemble prediction
 # Łączy ETA (gęstość) + SAR/SEM (proces przestrzenny) + density
 # Wagi: 0.3*density + 0.4*spatial + 0.3*ETA
-#
-# CLEANUP 2026-01-18:
-# - spatial_risk zastępuje gwr_risk (SAR/SEM z NEW_02)
-# - COALESCE fallback dla kompatybilności wstecznej
-# - Usuwa zależność od halucynacji eta_local/eta_weighted
+
 
 library(DBI)
 library(RPostgres)
@@ -126,8 +122,7 @@ if (any(gridcells$area_proportion > 0, na.rm = TRUE) && n_cells > 1) {
 # NIE re-normalizujemy - spatial_risk jest już w [0,1] z percentile rank
 gridcells$spatial_score_final <- gridcells$spatial_score
 gridcells$spatial_score_final[is.na(gridcells$spatial_score_final)] <- 0.5
-# v2.0: Usunięto min-max re-normalizację - spatial_risk jest już percentile rank
-cat(sprintf("  Spatial score (z NEW_03 percentile rank): min=%.3f, max=%.3f\n",
+cat(sprintf("  Spatial score (z 03 percentile rank): min=%.3f, max=%.3f\n",
             min(gridcells$spatial_score_final, na.rm=TRUE),
             max(gridcells$spatial_score_final, na.rm=TRUE)))
 # spatial_score_final już ustawione powyżej (bez re-normalizacji)

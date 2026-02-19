@@ -14,7 +14,6 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 
 const API = "/api/research";
 
-// Debounce hook
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -24,7 +23,6 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
-// Compact threshold row component with slider
 function ThresholdRow({
   label,
   value,
@@ -72,7 +70,6 @@ function ThresholdRow({
   );
 }
 
-// Result row for classification output
 function ResultRow({ label, count, total, color }) {
   const percent = total > 0 ? (count / total) * 100 : 0;
 

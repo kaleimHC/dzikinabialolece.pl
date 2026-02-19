@@ -1,8 +1,5 @@
 """
-Random Forest task for computing RF predictions.
-Weight in ensemble: 0.30
-
-DEBUG-FIRST: Kazdy krok logowany automatycznie!
+Random Forest task for computing RF predictions. Ensemble weight: 0.30
 """
 
 from celery import shared_task

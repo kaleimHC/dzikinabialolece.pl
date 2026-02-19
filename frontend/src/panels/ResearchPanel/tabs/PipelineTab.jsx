@@ -27,8 +27,6 @@ import {
   formatDate,
 } from "../../../utils/pipelineHelpers.jsx";
 
-// OPISY PARAMETRÓW DLA KREATORA (inline hints)
-
 const PARAM_HINTS = {
   // Podstawowe
   name: "Unikalna nazwa konfiguracji do identyfikacji w historii.",
@@ -227,8 +225,6 @@ const REGIME_TYPE_CHOICES = [
     desc: "Każdy typ terenu ma własne współczynniki - oddzielne estymacje wg 3 oddzielnych modeli",
   },
 ];
-
-// HELPERS
 
 async function apiFetch(path, opts = {}) {
   const res = await fetch(`${API}${path}`, {

@@ -1,10 +1,5 @@
 """
 Bayesian Layer Models for Analytics app.
-MASTER_SPEC v2.3 - Section I: Bayesian Integration Layer
-
-These models define the schema for Bayesian analysis results.
-R scripts (06_bayesian_ssm.R) write to these tables.
-Django provides API/Admin access to read results.
 
 Tables:
 - analytics_prior_config: Prior configuration with audit trail
@@ -28,15 +23,13 @@ class PriorConfig(models.Model):
     Stores hyperparameters with audit trail showing source values
     (H_rel from ETA, ARI from STS, bandwidth from GWR).
 
-    ADR-011: Prior Elicitation Strategy
+    Prior elicitation formula:
     - delta ~ Beta(kappa*H_rel, kappa*(1-H_rel))
     - rho ~ Beta(kappa*ARI, kappa*(1-ARI))
     - length_scale ~ LogNormal(log(h_opt), 0.3)
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-
-    # Identification
     model_version = models.CharField(
         max_length=20, help_text="Version identifier for this prior configuration"
     )
@@ -49,7 +42,6 @@ class PriorConfig(models.Model):
         related_name="prior_configs",
     )
 
-    # Parameter and distribution
     PARAMETER_CHOICES = [
         ("rho", "Persistence rho"),
         ("delta", "Diffusion delta"),
@@ -72,7 +64,6 @@ class PriorConfig(models.Model):
         max_length=20, choices=DIST_CHOICES, help_text="Distribution type for the prior"
     )
 
-    # Hyperparameters
     alpha_hyper = models.DecimalField(
         max_digits=10,
         decimal_places=5,
@@ -86,7 +77,6 @@ class PriorConfig(models.Model):
         help_text="Beta (shape2) hyperparameter",
     )
 
-    # Audit trail - source values from frequentist analysis
     source_h_rel = models.DecimalField(
         max_digits=4,
         decimal_places=3,
@@ -112,7 +102,6 @@ class PriorConfig(models.Model):
         help_text="Bandwidth h_opt from GWR (meters)",
     )
 
-    # Active flag
     is_active = models.BooleanField(
         default=True, help_text="Whether this prior config is currently active"
     )
@@ -140,10 +129,7 @@ class PriorConfig(models.Model):
                     "Beta distribution requires alpha > 0 and beta > 0"
                 )
 
-        # Stationarity check for rho prior (ADR-011)
-        # Expected rho = alpha / (alpha + beta)
-        # If rho is too high (> 0.95), there's little room for delta
-        # and model may become non-stationary (rho + delta >= 1.0)
+        # rho too high (> 0.95) leaves no room for delta, causing non-stationarity (rho+delta>=1)
         if self.parameter_name == "rho" and self.dist_type == "beta":
             alpha = float(self.alpha_hyper)
             beta = float(self.beta_hyper)
@@ -166,15 +152,10 @@ class BayesianResult(models.Model):
 
     Stores posterior summaries (mean, CI) and MCMC diagnostics (R-hat, ESS).
     Full posterior draws stored in /data/mcmc/{run_id}.rds for audit.
-
-    ADR-013: Tiered Storage Strategy
-    - Production/API: JSONB summary (this table)
-    - Research/Audit: Full RDS files
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    # Relationships
     execution = models.ForeignKey(
         "AnalyticsRun",  # Forward reference to existing model
         on_delete=models.CASCADE,
@@ -193,7 +174,6 @@ class BayesianResult(models.Model):
         help_text="Which grid type this result is for",
     )
 
-    # Posterior summaries
     intensity_mean = models.DecimalField(
         max_digits=8,
         decimal_places=4,
@@ -265,7 +245,6 @@ class BayesianResult(models.Model):
         help_text="Effective Sample Size (tail). SHOULD be > 400",
     )
 
-    # Model comparison metrics
     waic = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -281,7 +260,6 @@ class BayesianResult(models.Model):
         help_text="Leave-One-Out Information Criterion",
     )
 
-    # Metadata
     computed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -321,6 +299,3 @@ class BayesianResult(models.Model):
         if self.r_hat is None or self.ess_bulk is None:
             return None
         return self.r_hat < 1.01 and self.ess_bulk > 400
-
-
-# Trajectory model removed - friction costs feature deprecated

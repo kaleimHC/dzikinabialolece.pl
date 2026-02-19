@@ -1,15 +1,7 @@
 """
 Celery Tasks for Analytics app.
-MASTER_SPEC v2.2 Architecture
 
-Task routing:
-- q_r: R Spatial (GWR, ETA, STS) -> worker-r
-- q_cpu: Python ML (RF, Ensemble) -> worker-py
-- q_io: I/O (MV refresh, tiles) -> worker-io
-
-CRITICAL for R tasks:
-- Worker must use --pool=prefork --max-tasks-per-child=1
-- Environment: OMP_NUM_THREADS=1
+Queues: q_r (R spatial), q_cpu (Python ML), q_io (I/O)
 """
 
 import os
@@ -22,8 +14,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# I/O TASKS (queue: q_io)
-
 
 @shared_task(
     bind=True,
@@ -32,25 +22,18 @@ logger = logging.getLogger(__name__)
     time_limit=600,
 )
 def refresh_materialized_views(self):
-    """
-    Refresh materialized views concurrently.
-
-    Uses: REFRESH MATERIALIZED VIEW CONCURRENTLY
-    """
+    """Refresh materialized views with CONCURRENTLY (no table lock)."""
     logger.info("Starting MV refresh")
 
     try:
         with connection.cursor() as cursor:
-            # Refresh sighting stats MV
             cursor.execute(
                 "REFRESH MATERIALIZED VIEW CONCURRENTLY IF EXISTS mv_sighting_stats;"
             )
-            # Refresh grid stats MV
             cursor.execute(
                 "REFRESH MATERIALIZED VIEW CONCURRENTLY IF EXISTS mv_grid_stats;"
             )
 
-        # Invalidate related caches
         cache.delete("sighting_stats")
         cache.delete("grid_stats")
 
@@ -71,7 +54,6 @@ def warmup_cache():
         from django.utils import timezone
         from datetime import timedelta
 
-        # Pre-compute and cache stats
         queryset = Sighting.objects.filter(status=Sighting.Status.VERIFIED)
         week_ago = timezone.now() - timedelta(days=7)
         month_ago = timezone.now() - timedelta(days=30)
@@ -92,8 +74,6 @@ def warmup_cache():
         raise
 
 
-# DEV: Full R Pipeline (on-demand recalculation)
-
 
 @shared_task(
     bind=True,
@@ -102,22 +82,7 @@ def warmup_cache():
     time_limit=2100,  # 35 min hard limit
 )
 def run_r_pipeline_dev(self):
-    """
-    Run full R pipeline sequentially for dev recalculation.
-
-    Uses Docker SDK to execute R scripts in worker-r container.
-
-    Runs all 4 R scripts in order:
-    1. 01_generate_voronoi.R
-    2. 02_compute_tessw_eta.R
-    3. 04_compute_gwr.R
-    4. 05_ensemble_prediction.R
-    """
-    # ═══════════════════════════════════════════════════════════════
-    # DISABLED: 2026-01-18 - Under rewrite according to Kopczewska
-    # Re-enable after completing spatialWarsaw integration
-    # See: HANDOFF_03_IMPLEMENTATION_PLAN.md
-    # ═══════════════════════════════════════════════════════════════
+    # DISABLED 2026-01-18: under rewrite per spatialWarsaw methodology
     from django.core.cache import cache
 
     cache.set(
@@ -143,17 +108,10 @@ def run_r_pipeline_dev(self):
     }
 
 
-# RECALCULATE RISK MODEL (Python-based, no R required)
-
 
 @shared_task(bind=True, queue="q_cpu", soft_time_limit=120, time_limit=180)
 def recalculate_risk_model(self):
-    """
-    FAST risk recalculation - uses SQUARE GRID (sightings_gridcell_square).
-
-    IZOLACJA: NIE modyfikuje sightings_gridcell_voronoi (PUB mode data)!
-    Expected: ~30s
-    """
+    """FAST mode recalculation — square grid only, never touches voronoi table."""
     logger.info("Starting FAST risk model recalculation (sightings_gridcell_square)")
 
     try:
@@ -171,7 +129,6 @@ def recalculate_risk_model(self):
                 timeout=3600,
             )
 
-            # FAST mode: count sightings per SQUARE grid cell
             cursor.execute("UPDATE sightings_gridcell_square SET sighting_count = 0;")
             cursor.execute("""
                 UPDATE sightings_gridcell_square g SET sighting_count = subq.cnt
@@ -283,7 +240,6 @@ def recalculate_risk_model(self):
                 WHERE g.grid_id = ns.grid_id AND ns.n_neighbors > 0;
             """)
 
-            # Update timestamp
             cursor.execute("UPDATE sightings_gridcell_square SET updated_at = NOW();")
 
             cursor.execute(
@@ -304,7 +260,6 @@ def recalculate_risk_model(self):
             },
             timeout=3600,
         )
-        # Release lock to allow new recalculation
         cache.delete("recalculate_lock")
 
         logger.info(f"Fast recalc (SQUARE): {new_assigned} new, {critical} critical")
@@ -327,12 +282,10 @@ def recalculate_risk_model(self):
             },
             timeout=3600,
         )
-        # Release lock even on error
         cache.delete("recalculate_lock")
         raise
 
 
-# SAMPLE SWITCHING (Test datasets)
 
 SAMPLE_FILES = {
     "mala": "baza_mala.json",
@@ -344,15 +297,6 @@ SAMPLE_FILES = {
 
 @shared_task(bind=True, queue="q_io", soft_time_limit=120, time_limit=180)
 def switch_sample_task(self, sample: str):
-    """
-    Switch to a different sample database.
-
-    Steps:
-    1. TRUNCATE sightings
-    2. Load fixture
-    3. Recalculate grid counts
-    4. Verify & notify
-    """
     from django.core.management import call_command
 
     if sample not in SAMPLE_FILES:
@@ -378,22 +322,18 @@ def switch_sample_task(self, sample: str):
         )
 
     try:
-        # Step 1: Truncate
         update_progress(1, "Czyszczenie danych...")
         logger.info(f"Switching to sample: {sample}")
 
         with connection.cursor() as cursor:
             cursor.execute("TRUNCATE sightings_sighting CASCADE;")
 
-        # Step 2: Load fixture
         update_progress(2, "Ładowanie próby...")
         call_command("loaddata", fixture_file, verbosity=0)
 
-        # Step 3: Recalculate grid counts
         update_progress(3, "Przeliczanie siatki...")
 
         with connection.cursor() as cursor:
-            # Reset all counts
             cursor.execute("UPDATE sightings_gridcell SET sighting_count = 0;")
 
             # Count sightings per grid cell using spatial join (no grid_cell_id assignment)
@@ -409,8 +349,7 @@ def switch_sample_task(self, sample: str):
                 WHERE g.grid_id = subq.grid_id;
             """)
 
-            # Update density
-            # FIX: Use EPSG:2180 for area and sighting_count for ranking (avoids latitude bias)
+            # EPSG:2180 for area avoids latitude bias in density calculation
             cursor.execute("""
                 UPDATE sightings_gridcell
                 SET sighting_density = sighting_count / NULLIF(ST_Area(ST_Transform(geometry, 2180)) / 1000000.0, 0);
@@ -439,17 +378,14 @@ def switch_sample_task(self, sample: str):
                     END;
             """)
 
-        # Step 4: Verify
         update_progress(4, "Weryfikacja...")
 
         from sightings.models import Sighting
 
         final_count = Sighting.objects.count()
 
-        # Clear caches
         cache.delete("sighting_stats")
 
-        # Mark completed
         cache.set(
             "sample_switch_progress",
             {
@@ -490,5 +426,4 @@ def switch_sample_task(self, sample: str):
         raise
 
 
-# RESEARCH PIPELINE TASK (spatialWarsaw async)
 from analytics.tasks_research import run_research_pipeline  # noqa: F401, E402

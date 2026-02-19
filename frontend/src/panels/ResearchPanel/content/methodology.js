@@ -476,10 +476,6 @@ export const CURRENT_VALUES_FALLBACK = {
   source: "01_generate_voronoi.R",
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// FAZA G DISCOVERIES - FUNDAMENTALNE PROBLEMY METODOLOGICZNE (2026-01-19)
-// ═══════════════════════════════════════════════════════════════════════════════
-
 export const PHASE_G_DISCOVERIES = {
   title: "Odkrycia Fazy G - Problemy metodologiczne",
   date: "2026-01-19",
@@ -678,10 +674,6 @@ tess_area_rel <- tess_area / sum(tess_area)  # ← nasza inspiracja
     "NIE zakładamy Gaussian errors dla count",
   ],
 };
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// PODSTAWY METODOLOGICZNE - PODSUMOWANIE (2026-01-19)
-// ═══════════════════════════════════════════════════════════════════════════════
 
 export const METHODOLOGY_SUMMARY = {
   title: "Podstawy metodologiczne",

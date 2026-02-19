@@ -19,8 +19,6 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
 
-# CHOICES
-
 
 class GeometryType(models.TextChoices):
     VORONOI = "voronoi", "Voronoi tessellation"
@@ -40,7 +38,7 @@ class YFormula(models.TextChoices):
     LOG_COUNT = (
         "log_count",
         "log(sighting_count + 1)",
-    )  # NEW: Direct measure of boar presence
+    )
     BINARY = "binary", "binary (0/1 sighting presence)"
 
 
@@ -85,7 +83,6 @@ class StepStatus(models.TextChoices):
     SKIPPED = "skipped", "Skipped"
 
 
-# All available OSM predictor names
 ALL_PREDICTORS = [
     "forests",
     "buildings",
@@ -101,8 +98,6 @@ ALL_PREDICTORS = [
 ]
 
 
-# ResearchConfig
-
 
 class ResearchConfig(models.Model):
     """
@@ -112,7 +107,6 @@ class ResearchConfig(models.Model):
     All parameters are exposed in the UI for interactive experimentation.
     """
 
-    # -- Meta --
     name = models.CharField(
         max_length=100,
         unique=True,
@@ -125,7 +119,6 @@ class ResearchConfig(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # -- Geometry --
     geometry_type = models.CharField(
         max_length=20,
         choices=GeometryType.choices,
@@ -133,7 +126,6 @@ class ResearchConfig(models.Model):
         help_text="Spatial unit type for analysis",
     )
 
-    # -- Population --
     population_method = models.CharField(
         max_length=20,
         choices=PopulationMethod.choices,
@@ -141,7 +133,6 @@ class ResearchConfig(models.Model):
         help_text="How to assign population to spatial units",
     )
 
-    # -- Variable Y --
     y_formula = models.CharField(
         max_length=20,
         choices=YFormula.choices,
@@ -149,7 +140,6 @@ class ResearchConfig(models.Model):
         help_text="Dependent variable formula",
     )
 
-    # -- Spatial weights matrix W --
     w_method = models.CharField(
         max_length=20,
         choices=WMethod.choices,
@@ -167,7 +157,6 @@ class ResearchConfig(models.Model):
         help_text="Maximum k for KNN range search",
     )
 
-    # -- Model --
     model_type = models.CharField(
         max_length=20,
         choices=ModelTypeChoice.choices,
@@ -175,13 +164,11 @@ class ResearchConfig(models.Model):
         help_text="Spatial model type (auto = selected by LM tests)",
     )
 
-    # -- OSM predictors --
     active_predictors = models.JSONField(
         default=list,
         help_text="List of active OSM predictor names",
     )
 
-    # -- Diagnostics --
     run_moran = models.BooleanField(
         default=True,
         help_text="Run Moran's I test for spatial autocorrelation",
@@ -199,7 +186,6 @@ class ResearchConfig(models.Model):
         help_text="Run ETA (Entropy-Tessellation-Agglomeration)",
     )
 
-    # -- Thresholds --
     vif_threshold = models.FloatField(
         default=5.0,
         validators=[MinValueValidator(1.0), MaxValueValidator(100.0)],
@@ -215,7 +201,6 @@ class ResearchConfig(models.Model):
         help_text="Random seed for reproducibility",
     )
 
-    # -- Temporal filter --
     date_from = models.DateField(
         null=True,
         blank=True,
@@ -227,7 +212,6 @@ class ResearchConfig(models.Model):
         help_text="Include sightings up to this date (inclusive)",
     )
 
-    # -- Regime model (binary forest/urban) --
     use_regime_model = models.BooleanField(
         default=False,
         help_text="Use regime model (binary forest/urban)",
@@ -353,8 +337,6 @@ class ResearchConfig(models.Model):
         return env
 
 
-# ResearchRun
-
 
 class ResearchRun(models.Model):
     """
@@ -407,8 +389,6 @@ class ResearchRun(models.Model):
         cfg = self.config.name if self.config else "(deleted)"
         return f"Run {str(self.id)[:8]} [{self.status}] — {cfg}"
 
-
-# ResearchStepLog
 
 
 class ResearchStepLog(models.Model):
@@ -484,8 +464,6 @@ class ResearchStepLog(models.Model):
         return f"Step {self.step_order}: {self.step_name} [{self.status}]"
 
 
-# ResearchDiagnostics
-
 
 class ResearchDiagnostics(models.Model):
     """
@@ -502,7 +480,6 @@ class ResearchDiagnostics(models.Model):
         primary_key=True,
     )
 
-    # -- Moran's I --
     moran_i = models.FloatField(null=True, blank=True, help_text="Moran's I statistic")
     moran_expected = models.FloatField(
         null=True, blank=True, help_text="Expected Moran's I under H0"
@@ -513,7 +490,6 @@ class ResearchDiagnostics(models.Model):
     moran_z = models.FloatField(null=True, blank=True, help_text="Z-score")
     moran_p = models.FloatField(null=True, blank=True, help_text="p-value")
 
-    # -- LM tests --
     lm_lag_stat = models.FloatField(
         null=True, blank=True, help_text="LM Lag test statistic"
     )
@@ -535,7 +511,6 @@ class ResearchDiagnostics(models.Model):
         null=True, blank=True, help_text="Robust LM Error p-value"
     )
 
-    # -- Model fit --
     model_selected = models.CharField(
         max_length=20,
         blank=True,
@@ -553,7 +528,6 @@ class ResearchDiagnostics(models.Model):
     )
     r_squared = models.FloatField(null=True, blank=True, help_text="Pseudo R-squared")
 
-    # -- Spatial parameters --
     rho = models.FloatField(
         null=True, blank=True, help_text="SAR spatial lag parameter rho"
     )
@@ -561,7 +535,6 @@ class ResearchDiagnostics(models.Model):
         null=True, blank=True, help_text="SEM spatial error parameter lambda"
     )
 
-    # -- LISA summary --
     lisa_hh_count = models.PositiveIntegerField(
         null=True, blank=True, help_text="High-High clusters"
     )
@@ -578,7 +551,6 @@ class ResearchDiagnostics(models.Model):
         null=True, blank=True, help_text="Not significant"
     )
 
-    # -- VIF --
     vif_results = models.JSONField(
         null=True,
         blank=True,
@@ -589,7 +561,6 @@ class ResearchDiagnostics(models.Model):
         help_text="Predictors dropped due to VIF > threshold",
     )
 
-    # -- ETA (Entropy-based Tessellation for Agglomeration) --
     eta_h_emp = models.FloatField(
         null=True,
         blank=True,
@@ -606,7 +577,6 @@ class ResearchDiagnostics(models.Model):
         help_text="ETA (relative entropy): H_rel = H / H_max. Range [0,1]. ~1=uniform, <0.8=agglomeration",
     )
 
-    # -- Macierz W metrics --
     k_selected = models.PositiveIntegerField(
         null=True,
         blank=True,
@@ -618,9 +588,8 @@ class ResearchDiagnostics(models.Model):
         help_text="Average number of neighbors per cell in W matrix",
     )
 
-    # -- Impacts (SAR/SDM only) --
-    # LeSage & Pace (2009): For SAR/SDM, β coefficients don't have simple
-    # marginal interpretation due to spatial multiplier (I - ρW)⁻¹
+    # SAR/SDM only: β coefficients don't have simple marginal interpretation
+    # due to spatial multiplier (I - ρW)⁻¹ — LeSage & Pace (2009)
     impacts = models.JSONField(
         null=True,
         blank=True,

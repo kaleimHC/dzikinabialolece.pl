@@ -1,14 +1,8 @@
 """
-GWR Heuristic - Environmental proxy for GWR when real GWR unavailable.
-DEBUG-FIRST: Every step logged!
+GWR heuristic — environmental proxy when real GWR is unavailable.
 
-Formula:
   GWR_score = 0.40*forest_cover + 0.30*water_proximity + 0.30*(1-building_density)
-
-Where:
-  - forest_cover: 0-1 (higher = more habitat)
-  - water_proximity: 1 - (distance_to_water / 2000), clamped 0-1
-  - building_density: 0-1 (higher = less suitable)
+  water_proximity = 1 - (distance_to_water / 2000), clamped [0,1]
 """
 
 import uuid
@@ -30,17 +24,12 @@ logger = logging.getLogger(__name__)
     time_limit=180,
 )
 def compute_gwr_heuristic(self, grid_type: str = "voronoi", run_id: str = None):
-    """
-    Compute GWR heuristic (environmental proxy).
-    DEBUG-FIRST: Every step logged!
-    """
     run_id = run_id or str(uuid.uuid4())[:12]
     debug = DebugLogger(run_id, mode="FAST", module="GWR_HEURISTIC")
 
     grid_table = validate_grid_type(grid_type)
 
     try:
-        # Step 1: Load current data
         t = debug.start("load_data", f"Loading {grid_type} cells")
 
         with connection.cursor() as cursor:
@@ -79,11 +68,8 @@ def compute_gwr_heuristic(self, grid_type: str = "voronoi", run_id: str = None):
             start_time=t,
         )
 
-        # Step 2: Compute heuristic
         t = debug.start("compute_heuristic", "Computing GWR heuristic formula")
 
-        # Formula: 0.40*forest + 0.30*water_prox + 0.30*(1-building)
-        # water_prox = GREATEST(0, 1 - distance_to_water/2000)
         with connection.cursor() as cursor:
             cursor.execute(f"""
                 UPDATE {grid_table}
@@ -106,7 +92,6 @@ def compute_gwr_heuristic(self, grid_type: str = "voronoi", run_id: str = None):
             start_time=t,
         )
 
-        # Step 3: Verify results
         t = debug.start("verify", "Verifying GWR heuristic values")
 
         with connection.cursor() as cursor:
@@ -158,7 +143,6 @@ def compute_gwr_heuristic(self, grid_type: str = "voronoi", run_id: str = None):
                 values=verification,
             )
 
-        # Step 4: Recalculate ensemble
         t = debug.start("recalc_ensemble", "Recalculating ensemble risk")
 
         with connection.cursor() as cursor:
@@ -173,7 +157,6 @@ def compute_gwr_heuristic(self, grid_type: str = "voronoi", run_id: str = None):
             """)
             ensemble_updated = cursor.rowcount
 
-        # Get ensemble stats
         with connection.cursor() as cursor:
             cursor.execute(f"""
                 SELECT MIN(ensemble_risk), MAX(ensemble_risk), AVG(ensemble_risk),
