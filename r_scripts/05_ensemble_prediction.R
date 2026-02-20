@@ -53,12 +53,16 @@ cat("Pobieranie danych z GridCell...\n")
 # WAŻNE: Obliczamy area_proportion BEZPOŚREDNIO z geometrii!
 # Spatial join w 02_compute_tessw_eta.R często zawodzi dla komórek przy krawędzi.
 # Dynamiczny wybór kolumny spatial w zależności od trybu
+# NULLIF(model_fitted, 0): column default is 0 (not NULL).
+# In RESEARCH, SAR/SEM fills it with non-zero values — NULLIF is a no-op.
+# In PUB, model_fitted stays at default 0 → NULLIF converts to NULL
+# so COALESCE falls through to spatial_risk (area-rank from 03_inverse_area_risk.R).
 if (use_population) {
-  spatial_col_sql <- "COALESCE(spatial_risk_pop, model_fitted, spatial_risk, gwr_score, 0.5)"
-  cat("  SQL spatial_score: COALESCE(spatial_risk_pop, model_fitted, spatial_risk, gwr_score, 0.5)\n")
+  spatial_col_sql <- "COALESCE(spatial_risk_pop, NULLIF(model_fitted, 0), spatial_risk, gwr_score, 0.5)"
+  cat("  SQL spatial_score: COALESCE(spatial_risk_pop, NULLIF(model_fitted,0), spatial_risk, gwr_score, 0.5)\n")
 } else {
-  spatial_col_sql <- "COALESCE(model_fitted, spatial_risk, gwr_score, 0.5)"
-  cat("  SQL spatial_score: COALESCE(model_fitted, spatial_risk, gwr_score, 0.5)\n")
+  spatial_col_sql <- "COALESCE(NULLIF(model_fitted, 0), spatial_risk, gwr_score, 0.5)"
+  cat("  SQL spatial_score: COALESCE(NULLIF(model_fitted,0), spatial_risk, gwr_score, 0.5)\n")
 }
 
 query <- sprintf("

@@ -328,16 +328,16 @@ dbExecute(conn, sprintf("
   SET updated_at = NOW()
 ", TARGET_TABLE))
 
-# For grids: also set area_proportion
-if (geometry_type == "grid_500") {
-  cat("Obliczanie area_proportion...\n")
-  dbExecute(conn, sprintf("
-    WITH total AS (SELECT SUM(ST_Area(geometry::geography)) as sum_area FROM %s)
-    UPDATE %s g
-    SET area_proportion = ST_Area(g.geometry::geography) / total.sum_area
-    FROM total
-  ", TARGET_TABLE, TARGET_TABLE))
-}
+# Set area_proportion for all geometry types (voronoi and grid_500).
+# Voronoi: needed for Python views (views_pub.py reads stored column).
+# grid_500: was already here; same formula.
+cat("Obliczanie area_proportion...\n")
+dbExecute(conn, sprintf("
+  WITH total AS (SELECT SUM(ST_Area(geometry::geography)) as sum_area FROM %s)
+  UPDATE %s g
+  SET area_proportion = ST_Area(g.geometry::geography) / total.sum_area
+  FROM total
+", TARGET_TABLE, TARGET_TABLE))
 
 cat("Zapisano do bazy.\n")
 
