@@ -381,10 +381,15 @@ class ResearchOrchestrator:
                 except ResearchStepLog.DoesNotExist:
                     pass
 
-            # 3. All steps passed
+            # 3. All steps passed — fill n_cells from target table
+            target_table = self._get_target_table()
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT COUNT(*) FROM {target_table}")  # noqa: S608 — table from allowlist
+                self.run.n_cells = cur.fetchone()[0]
+
             self.run.status = RunStatus.SUCCESS
             self.run.finished_at = timezone.now()
-            self.run.save(update_fields=["status", "finished_at"])
+            self.run.save(update_fields=["status", "finished_at", "n_cells"])
 
             # Emit pipeline complete event
             self._emit_progress(
