@@ -94,6 +94,33 @@
   --color-text:            240 238 232;
 }
 
+[data-theme="cyberpunk-tasteful"] {
+  --color-primary:           204  90 188;
+  --color-primary-dark:      156  60 142;
+  --color-bg:                 12   9  22;
+  --color-surface:            18  14  32;
+  --color-surface-2:          26  20  44;
+  --color-border:             42  32  64;
+  --color-muted:             122 112 142;
+  --color-gray-300:          230 226 240;
+  --color-gray-400:          198 192 218;
+  --color-gray-500:          142 132 162;
+  --color-gray-600:          100  92 122;
+  --color-gray-700:           72  64  92;
+  --color-gray-800:           42  32  64;
+  --color-gray-900:           22  16  38;
+  --color-gray-950:           12   9  22;
+  --color-layer-wmatrix:     204  90 188;
+  --color-layer-population:  142 132 162;
+  --color-layer-research:    168 142 196;
+  --color-link-xor:          204  90 188;
+  --color-link-sync:         122 152 168;
+  --color-warning:           224 132 196;
+  --radius-base:  0;
+  --border-width: 1px;
+  --color-text:            230 226 240;
+}
+
 * {
   margin: 0;
   padding: 0;
