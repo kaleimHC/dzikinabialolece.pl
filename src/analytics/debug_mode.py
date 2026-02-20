@@ -6,7 +6,6 @@ import time
 import uuid
 from functools import wraps
 from typing import Any, Dict, Optional, List
-from django.db import connection
 
 # Global flag - set to False to disable all debug output
 DEBUG_MODE = True
@@ -76,29 +75,6 @@ class DebugLogger:
             print(f"        \u2514\u2500 Values: {values_str}")
         if duration_ms:
             print(f"        \u2514\u2500 Duration: {duration_ms}ms")
-
-        # Save to database
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO analytics_debug_log
-                    (run_id, mode, module, step, status, message, values_json, duration_ms)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                    [
-                        self.run_id,
-                        self.mode,
-                        self.module,
-                        step,
-                        status,
-                        message,
-                        json.dumps(values, default=str) if values else None,
-                        duration_ms,
-                    ],
-                )
-        except Exception as e:
-            print(f"        \u2514\u2500 DB Error: {e}")
 
         # Track step
         self.steps.append(
@@ -321,38 +297,3 @@ def quick_debug(mode: str, module: str, step: str, values: Dict):
     debug.info(step, "Quick debug", values)
 
 
-def get_debug_logs(
-    run_id: str = None, module: str = None, status: str = None, limit: int = 100
-) -> List[Dict]:
-    query = "SELECT * FROM analytics_debug_log WHERE 1=1"
-    params = []
-
-    if run_id:
-        query += " AND run_id = %s"
-        params.append(run_id)
-    if module:
-        query += " AND module = %s"
-        params.append(module)
-    if status:
-        query += " AND status = %s"
-        params.append(status)
-
-    query += " ORDER BY timestamp DESC LIMIT %s"
-    params.append(limit)
-
-    with connection.cursor() as cursor:
-        cursor.execute(query, params)
-        columns = [col[0] for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-
-def clear_debug_logs(older_than_hours: int = 24):
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            DELETE FROM analytics_debug_log
-            WHERE timestamp < NOW() - INTERVAL '%s hours'
-        """,
-            [older_than_hours],
-        )
-        return cursor.rowcount
