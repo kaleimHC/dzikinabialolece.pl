@@ -148,6 +148,33 @@
   --color-text:             26  24  20;
 }
 
+[data-theme="field-notebook"] {
+  --color-primary:           156 175 136;
+  --color-primary-dark:      110 130  95;
+  --color-bg:                240 235 227;
+  --color-surface:           255 252 244;
+  --color-surface-2:         232 226 213;
+  --color-border:             26  22  20;
+  --color-muted:              92  84  72;
+  --color-gray-300:          240 235 227;
+  --color-gray-400:          232 226 213;
+  --color-gray-500:          200 192 178;
+  --color-gray-600:          138 126 110;
+  --color-gray-700:           92  84  72;
+  --color-gray-800:           60  52  44;
+  --color-gray-900:           26  22  20;
+  --color-gray-950:           14  10   8;
+  --color-layer-wmatrix:     255  60 120;
+  --color-layer-population:  156 175 136;
+  --color-layer-research:    168 159 145;
+  --color-link-xor:          201 123  90;
+  --color-link-sync:         156 175 136;
+  --color-warning:           201 123  90;
+  --radius-base:  0;
+  --border-width: 2px;
+  --color-text:             26  22  20;
+}
+
 * {
   margin: 0;
   padding: 0;
