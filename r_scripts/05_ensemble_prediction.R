@@ -58,11 +58,14 @@ cat("Pobieranie danych z GridCell...\n")
 # In PUB, model_fitted stays at default 0 → NULLIF converts to NULL
 # so COALESCE falls through to spatial_risk (area-rank from 03_inverse_area_risk.R).
 if (use_population) {
-  spatial_col_sql <- "COALESCE(spatial_risk_pop, NULLIF(model_fitted, 0), spatial_risk, gwr_score, 0.5)"
-  cat("  SQL spatial_score: COALESCE(spatial_risk_pop, NULLIF(model_fitted,0), spatial_risk, gwr_score, 0.5)\n")
+  spatial_col_sql <- "GREATEST(0, LEAST(1, COALESCE(spatial_risk_pop, NULLIF(model_fitted, 0), spatial_risk, gwr_score, 0.5)))"
+  cat("  SQL spatial_score: GREATEST(0,LEAST(1,COALESCE(spatial_risk_pop,NULLIF(model_fitted,0),spatial_risk,gwr_score,0.5)))\n")
 } else {
-  spatial_col_sql <- "COALESCE(NULLIF(model_fitted, 0), spatial_risk, gwr_score, 0.5)"
-  cat("  SQL spatial_score: COALESCE(NULLIF(model_fitted,0), spatial_risk, gwr_score, 0.5)\n")
+  # D-09: clamp to [0,1] — spatial_risk in RESEARCH is raw Y (log_pop, range ~-9..0);
+  # the cell with model_fitted=0 (min of min-max normalisation) falls through to negative spatial_risk.
+  # GREATEST/LEAST guarantees [0,1] for both PUB (spatial_risk already in [0,1]) and RESEARCH.
+  spatial_col_sql <- "GREATEST(0, LEAST(1, COALESCE(NULLIF(model_fitted, 0), spatial_risk, gwr_score, 0.5)))"
+  cat("  SQL spatial_score: GREATEST(0,LEAST(1,COALESCE(NULLIF(model_fitted,0),spatial_risk,gwr_score,0.5)))\n")
 }
 
 query <- sprintf("
