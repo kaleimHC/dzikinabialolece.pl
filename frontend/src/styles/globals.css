@@ -175,6 +175,33 @@
   --color-text:             26  22  20;
 }
 
+[data-theme="architecture-drafting"] {
+  --color-primary:           181  41  42;
+  --color-primary-dark:      138  30  32;
+  --color-bg:                242 238 227;
+  --color-surface:           255 252 242;
+  --color-surface-2:         232 228 217;
+  --color-border:             26  32  48;
+  --color-muted:             108 122 138;
+  --color-gray-300:          242 238 227;
+  --color-gray-400:          232 228 217;
+  --color-gray-500:          200 208 216;
+  --color-gray-600:          154 166 180;
+  --color-gray-700:          108 122 138;
+  --color-gray-800:           60  70  86;
+  --color-gray-900:           26  32  48;
+  --color-gray-950:           14  18  28;
+  --color-layer-wmatrix:     255 160   0;
+  --color-layer-population:  112 136 184;
+  --color-layer-research:    181  41  42;
+  --color-link-xor:          181  41  42;
+  --color-link-sync:         112 136 184;
+  --color-warning:           181  41  42;
+  --radius-base:  0;
+  --border-width: 1px;
+  --color-text:             26  32  48;
+}
+
 * {
   margin: 0;
   padding: 0;
