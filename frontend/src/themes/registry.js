@@ -533,7 +533,76 @@ export const themes = {
         },
       },
     },
-  }
+  },
+  'birch-light': {
+    name: 'Birch Light',
+    description: 'Pale birch, black ink, single red dot — scandi minimal',
+    palette: {
+      'color-primary':           ' 26  26  26',
+      'color-primary-dark':      ' 10  10  10',
+      'color-bg':                '245 241 234',
+      'color-surface':           '255 255 255',
+      'color-surface-2':         '245 241 234',
+      'color-border':            '220 213 200',
+      'color-muted':             '138 130 120',
+      'color-gray-300':          '245 241 234',
+      'color-gray-400':          '220 213 200',
+      'color-gray-500':          '184 176 164',
+      'color-gray-600':          '138 130 120',
+      'color-gray-700':          ' 92  86  78',
+      'color-gray-800':          ' 60  56  50',
+      'color-gray-900':          ' 26  24  22',
+      'color-gray-950':          ' 10  10  10',
+      'color-layer-wmatrix':     '148   0 255',
+      'color-layer-population':  '138 130 120',
+      'color-layer-research':    ' 88 108 128',
+      'color-link-xor':          '211  47  47',
+      'color-link-sync':         '138 130 120',
+      'color-warning':           '211  47  47',
+    },
+    geometry: {
+      'radius-base':  '2px',
+      'border-width': '1px',
+    },
+    map: {
+      water: '#C8D2D6', forest: '#D0D7BE', building: '#DDD5C5', road: '#9A948A',
+      boundary: '#0A0A0A', river: '#A0B0B8',
+      encounter: '#2A2A2A', encounterCluster: '#1A1A1A', encounterLarge: '#0A0A0A',
+      ryjowisko: '#D32F2F', ryjowiskoCluster: '#A82626', ryjowiskoLarge: '#7C1C1C',
+      osm: {
+        forests: '#D0D7BE', scrub: '#C8D0B4', meadows: '#DAE0C6', parks: '#D0D7BE',
+        water: '#C8D2D6', waterways: '#A0B0B8',
+        farmland: '#E2DCC8', allotments: '#D5DEBF',
+        buildings: '#DDD5C5', barriers: '#0A0A0A',
+        roads: '#9A948A', railway: '#5C564E',
+      },
+      basemap: {
+        background: '#F5F1EA', water: '#C8D2D6', waterway: '#A0B0B8',
+        landcoverGrass: '#D0D7BE', landcoverWood: '#C0CAB0',
+        landusePark: '#D0D7BE', landuseResidential: '#ECE5D6',
+        building: '#DDD5C5',
+        roadService: '#B8B0A4', roadMinor: '#A8A296', roadSecondary: '#989286',
+        roadPrimary: '#888278', roadTrunk: '#78726A', roadMotorway: '#686258',
+        railway: '#5C564E', boundaryCountry: '#0A0A0A',
+        placeText: '#0A0A0A', placeHalo: '#F5F1EA',
+        placeSuburbText: '#8A8278',
+        roadLabelText: '#8A8278', roadLabelHalo: '#F5F1EA',
+      },
+      heatmap: {
+        risk: {
+          s0: '#F5F1EA', s1: '#ECDADA', s2: '#DFBABA', s3: '#CE9696',
+          s4: '#BD7070', s5: '#A64C4C', s6: '#D32F2F', s7: '#A82626',
+        },
+        population: {
+          s0: '#F5F1EA', s1: '#DCD8D2', s2: '#BEBBB5', s3: '#9E9B96',
+          s4: '#7C7A75', s5: '#5A5854', s6: '#3A3835',
+        },
+        bayesian: {
+          s0: '#F5F1EA', s1: '#C8C5C0', s2: '#8E8C88', s3: '#4C4A47', s4: '#1A1A1A',
+        },
+      },
+    },
+  },
 };
 
 export const DEFAULT_THEME = 'current-dark';
