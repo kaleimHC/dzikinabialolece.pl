@@ -57,6 +57,7 @@ const ResearchPanel = () => {
           </div>
 
           <button
+            data-qa="research.panel-close"
             onClick={toggleResearchPanel}
             className="text-3xl text-gray-400 hover:text-white transition-colors p-2"
             aria-label="Zamknij panel badawczy"
@@ -72,6 +73,7 @@ const ResearchPanel = () => {
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              data-qa={`research.tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`
                 flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors

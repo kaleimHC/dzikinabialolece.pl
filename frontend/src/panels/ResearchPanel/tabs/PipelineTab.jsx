@@ -354,6 +354,7 @@ function SelectField({
   disabledReasons = {},
   warning,
   showDesc = false,
+  qaId,
 }) {
   // Find selected option to show its description
   const selectedOption = options.find((o) => o.value === value);
@@ -362,6 +363,7 @@ function SelectField({
     <label className="block">
       <span className="text-xs text-gray-400">{label}</span>
       <select
+        data-qa={qaId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={`mt-1 block w-full bg-gray-700 border rounded px-2 py-1.5 text-sm text-white focus:outline-none ${
@@ -396,11 +398,12 @@ function SelectField({
   );
 }
 
-function NumberField({ label, value, onChange, min, max, step, hint }) {
+function NumberField({ label, value, onChange, min, max, step, hint, qaId }) {
   return (
     <label className="block">
       <span className="text-xs text-gray-400">{label}</span>
       <input
+        data-qa={qaId}
         type="number"
         value={value}
         min={min}
@@ -563,6 +566,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           {isEdit ? `Edycja: ${form.name}` : "Nowa konfiguracja"}
         </h3>
         <button
+          data-qa="config.cancel"
           onClick={onCancel}
           className="text-gray-400 hover:text-white text-sm"
         >
@@ -583,6 +587,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
               )}
             </span>
             <select
+              data-qa="config.preset-select"
               value={selectedPreset}
               onChange={handlePresetChange}
               className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:border-blue-500 focus:outline-none"
@@ -613,6 +618,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
         <label className="block">
           <span className="text-xs text-gray-400">Nazwa</span>
           <input
+            data-qa="config.name-input"
             type="text"
             value={form.name}
             onChange={(e) => set("name")(e.target.value)}
@@ -632,12 +638,14 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           value={form.geometry_type}
           onChange={set("geometry_type")}
           options={GEOMETRY_CHOICES}
+          qaId="config.geometry-select"
         />
         <SelectField
           label="Populacja"
           value={form.population_method}
           onChange={set("population_method")}
           options={populationChoices}
+          qaId="config.population-select"
         />
         <SelectField
           label="Zmienna Y"
@@ -651,6 +659,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
               ? "Nieprawidłowe dla Voronoi"
               : null
           }
+          qaId="config.y-formula-select"
         />
         <SelectField
           label="Model"
@@ -666,6 +675,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
                 ? "Nie zaimplementowane"
                 : null
           }
+          qaId="config.model-select"
         />
         <SelectField
           label="Macierz W"
@@ -678,6 +688,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
               ? "Może mieć NAs dla grid_500"
               : null
           }
+          qaId="config.w-method-select"
         />
         <NumberField
           label="Seed"
@@ -685,6 +696,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           onChange={set("seed")}
           min={1}
           hint={PARAM_HINTS.seed}
+          qaId="config.seed-input"
         />
       </div>
 
@@ -697,6 +709,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           min={1}
           max={100}
           hint={PARAM_HINTS.k_range_min}
+          qaId="config.k-min-input"
         />
         <NumberField
           label="k_range_max"
@@ -705,6 +718,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           min={2}
           max={200}
           hint={PARAM_HINTS.k_range_max}
+          qaId="config.k-max-input"
         />
       </div>
 
@@ -718,6 +732,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           max={100}
           step={0.5}
           hint={PARAM_HINTS.vif_threshold}
+          qaId="config.vif-input"
         />
         <NumberField
           label="Alpha (α)"
@@ -727,6 +742,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
           max={0.5}
           step={0.01}
           hint={PARAM_HINTS.alpha}
+          qaId="config.alpha-input"
         />
       </div>
 
@@ -742,6 +758,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
             return (
               <button
                 key={p}
+                data-qa={`config.predictor-${p}`}
                 onClick={() => togglePredictor(p)}
                 className={`px-2 py-1 rounded text-xs transition-colors ${
                   active
@@ -809,6 +826,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
               >
                 <div className="flex items-center gap-2">
                   <input
+                    data-qa={`config.diag-${key.replace("run_", "")}`}
                     type="checkbox"
                     checked={form[key]}
                     onChange={() => !isDisabled && set(key)(!form[key])}
@@ -852,6 +870,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
               set("use_regime_model")(val !== "none");
             }}
             options={REGIME_TYPE_CHOICES}
+            qaId="config.regime-type-select"
           />
         </div>
 
@@ -887,6 +906,7 @@ function ConfigForm({ config, availablePredictors, onSave, onCancel, saving }) {
       )}
 
       <button
+        data-qa="config.save"
         onClick={handleSubmit}
         disabled={saving || hasWarnings}
         className={`w-full py-2 rounded text-white text-sm font-medium transition-colors ${
@@ -953,6 +973,7 @@ function ConfigList({
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
+              data-qa={`config.edit-${c.id}`}
               onClick={() => onEdit(c)}
               className="px-2 py-1 text-xs text-gray-400 hover:text-white bg-gray-700 rounded transition-colors"
             >
@@ -960,6 +981,7 @@ function ConfigList({
             </button>
             {!c.is_active && (
               <button
+                data-qa={`config.activate-${c.id}`}
                 onClick={() => onActivate(c.id)}
                 disabled={activating}
                 className="px-2 py-1 text-xs text-green-400 hover:text-green-300 bg-green-900/30 rounded disabled:opacity-50 transition-colors"
@@ -987,6 +1009,7 @@ function RunSection({
   return (
     <div className="space-y-3">
       <button
+        data-qa="pipeline.run"
         onClick={onRun}
         disabled={!hasActiveConfig || isRunning}
         className={`w-full py-3 rounded-lg font-medium text-sm transition-colors ${
@@ -1291,6 +1314,7 @@ export default function PipelineTab() {
             Status
           </h2>
           <button
+            data-qa="pipeline.status-refresh"
             onClick={refresh}
             className="text-xs text-gray-500 hover:text-white transition-colors"
           >
@@ -1332,6 +1356,7 @@ export default function PipelineTab() {
           </h2>
           {!showForm && (
             <button
+              data-qa="config.new"
               onClick={() => {
                 setEditingConfig(null);
                 setShowForm(true);
@@ -1391,6 +1416,7 @@ export default function PipelineTab() {
               Historia ({runs.length})
             </h2>
             <button
+              data-qa="pipeline.clear-history"
               onClick={handleClearHistory}
               className="text-xs text-red-400 hover:text-red-300 transition-colors"
             >

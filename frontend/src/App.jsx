@@ -182,6 +182,7 @@ export default function App() {
                   >
                     {/* Próba pill */}
                     <motion.button
+                      data-qa="mobile.proba-open"
                       onClick={openProbaBar}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -199,6 +200,7 @@ export default function App() {
 
                     {/* FAB — środkowy element flexa, zero translate */}
                     <motion.button
+                      data-qa="mobile.fab-add-sighting"
                       onClick={enterAddMode}
                       whileTap={{ scale: 0.9 }}
                       className="w-14 h-14 rounded-2xl flex-shrink-0 flex items-center justify-center border-none cursor-pointer fab-primary"
@@ -219,6 +221,7 @@ export default function App() {
 
                     {/* Warstwy pill */}
                     <motion.button
+                      data-qa="mobile.layers-open"
                       onClick={openLayersBar}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}

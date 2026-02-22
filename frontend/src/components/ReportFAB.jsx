@@ -5,6 +5,7 @@ export default function ReportFAB() {
 
   return (
     <button
+      data-qa="sighting.fab-open"
       onClick={() => {
         enterAddMode();
       }}

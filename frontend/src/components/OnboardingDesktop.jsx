@@ -113,6 +113,7 @@ function FooterStrip({ onDismiss }) {
           Zgłoś, przeglądaj, analizuj
         </span>
         <motion.button
+          data-qa="onboarding.dismiss"
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.95 }}
           onClick={onDismiss}

@@ -40,6 +40,7 @@ function LayerGrid({ columns = 2 }) {
         return (
           <button
             key={key}
+            data-qa={`layers.toggle-${key}`}
             onClick={() => {
               toggleLayer(key);
             }}
@@ -105,6 +106,7 @@ export default function LayerToggles({
     <div>
       {/* Klikalny nagłówek */}
       <div
+        data-qa="layers.accordion-toggle"
         onClick={() => {
           onToggle();
         }}

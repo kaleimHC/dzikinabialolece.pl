@@ -49,6 +49,7 @@ export default function LayersBottomBar({ isOpen, onClose }) {
         >
           {/* Drag handle */}
           <button
+            data-qa="mobile.layers-close"
             onClick={onClose}
             className="w-full pt-4 pb-5 flex justify-center cursor-grab active:cursor-grabbing"
             aria-label="Zamknij"

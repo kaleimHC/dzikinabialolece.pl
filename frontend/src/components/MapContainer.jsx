@@ -10,6 +10,7 @@ import {
 import { useGridTransition } from "../hooks/useGridTransition";
 import { useOsmLayerTransition } from "../hooks/useOsmLayerTransition";
 import { getTokens } from "../tokens/colors";
+import { hookMapLibre } from "../utils/qaLogger";
 
 const MAP_STYLE = "/styles/dark-wildlife.json?v=1766865415694";
 
@@ -81,6 +82,7 @@ export default function MapContainer() {
       fadeDuration: 0,
     });
     mapRef.current = map;
+    hookMapLibre(map);
 
     // Attribution in Header, zoom buttons removed - scroll zoom is enough
 

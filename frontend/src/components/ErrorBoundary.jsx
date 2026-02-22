@@ -21,6 +21,7 @@ class ErrorBoundary extends React.Component {
           <h1 className="text-2xl mb-4">😢 Coś poszło nie tak</h1>
           <p className="mb-4">Aplikacja napotkała nieoczekiwany błąd.</p>
           <button
+            data-qa="error.reload-page"
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-green-600 rounded hover:bg-green-700"
           >

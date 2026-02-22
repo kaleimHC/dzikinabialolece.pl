@@ -73,6 +73,7 @@ export default function Header() {
         <div className="flex items-center gap-3">
           {/* Logo — cycles through themes on click */}
           <motion.button
+            data-qa="header.theme-cycle"
             onClick={cycleTheme}
             whileHover={{ scale: 1.12, rotate: 8 }}
             whileTap={{ scale: 0.82, rotate: -18 }}
@@ -110,6 +111,7 @@ export default function Header() {
                 animate={{ opacity: 1, width: "auto", marginRight: 8 }}
                 exit={{ opacity: 0, width: 0, marginRight: 0 }}
                 transition={{ duration: 0.25, ease: "easeOut" }}
+                data-qa="header.toggle-wmatrix"
                 onClick={() => toggleLayer("wMatrix")}
                 title="Macierz W z Dzikow — sąsiedztwo przestrzenne komórek"
                 className={`btn-hdr btn-hdr-animated ${isWMatrixVisible ? "btn-on-wmatrix" : "btn-off"}`}
@@ -124,6 +126,7 @@ export default function Header() {
           <div className="flex items-center gap-0">
             {/* Risk Map Toggle */}
             <button
+              data-qa="header.toggle-risk-map"
               onClick={toggleMap}
               className={`btn-hdr ${isMapVisible ? "" : "btn-off"}`}
               style={{
@@ -145,6 +148,7 @@ export default function Header() {
 
             {/* Link/Chain Button (like GIMP aspect ratio lock) */}
             <button
+              data-qa="header.toggle-link"
               onClick={toggleLinked}
               title={
                 !linkedToggles
@@ -191,6 +195,7 @@ export default function Header() {
 
             {/* Population Toggle */}
             <button
+              data-qa="header.toggle-population"
               onClick={togglePopulation}
               className={`btn-hdr ${isPopulationVisible ? "" : "btn-off"}`}
               style={{
@@ -220,6 +225,7 @@ export default function Header() {
                 animate={{ opacity: 1, width: "auto", marginLeft: 12 }}
                 exit={{ opacity: 0, width: 0, marginLeft: 0 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
+                data-qa="header.toggle-research-panel"
                 onClick={() => {
                   toggleResearchPanel();
                 }}

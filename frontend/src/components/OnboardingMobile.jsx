@@ -99,6 +99,7 @@ export function OnboardingMobile() {
 
       {/* CTA */}
       <motion.button
+        data-qa="onboarding.start"
         onClick={completeOnboarding}
         whileTap={{ scale: 0.95 }}
         style={{

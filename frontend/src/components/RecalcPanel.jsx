@@ -269,6 +269,7 @@ export default function RecalcPanel({ embedded = false }) {
           return (
             <button
               key={mode.id}
+              data-qa={`recalc.mode-${mode.id}`}
               onClick={async () => {
                 setDisplayMode(mode.id);
                 // When switching to research mode, sync geometry type from backend
@@ -312,6 +313,7 @@ export default function RecalcPanel({ embedded = false }) {
         </div>
       ) : (
         <button
+          data-qa="recalc.compute"
           onClick={() => {
             handleCompute();
           }}

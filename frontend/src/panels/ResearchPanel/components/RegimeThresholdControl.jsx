@@ -58,6 +58,7 @@ function ThresholdRow({
       </div>
       {/* Slider */}
       <input
+        data-qa={`regime.${color}-slider`}
         type="range"
         min={0}
         max={maxValue}
@@ -277,6 +278,7 @@ export default function RegimeThresholdControl({
           )}
         </div>
         <button
+          data-qa="regime.refresh"
           onClick={handleRefresh}
           disabled={generating || disabled}
           className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50

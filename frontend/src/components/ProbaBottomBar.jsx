@@ -54,6 +54,7 @@ export default function ProbaBottomBar({ isOpen, onClose }) {
         >
           {/* Drag handle - klik lub przeciągnij zamyka */}
           <button
+            data-qa="mobile.proba-close"
             onClick={onClose}
             className="w-full pt-4 pb-5 flex justify-center cursor-grab active:cursor-grabbing"
             aria-label="Zamknij"

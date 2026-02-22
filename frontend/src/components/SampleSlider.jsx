@@ -134,6 +134,7 @@ export default function SampleSlider({ isExpanded = true, onToggle }) {
     >
       {/* KLIKALNY NAGŁÓWEK */}
       <div
+        data-qa="sample.accordion-toggle"
         onClick={() => {
           onToggle();
         }}
@@ -173,6 +174,7 @@ export default function SampleSlider({ isExpanded = true, onToggle }) {
               {/* SLIDER */}
               <input
                 type="range"
+                data-qa="sample.slider"
                 min="0"
                 max="3"
                 step="1"
@@ -266,6 +268,7 @@ export default function SampleSlider({ isExpanded = true, onToggle }) {
 
               {/* PRZYCISK */}
               <button
+                data-qa="sample.apply"
                 onClick={handleApply}
                 disabled={isLoading || !isChanged}
                 style={{

@@ -47,6 +47,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # QA correlation logging (active only when QA_SESSION=1)
+    "dziki.qa_middleware.QaMiddleware",
     # Security
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",

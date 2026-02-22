@@ -21,6 +21,7 @@ export default function RunHistory({ runs, onSelectRun, selectedRunId, selectedR
       {runs.map((r) => (
         <div key={r.id}>
           <button
+            data-qa={`run.select-${r.id}`}
             onClick={() => onSelectRun(r.id)}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
               selectedRunId === r.id

@@ -54,6 +54,7 @@ export default function ReportSheet() {
             }}
           >
             <motion.button
+              data-qa="sighting.cancel"
               onClick={() => {
                 exitAddMode();
               }}
@@ -73,6 +74,7 @@ export default function ReportSheet() {
               ✕
             </motion.button>
             <motion.button
+              data-qa="sighting.type-encounter"
               onClick={() => {
                 setType("encounter");
               }}
@@ -101,6 +103,7 @@ export default function ReportSheet() {
               🐗 Spotkanie
             </motion.button>
             <motion.button
+              data-qa="sighting.type-ryjowisko"
               onClick={() => {
                 setType("ryjowisko");
               }}
@@ -127,6 +130,7 @@ export default function ReportSheet() {
               📍 Ryjowisko
             </motion.button>
             <motion.button
+              data-qa="sighting.submit"
               onClick={handleSubmit}
               disabled={isLoading}
               whileTap={{ scale: 0.9 }}

@@ -134,6 +134,8 @@ services:
       DOCKER_API_VERSION: "1.44"
       # Host path for Docker SDK volume mounts (mode_router.py)
       HOST_PROJECT_PATH: ${HOST_PROJECT_PATH:-/opt/dziki}
+      # QA session logging (set QA_SESSION=1 to enable middleware logging)
+      QA_SESSION: ${QA_SESSION:-0}
     volumes:
       - ./src:/app:ro
       - ./fixtures:/fixtures:ro
