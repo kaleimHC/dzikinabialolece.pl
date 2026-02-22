@@ -16,10 +16,11 @@ Endpoints:
 import logging
 
 from django.db import connection
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .permissions import IsBearerAuthenticated
+from .permissions import PipelineRunThrottle
 from .sql_injection_patch import validate_geometry_type
 from .models_research import (
     ResearchConfig,
@@ -199,7 +200,7 @@ def _apply_fields(config: ResearchConfig, data: dict):
 
 
 @api_view(["GET", "POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def config_list(request):
     """
     GET  /api/research/configs/   — list all configs
@@ -234,7 +235,7 @@ def config_list(request):
 
 
 @api_view(["GET", "PUT"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def config_detail(request, config_id):
     """
     GET /api/research/configs/{id}/
@@ -262,7 +263,7 @@ def config_detail(request, config_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def config_activate(request, config_id):
     """POST /api/research/configs/{id}/activate/ — set as active config."""
     try:
@@ -289,7 +290,8 @@ def config_activate(request, config_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
+@throttle_classes([PipelineRunThrottle])
 def run_pipeline(request):
     """
     POST /api/research/run/ — execute pipeline with active config.
@@ -385,7 +387,7 @@ def run_list(request):
 
 
 @api_view(["DELETE"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def run_clear_all(request):
     count, _ = ResearchRun.objects.all().delete()
     return Response(
@@ -407,7 +409,7 @@ def run_detail(request, run_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def run_steps(request, run_id):
     try:
         run = ResearchRun.objects.get(pk=run_id)
@@ -425,7 +427,7 @@ def run_steps(request, run_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def run_diagnostics(request, run_id):
     try:
         run = ResearchRun.objects.get(pk=run_id)
@@ -728,7 +730,8 @@ def distributions(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
+@throttle_classes([PipelineRunThrottle])
 def generate_preview(request):
     """
     POST /api/research/generate-preview/
@@ -768,7 +771,7 @@ def generate_preview(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def preview_status(request, task_id):
     """
     GET /api/research/preview-status/<task_id>/

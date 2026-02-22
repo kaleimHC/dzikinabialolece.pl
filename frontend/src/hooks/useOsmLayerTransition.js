@@ -231,8 +231,9 @@ export function useOsmLayerTransition(mapRef, mapReady, visibleLayers) {
         } else {
           // Z CACHE: tylko fade-in
           animatingRef.current[key] = true;
+          const _rawOn = map.getPaintProperty(config.layerId, opacityProp);
           const currentOpacity =
-            map.getPaintProperty(config.layerId, opacityProp) ?? 0;
+            typeof _rawOn === "number" && Number.isFinite(_rawOn) ? _rawOn : 0;
           animateOpacity(
             map,
             config.layerId,
@@ -254,9 +255,11 @@ export function useOsmLayerTransition(mapRef, mapReady, visibleLayers) {
       } else {
         // === TOGGLE OFF === (tylko fade-out, dane zostają)
         animatingRef.current[key] = true;
+        const _rawOff = map.getPaintProperty(config.layerId, opacityProp);
         const currentOpacity =
-          map.getPaintProperty(config.layerId, opacityProp) ??
-          config.targetOpacity;
+          typeof _rawOff === "number" && Number.isFinite(_rawOff)
+            ? _rawOff
+            : config.targetOpacity;
         animateOpacity(
           map,
           config.layerId,

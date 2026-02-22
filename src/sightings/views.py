@@ -24,9 +24,9 @@ from .serializers import (
 
 
 class SightingThrottle(AnonRateThrottle):
-    """Custom throttle for sighting submissions: 1000/hour per IP (dev), 10/hour (prod)."""
+    """Anti-bot safety valve on sighting submissions — 100/hour per IP."""
 
-    rate = "10/hour"
+    rate = "100/hour"
 
 
 class SightingCursorPagination(CursorPagination):

@@ -8,10 +8,11 @@ import logging
 from django.core.cache import cache
 from django.db import connection
 from django_celery_results.models import TaskResult
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from analytics.permissions import IsBearerAuthenticated
+from analytics.permissions import PipelineRunThrottle, SamplesSwitchThrottle
 from analytics.sql_injection_patch import validate_grid_type
 
 logger = logging.getLogger(__name__)
@@ -446,7 +447,8 @@ def samples_current(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
+@throttle_classes([SamplesSwitchThrottle])
 def samples_switch(request):
     from .tasks import switch_sample_task
 
@@ -694,7 +696,7 @@ def presets_list(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
 def apply_preset(request):
     from .models_config import PRESET_PROFILES, ParameterConfiguration
 
@@ -866,7 +868,8 @@ def bayesian_diagnostics(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
+@throttle_classes([PipelineRunThrottle])
 def run_mode_pipeline(request):
     from .mode_router import MODE_CONFIG, run_pipeline
 

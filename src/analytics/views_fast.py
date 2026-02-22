@@ -6,10 +6,11 @@ import json
 from datetime import date
 
 from django.core.cache import cache
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from analytics.permissions import IsBearerAuthenticated
+from analytics.permissions import PipelineRunThrottle
 
 from .models import ModelPrediction
 
@@ -122,7 +123,8 @@ ALLOWED_RECALC_MODES = {"fast", "full"}
 
 
 @api_view(["POST"])
-@permission_classes([IsBearerAuthenticated])
+@permission_classes([AllowAny])
+@throttle_classes([PipelineRunThrottle])
 def recalculate(request):
     from .tasks import recalculate_risk_model, run_r_pipeline_dev
 

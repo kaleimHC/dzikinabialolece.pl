@@ -175,6 +175,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "1000/hour",
         "user": "1000/hour",
+        "pipeline_run": "60/hour",
+        "samples_switch": "40/hour",
     },
 }
 

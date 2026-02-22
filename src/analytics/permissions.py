@@ -1,4 +1,5 @@
 from rest_framework.permissions import BasePermission
+from rest_framework.throttling import AnonRateThrottle
 
 
 class IsBearerAuthenticated(BasePermission):
@@ -14,3 +15,15 @@ class IsBearerAuthenticated(BasePermission):
 
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated)
+
+
+class PipelineRunThrottle(AnonRateThrottle):
+    """Anti-bot safety valve on compute-triggering POST endpoints (pipeline run, preview)."""
+
+    scope = "pipeline_run"
+
+
+class SamplesSwitchThrottle(AnonRateThrottle):
+    """Anti-bot safety valve on samples/switch (destructive POST)."""
+
+    scope = "samples_switch"

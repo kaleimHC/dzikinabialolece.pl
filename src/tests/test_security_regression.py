@@ -5,10 +5,10 @@ Verifies each security fix applied in recent commits:
 
   1. SQL injection blocked via grid_type / geometry_type allowlist validators
   2. WebSocket rejects unauthenticated connections with close code 4001
-  3. Rate limit on POST /api/sightings/ is 10/hour
+  3. Rate limit on POST /api/sightings/ is 100/hour
   4. NaN/Inf coordinates are rejected with HTTP 400
   5. Radius parameter capped at 50 km (no 500 error on huge values)
-  6. All compute endpoints return 401 without Bearer token / 403 with bad token
+  6. All portfolio compute endpoints return non-401 for anonymous users [D-10]
   7. POST /api/sightings/ rejects coordinates outside Białołęka/Warsaw boundary
 
 Run:
@@ -269,14 +269,14 @@ class TestWebSocketAuthRejection:
 
 class TestSightingThrottleConfiguration(TestCase):
     """
-    SightingThrottle.rate must be '10/hour'.
-    Changing the throttle class or the rate string is a security regression.
+    SightingThrottle.rate must be '100/hour' (anti-bot, not a UX barrier).
+    Changing the throttle class or the rate string requires deliberate review.
     """
 
-    def test_throttle_rate_is_10_per_hour(self):
+    def test_throttle_rate_is_100_per_hour(self):
         from sightings.views import SightingThrottle
-        assert SightingThrottle.rate == '10/hour', (
-            f"Expected '10/hour', got {SightingThrottle.rate!r}"
+        assert SightingThrottle.rate == '100/hour', (
+            f"Expected '100/hour', got {SightingThrottle.rate!r}"
         )
 
     def test_throttle_applied_only_to_create_action(self):
@@ -475,53 +475,35 @@ class TestRadiusParameterCap(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 6. AUTH ENFORCEMENT — protected POST endpoints return 401 without token
+# 6. PUBLIC PORTFOLIO CONTRACT — compute endpoints must be accessible to anon
+#
+# [D-10] UD: this is a public portfolio site with no login flow.
+# All pipeline/config/sample endpoints must work for anonymous users.
+# Any future hardening that re-adds auth to these endpoints will fail here.
 # ---------------------------------------------------------------------------
 
-# Map endpoint path -> HTTP method
-PROTECTED_ENDPOINTS = [
-    ('POST', '/api/research/run/'),
+PORTFOLIO_COMPUTE_ENDPOINTS = [
+    ('GET',    '/api/research/configs/'),
+    ('POST',   '/api/research/run/'),
     ('DELETE', '/api/research/runs/clear/'),
-    ('POST', '/api/analytics/recalculate/'),
-    ('POST', '/api/analytics/samples/switch/'),
-    ('POST', '/api/analytics/config/apply-preset/'),
-    ('POST', '/api/analytics/pipeline/'),
+    ('POST',   '/api/analytics/recalculate/'),
+    ('POST',   '/api/analytics/samples/switch/'),
+    ('POST',   '/api/analytics/config/apply-preset/'),
+    ('POST',   '/api/analytics/pipeline/'),
 ]
 
 
-@pytest.mark.parametrize("method,path", PROTECTED_ENDPOINTS)
-def test_no_token_returns_401(method, path):
-    """Unauthenticated request must be rejected with 401."""
+@pytest.mark.parametrize("method,path", PORTFOLIO_COMPUTE_ENDPOINTS)
+@pytest.mark.django_db
+def test_portfolio_endpoint_not_401_for_anon(method, path):
+    """[D-10] Portfolio compute endpoints must NOT return 401/403 for anonymous users.
+    The site has no login — returning 401 makes the feature permanently broken."""
     client = APIClient()
     fn = getattr(client, method.lower())
-    response = fn(path, format='json')
-    assert response.status_code == 401, (
-        f"{method} {path} without token: expected 401, got {response.status_code}"
-    )
-
-
-@pytest.mark.parametrize("method,path", PROTECTED_ENDPOINTS)
-def test_invalid_bearer_token_returns_401_or_403(method, path):
-    """Garbage Bearer token must not grant access."""
-    client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION='Bearer totallyinvalidtoken12345')
-    fn = getattr(client, method.lower())
-    response = fn(path, format='json')
-    assert response.status_code in (401, 403), (
-        f"{method} {path} with bad token: expected 401/403, got {response.status_code}"
-    )
-
-
-@pytest.mark.parametrize("method,path", PROTECTED_ENDPOINTS)
-def test_malformed_authorization_header_rejected(method, path):
-    """'Authorization: NotBearer token' must not bypass auth."""
-    client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION='NotBearer sometoken')
-    fn = getattr(client, method.lower())
-    response = fn(path, format='json')
-    assert response.status_code in (401, 403), (
-        f"Malformed auth header not rejected for {method} {path}: "
-        f"got {response.status_code}"
+    response = fn(path, format='json', data={})
+    assert response.status_code not in (401, 403), (
+        f"[D-10] {method} {path} returned {response.status_code} for anon — "
+        f"portfolio endpoints must be publicly accessible"
     )
 
 
@@ -663,16 +645,16 @@ class TestBoundaryValidation(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 8. COMBINED REGRESSION — parametrized endpoint auth check
+# 8. COMBINED REGRESSION — public contract DB-backed check
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("method,path", PROTECTED_ENDPOINTS)
+@pytest.mark.parametrize("method,path", PORTFOLIO_COMPUTE_ENDPOINTS)
 @pytest.mark.django_db
-def test_protected_endpoint_no_auth_returns_401(method, path):
-    """Parametrized DB-backed test: each protected endpoint rejects anon requests."""
+def test_portfolio_endpoint_not_401_db(method, path):
+    """[D-10] DB-backed: portfolio compute endpoints must not gate on auth."""
     client = APIClient()
     fn = getattr(client, method.lower())
-    response = fn(path, format='json')
-    assert response.status_code == 401, (
-        f"{method} {path}: expected 401, got {response.status_code}"
+    response = fn(path, format='json', data={})
+    assert response.status_code not in (401, 403), (
+        f"[D-10] {method} {path}: returned {response.status_code} — must be publicly accessible"
     )

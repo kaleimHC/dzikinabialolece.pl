@@ -16,6 +16,12 @@ export function animateOpacity(
       return;
     }
 
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+      map.setPaintProperty(layerId, property, Number.isFinite(to) ? to : 0);
+      resolve();
+      return;
+    }
+
     const start = performance.now();
 
     // Wyłącz natywne transition
