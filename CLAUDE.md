@@ -11,7 +11,7 @@ Portfolio project: wild boar risk mapping for Białołęka district (Warsaw).
 - **Stack:** Django 5 + PostGIS · React 18 + MapLibre GL · R 4.3 + spatialreg · Docker
 - **3 modes:** FAST (Python+SQL square grid) · PUB (R Voronoi) · RESEARCH (8-step R+Python pipeline)
 - **Goal:** publish-ready portfolio for technical recruiters
-- **Branch:** `refactor/phase-1` | **Decisions log:** `docs/DECISIONS.md`
+- **Branch:** `main` (refactor/phase-1 + repair/phase-1 + audit/docs-history merged) | **Decisions log:** `docs/DECISIONS.md`
 
 ## Working rules
 
