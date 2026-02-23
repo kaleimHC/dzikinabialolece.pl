@@ -4,7 +4,7 @@ Security Regression Test Suite — Dziki na Białołęce
 Verifies each security fix applied in recent commits:
 
   1. SQL injection blocked via grid_type / geometry_type allowlist validators
-  2. WebSocket rejects unauthenticated connections with close code 4001
+  2. WebSocket accepts anonymous connections [D-10] (portfolio, no login)
   3. Rate limit on POST /api/sightings/ is 100/hour
   4. NaN/Inf coordinates are rejected with HTTP 400
   5. Radius parameter capped at 50 km (no 500 error on huge values)
@@ -166,7 +166,7 @@ class TestSQLInjectionValidateLimit:
 
 
 # ---------------------------------------------------------------------------
-# 2. WEBSOCKET — unauthenticated connections rejected with code 4001
+# 2. WEBSOCKET — [D-10] anonymous connections must be accepted (portfolio public)
 # ---------------------------------------------------------------------------
 
 def _run_async(coro):
@@ -175,15 +175,14 @@ def _run_async(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-class TestWebSocketAuthRejection:
+class TestWebSocketPublicAccess:
     """
-    PipelineProgressConsumer.connect() must close(4001) for anonymous users.
-
-    We test the consumer logic directly — no live Channels layer needed.
-    Uses asyncio.run() so pytest-asyncio is not required.
+    [D-10] PipelineProgressConsumer.connect() must accept anonymous users.
+    The site has no login — rejecting anon with 4001 makes live progress unusable.
+    Polling fallback exists but WebSocket should be the primary path.
     """
 
-    def test_anonymous_user_gets_close_4001(self):
+    def test_anonymous_user_can_connect(self):
         from analytics.consumers import PipelineProgressConsumer
         from django.contrib.auth.models import AnonymousUser
 
@@ -196,17 +195,18 @@ class TestWebSocketAuthRejection:
             consumer.close = AsyncMock()
             consumer.accept = AsyncMock()
             consumer.send = AsyncMock()
-            consumer.channel_layer = MagicMock()
+            consumer.channel_layer = AsyncMock()
+            consumer.channel_layer.group_add = AsyncMock()
             consumer.channel_name = 'test_channel'
 
             await consumer.connect()
 
-            consumer.close.assert_called_once_with(code=4001)
-            consumer.accept.assert_not_called()
+            consumer.accept.assert_called_once()
+            consumer.close.assert_not_called()
 
         _run_async(_run())
 
-    def test_authenticated_user_can_connect(self):
+    def test_any_user_can_connect(self):
         from analytics.consumers import PipelineProgressConsumer
         from django.contrib.auth.models import User
 
@@ -230,35 +230,6 @@ class TestWebSocketAuthRejection:
 
             consumer.accept.assert_called_once()
             consumer.close.assert_not_called()
-
-        _run_async(_run())
-
-    def test_close_code_is_exactly_4001_not_1008(self):
-        """Spec says 4001 specifically — not 1008 (policy violation) or 4000."""
-        from analytics.consumers import PipelineProgressConsumer
-        from django.contrib.auth.models import AnonymousUser
-
-        async def _run():
-            consumer = PipelineProgressConsumer()
-            consumer.scope = {
-                'user': AnonymousUser(),
-                'url_route': {'kwargs': {'run_id': 'test-run-id'}},
-            }
-            consumer.close = AsyncMock()
-            consumer.accept = AsyncMock()
-            consumer.send = AsyncMock()
-            consumer.channel_layer = MagicMock()
-            consumer.channel_name = 'x'
-
-            await consumer.connect()
-
-            call_kwargs = consumer.close.call_args
-            assert call_kwargs is not None
-            # close(code=4001) — check positional or keyword
-            code = call_kwargs.kwargs.get('code') or (
-                call_kwargs.args[0] if call_kwargs.args else None
-            )
-            assert code == 4001, f"Expected close code 4001, got {code}"
 
         _run_async(_run())
 

@@ -134,12 +134,15 @@ export default function Header() {
                   ? {
                       backgroundColor: tk.encounter,
                       color: contrastColor(tk.encounter),
-                      border: `1px solid ${tk.encounter}`,
+                      borderTop: `1px solid ${tk.encounter}`,
+                      borderBottom: `1px solid ${tk.encounter}`,
+                      borderLeft: `1px solid ${tk.encounter}`,
+                      borderRight: linkedToggles ? "none" : `1px solid ${tk.encounter}`,
                     }
-                  : {}),
-                ...(linkedToggles
-                  ? { borderRadius: "8px 0 0 8px", borderRight: "none" }
-                  : {}),
+                  : linkedToggles
+                    ? { borderRight: "none" }
+                    : {}),
+                ...(linkedToggles ? { borderRadius: "8px 0 0 8px" } : {}),
               }}
             >
               <span>🗺️</span>
@@ -203,11 +206,16 @@ export default function Header() {
                   ? {
                       backgroundColor: tk.layerResearch,
                       color: contrastColorRgb(tk.layerResearch),
-                      border: `1px solid ${tk.layerResearch}`,
+                      borderTop: `1px solid ${tk.layerResearch}`,
+                      borderBottom: `1px solid ${tk.layerResearch}`,
+                      borderRight: `1px solid ${tk.layerResearch}`,
+                      borderLeft: linkedToggles ? "none" : `1px solid ${tk.layerResearch}`,
                     }
-                  : {}),
+                  : linkedToggles
+                    ? { borderLeft: "none" }
+                    : {}),
                 ...(linkedToggles
-                  ? { borderRadius: "0 8px 8px 0", borderLeft: "none" }
+                  ? { borderRadius: "0 8px 8px 0" }
                   : {}),
               }}
             >
