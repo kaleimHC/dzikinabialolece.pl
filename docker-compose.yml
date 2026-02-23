@@ -242,6 +242,8 @@ services:
     environment:
       PYTHONPATH: /app
       DJANGO_SETTINGS_MODULE: dziki.settings
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      DEBUG: ${DEBUG:-False}
       DB_NAME: dziki_db
       DB_USER: dziki
       DB_PASSWORD: ${DB_PASSWORD:-dziki_dev_password}

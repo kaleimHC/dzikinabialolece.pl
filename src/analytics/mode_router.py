@@ -115,7 +115,7 @@ def _run_fast_pipeline(run_id: str, config: dict, debug: DebugLogger) -> dict:
                         WHEN sighting_count = 2 THEN 0.75
                         ELSE 0.95
                     END,
-                    eta_score = CASE
+                    area_rank_score = CASE
                         WHEN sighting_count = 0 THEN 0.03
                         WHEN sighting_count = 1 THEN 0.25
                         WHEN sighting_count = 2 THEN 0.50

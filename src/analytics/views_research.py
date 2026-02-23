@@ -312,6 +312,15 @@ def run_pipeline(request):
             status=400,
         )
 
+    # 409 concurrency lock: reject if a run is already in progress
+    from .models_research import ResearchRun
+
+    if ResearchRun.objects.filter(status__in=["pending", "running"]).exists():
+        return Response(
+            {"error": "Pipeline already running. Wait for it to finish."},
+            status=409,
+        )
+
     logger.info(f"API: Starting ASYNC research pipeline with config '{config.name}'")
 
     # Count sightings for this run
@@ -327,9 +336,12 @@ def run_pipeline(request):
         cursor.execute(sql, params)
         n_sightings = cursor.fetchone()[0]
 
-    # Atomic: create run + dispatch task together — orphaned ResearchRun
-    # records (run exists but task never dispatched) corrupt WebSocket state.
+    # on_commit: dispatch task only after DB commit is visible to PgBouncer workers.
+    # .delay() inside atomic() causes "ResearchRun not found" when worker polls DB
+    # before the transaction commits (PgBouncer transaction pooling race).
     from django.db import transaction
+
+    run_id_str = None
 
     with transaction.atomic():
         run = ResearchRun.objects.create(
@@ -338,16 +350,16 @@ def run_pipeline(request):
             status="pending",
             n_sightings=n_sightings,
         )
-        task = run_research_pipeline.delay(str(run.id))
+        run_id_str = str(run.id)
+        transaction.on_commit(lambda: run_research_pipeline.delay(run_id_str))
 
     return Response(
         {
             "status": "pending",
-            "task_id": task.id,
-            "run_id": str(run.id),  # For WebSocket connection
+            "run_id": run_id_str,  # For WebSocket connection
             "config_id": config.id,
             "config_name": config.name,
-            "message": f"Pipeline started for '{config.name}'. Connect to ws://host/ws/research/run/{run.id}/ for live progress.",
+            "message": f"Pipeline started for '{config.name}'. Connect to ws://host/ws/research/run/{run_id_str}/ for live progress.",
         },
         status=202,
     )  # 202 Accepted

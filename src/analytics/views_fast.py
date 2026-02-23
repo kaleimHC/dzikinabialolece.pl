@@ -27,7 +27,7 @@ def grid_cells(request):
                 ST_AsGeoJSON(geometry) as geojson,
                 COALESCE(ensemble_risk, 0.05) as ensemble_risk,
                 COALESCE(confidence, 0.2) as confidence,
-                COALESCE(eta_score, 0) as eta_score,
+                COALESCE(area_rank_score, 0) as area_rank_score,
                 COALESCE(gwr_score, 0) as gwr_score,
                 ST_Area(geometry::geography) / 1000000.0 as area_km2
             FROM sightings_gridcell_square
@@ -43,7 +43,7 @@ def grid_cells(request):
         geojson,
         ensemble_risk,
         confidence,
-        eta_score,
+        area_rank_score,
         gwr_score,
         area_km2,
     ) in rows:
@@ -56,7 +56,7 @@ def grid_cells(request):
                     "sighting_count": sighting_count,
                     "risk": round(ensemble_risk, 3),
                     "confidence": round(confidence, 3),
-                    "eta_score": round(eta_score, 3),
+                    "area_rank_score": round(area_rank_score, 3),
                     "gwr_score": round(gwr_score, 3),
                     "area_km2": round(area_km2, 4) if area_km2 else 0,
                     "risk_source": "heuristic",
