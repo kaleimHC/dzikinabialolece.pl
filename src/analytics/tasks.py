@@ -306,7 +306,7 @@ def switch_sample_task(self, sample: str):
         raise ValueError(f"Invalid sample: {sample}")
 
     fixture_file = f"/fixtures/samples/{SAMPLE_FILES[sample]}"
-    total_steps = 4
+    total_steps = 3
 
     def update_progress(step, message):
         cache.set(
@@ -334,54 +334,7 @@ def switch_sample_task(self, sample: str):
         update_progress(2, "Ładowanie próby...")
         call_command("loaddata", fixture_file, verbosity=0)
 
-        update_progress(3, "Przeliczanie siatki...")
-
-        with connection.cursor() as cursor:
-            cursor.execute("UPDATE sightings_gridcell_square SET sighting_count = 0;")
-
-            # Count sightings per grid cell using spatial join (no grid_cell_id assignment)
-            cursor.execute("""
-                UPDATE sightings_gridcell_square g SET sighting_count = COALESCE(subq.cnt, 0)
-                FROM (
-                    SELECT gc.grid_id, COUNT(s.id) as cnt
-                    FROM sightings_gridcell_square gc
-                    LEFT JOIN sightings_sighting s ON ST_Contains(gc.geometry, s.location)
-                    WHERE s.status = 'verified' OR s.id IS NULL
-                    GROUP BY gc.grid_id
-                ) subq
-                WHERE g.grid_id = subq.grid_id;
-            """)
-
-            # EPSG:2180 for area avoids latitude bias in density calculation
-            cursor.execute("""
-                UPDATE sightings_gridcell_square
-                SET sighting_density = sighting_count / NULLIF(ST_Area(ST_Transform(geometry, 2180)) / 1000000.0, 0);
-            """)
-
-            # Fixed thresholds based on data distribution (replaces PERCENT_RANK)
-            cursor.execute("""
-                UPDATE sightings_gridcell_square
-                SET ensemble_risk = CASE
-                        WHEN sighting_count = 0 THEN 0.05
-                        WHEN sighting_count = 1 THEN 0.40
-                        WHEN sighting_count = 2 THEN 0.75
-                        ELSE 0.95
-                    END,
-                    area_rank_score = CASE
-                        WHEN sighting_count = 0 THEN 0.03
-                        WHEN sighting_count = 1 THEN 0.25
-                        WHEN sighting_count = 2 THEN 0.50
-                        ELSE 0.70
-                    END,
-                    gwr_score = CASE
-                        WHEN sighting_count = 0 THEN 0.02
-                        WHEN sighting_count = 1 THEN 0.20
-                        WHEN sighting_count = 2 THEN 0.45
-                        ELSE 0.65
-                    END;
-            """)
-
-        update_progress(4, "Weryfikacja...")
+        update_progress(3, "Weryfikacja...")
 
         from sightings.models import Sighting
 
