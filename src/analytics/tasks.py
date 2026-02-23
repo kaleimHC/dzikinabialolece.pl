@@ -10,6 +10,9 @@ from django.core.cache import cache
 from django.db import connection
 import logging
 
+# mode_router defines run_pipeline as @shared_task but is not named tasks.py,
+# so Celery autodiscover_tasks() misses it. Import here to register it.
+from analytics.mode_router import run_pipeline as _run_pipeline_task  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
