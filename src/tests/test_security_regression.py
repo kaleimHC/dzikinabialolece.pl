@@ -18,7 +18,7 @@ Run:
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient, APIRequestFactory
 from django.contrib.auth.models import User
 
@@ -353,6 +353,8 @@ class TestNaNCoordinateHTTPResponse(TestCase):
     """Integration: POST /api/sightings/ with NaN returns 400, not 500."""
 
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # reset throttle counters for clean isolation
         self.client = APIClient()
 
     def test_nan_latitude_returns_400(self):
@@ -521,6 +523,8 @@ class TestBoundaryValidation(TestCase):
     """
 
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # reset throttle counters for clean isolation
         self.client = APIClient()
 
     def _post_sighting(self, lat, lng):
@@ -546,8 +550,10 @@ class TestBoundaryValidation(TestCase):
 
     @patch('sightings.serializers.WarsawBoundary.contains_point', return_value=False)
     def test_outside_boundary_error_message_in_polish(self, _mock):
-        """Error message for out-of-boundary must reference 'Warszawa'."""
-        response = self._post_sighting(lat=52.5, lng=13.4)
+        """Error message for out-of-boundary must reference 'Warszawa'.
+        Uses valid Warsaw-range coords (pass field validation) so mock triggers boundary rejection.
+        """
+        response = self._post_sighting(lat=52.2, lng=21.0)
         body = response.json()
         body_str = str(body)
         assert 'Warszawa' in body_str or 'Warsaw' in body_str or 'location' in body_str, (
@@ -658,6 +664,8 @@ def test_research_run_second_request_returns_409():
 @pytest.mark.django_db
 def test_sighting_post_returns_201():
     """[D-10] Anonymous POST to /api/sightings/ with valid payload must return 201."""
+    from django.core.cache import cache
+    cache.clear()  # reset throttle counters for clean isolation
     client = APIClient()
     payload = {
         "latitude": 52.33,

@@ -230,7 +230,7 @@ grid_cells$sighting_count <- lengths(st_intersects(grid_cells, sightings))`}</Co
       <FileRef path="r_scripts/01_generate_voronoi.R" lines="206–240" />
       <p className="text-gray-400 mb-2">
         Reużywa siatki GUS 500m zamiast generować nową — bezpośredni JOIN z
-        bazą. Efekt: &lt;100 komórek (granice Białołęki vs pełna siatka GUS).
+        bazą. Efekt: 342 komórki w granicach Białołęki (próba=pelna).
       </p>
       <Code>{`# grid_500 — reużywamy siatki GUS (1:1 alignment z population grid)
 } else if (geometry_type == "grid_500") {
@@ -244,7 +244,7 @@ grid_cells$sighting_count <- lengths(st_intersects(grid_cells, sightings))`}</Co
     LEFT JOIN sightings s ON ST_Within(ST_SetSRID(
                              ST_MakePoint(s.longitude, s.latitude), 4326),
                              g.geom_4326)
-               AND s.status = 'VERIFIED'
+               AND s.status = 'verified'
     GROUP BY g.cell_id, g.geom_4326
     ORDER BY g.cell_id
   "))`}</Code>

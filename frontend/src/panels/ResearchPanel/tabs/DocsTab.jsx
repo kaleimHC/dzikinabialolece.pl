@@ -126,7 +126,7 @@ const PipelineOverview = () => (
     </div>
 
     <h3 className="text-lg font-semibold text-white mt-6">Przepływ danych</h3>
-    <Code>{`sightings (punkty, status=VERIFIED)
+    <Code>{`sightings (punkty, status=verified)
   ↓ 01_geometry   — Voronoi tessellation lub grid 500m → DB
   ↓ 02_population — JOIN z GUS 500m grid → population per komórka
   ↓ 03_osm        — 5 predyktorów OSM → forest, roads, buildings, water, barriers
