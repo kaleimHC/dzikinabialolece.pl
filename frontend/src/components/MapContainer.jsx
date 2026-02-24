@@ -832,25 +832,29 @@ export default function MapContainer() {
         3000,
         tk.heatmap.population.s6,
       ]);
-      m.setPaintProperty("population-fill", "fill-opacity", [
-        "interpolate",
-        ["linear"],
-        ["get", "tot"],
-        0,
-        0.3,
-        10,
-        0.4,
-        100,
-        0.5,
-        300,
-        0.55,
-        700,
-        0.6,
-        1500,
-        0.65,
-        3000,
-        0.7,
-      ]);
+      // Only restore data-driven opacity expression when layer is visible.
+      // If toggle is OFF, scalar 0 set by useOsmLayerTransition must not be overwritten.
+      if (visibleLayers?.population) {
+        m.setPaintProperty("population-fill", "fill-opacity", [
+          "interpolate",
+          ["linear"],
+          ["get", "tot"],
+          0,
+          0.3,
+          10,
+          0.4,
+          100,
+          0.5,
+          300,
+          0.55,
+          700,
+          0.6,
+          1500,
+          0.65,
+          3000,
+          0.7,
+        ]);
+      }
     }
 
     if (m.getLayer("bayesian-heatmap")) {
