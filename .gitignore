@@ -63,3 +63,19 @@ config/pgbouncer/userlist.txt
 # Internal process docs
 REFACTOR_LOG.md
 docs_internal/
+
+# Claude Code state
+.claude/
+
+# Project meta-prompts (not code)
+MASTER_PROMPT_DZIKI_CEO.md
+manifestClaudeCEO.txt
+manifestNotebooka.txt
+
+# PII-adjacent / full DB dumps — never track
+fixtures/sightings_raw.json
+fixtures/snapshots/
+
+# QA / tmp artifacts
+/tmp/qa_*
+/tmp/sightings_backup_*
