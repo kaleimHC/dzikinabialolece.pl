@@ -104,6 +104,32 @@ export function useOsmLayerTransition(mapRef, mapReady, visibleLayers) {
   const loadedLayersRef = useRef(new Set());
   const prevVisibleRef = useRef({});
   const animatingRef = useRef({});
+  const visibleLayersRef = useRef(visibleLayers);
+
+  useEffect(() => {
+    visibleLayersRef.current = visibleLayers;
+  });
+
+  // If toggle changed while an animation was running (animatingRef blocked re-processing),
+  // sync the layer to the current desired state once the animation finishes.
+  const resolveStaleToggle = (key, config, map, opacityProp) => {
+    const desired = visibleLayersRef.current?.[key] ?? false;
+    if (desired === prevVisibleRef.current[key]) return;
+    prevVisibleRef.current[key] = desired;
+    const fadeTo = desired ? config.targetOpacity : 0;
+    const raw = map.getPaintProperty(config.layerId, opacityProp);
+    const fadeFrom =
+      typeof raw === "number" && Number.isFinite(raw)
+        ? raw
+        : desired ? 0 : config.targetOpacity;
+    animatingRef.current[key] = true;
+    animateOpacity(map, config.layerId, opacityProp, fadeFrom, fadeTo, FADE_DURATION).then(
+      () => { animatingRef.current[key] = false; },
+    );
+    if (config.outlineLayerId && map.getLayer(config.outlineLayerId)) {
+      map.setPaintProperty(config.outlineLayerId, "line-opacity", desired ? config.outlineOpacity : 0);
+    }
+  };
 
   // Inicjalizacja - wszystkie warstwy niewidoczne
   useEffect(() => {
@@ -226,6 +252,7 @@ export function useOsmLayerTransition(mapRef, mapReady, visibleLayers) {
               loadedLayersRef.current.delete(key);
             } finally {
               animatingRef.current[key] = false;
+              resolveStaleToggle(key, config, map, opacityProp);
             }
           })();
         } else {
@@ -250,6 +277,7 @@ export function useOsmLayerTransition(mapRef, mapReady, visibleLayers) {
               );
             }
             animatingRef.current[key] = false;
+            resolveStaleToggle(key, config, map, opacityProp);
           });
         }
       } else {
@@ -272,6 +300,7 @@ export function useOsmLayerTransition(mapRef, mapReady, visibleLayers) {
             map.setPaintProperty(config.outlineLayerId, "line-opacity", 0);
           }
           animatingRef.current[key] = false;
+          resolveStaleToggle(key, config, map, opacityProp);
         });
       }
     });

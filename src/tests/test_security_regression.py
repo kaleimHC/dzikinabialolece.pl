@@ -629,3 +629,55 @@ def test_portfolio_endpoint_not_401_db(method, path):
     assert response.status_code not in (401, 403), (
         f"[D-10] {method} {path}: returned {response.status_code} — must be publicly accessible"
     )
+
+
+# ---------------------------------------------------------------------------
+# 7. ADDITIONAL CONTRACT TESTS — concurrency lock, sightings, throttle
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_research_run_second_request_returns_409():
+    """[D-10+on_commit] Second POST to /api/research/run/ while one is pending must return 409."""
+    from analytics.models_research import ResearchRun, ResearchConfig
+    config = ResearchConfig.objects.filter(geometry_type="grid_500").first()
+    if config is None:
+        pytest.skip("No grid_500 research config in DB")
+    ResearchRun.objects.create(
+        config=config,
+        config_snapshot={},
+        status="running",
+        n_sightings=0,
+    )
+    client = APIClient()
+    response = client.post("/api/research/run/", {"config_id": config.id}, format="json")
+    assert response.status_code == 409, (
+        f"Expected 409 for concurrent run, got {response.status_code}"
+    )
+
+
+@pytest.mark.django_db
+def test_sighting_post_returns_201():
+    """[D-10] Anonymous POST to /api/sightings/ with valid payload must return 201."""
+    client = APIClient()
+    payload = {
+        "latitude": 52.33,
+        "longitude": 20.98,
+        "boar_count": "1",
+        "sighting_type": "encounter",
+        "description": "QA-CONTRACT-TEST",
+    }
+    response = client.post("/api/sightings/", payload, format="json")
+    assert response.status_code == 201, (
+        f"POST /api/sightings/ returned {response.status_code}, expected 201"
+    )
+
+
+@pytest.mark.django_db
+def test_rapid_get_configs_no_throttle():
+    """[D-10] 10 rapid anonymous GET /api/research/configs/ must not trigger 429."""
+    client = APIClient()
+    for i in range(10):
+        response = client.get("/api/research/configs/")
+        assert response.status_code != 429, (
+            f"GET /api/research/configs/ hit throttle at request #{i+1}"
+        )

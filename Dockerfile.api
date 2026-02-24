@@ -44,12 +44,12 @@ ENV CPLUS_INCLUDE_PATH=/usr/include/gdal \
 WORKDIR /build
 
 # Layer caching: copy requirements first (DR-2 optimization)
-COPY requirements.txt .
+COPY requirements.txt requirements-test.txt ./
 
 # Install Python dependencies with cache mount (DR-2 BuildKit)
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir --upgrade pip && \
-    pip wheel --no-cache-dir --wheel-dir /build/wheels -r requirements.txt
+    pip wheel --no-cache-dir --wheel-dir /build/wheels -r requirements.txt -r requirements-test.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime - finalny obraz

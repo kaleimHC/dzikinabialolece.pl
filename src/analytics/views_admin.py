@@ -889,7 +889,14 @@ def run_mode_pipeline(request):
     config = MODE_CONFIG[mode]
 
     if run_async:
-        task = run_pipeline.delay(mode=mode)
+        try:
+            task = run_pipeline.delay(mode=mode)
+        except Exception as exc:
+            logger.exception("run_pipeline.delay() failed for mode=%s", mode)
+            return Response(
+                {"status": "error", "mode": mode, "message": f"Task dispatch failed: {exc}"},
+                status=503,
+            )
 
         cache.set(
             f"pipeline_task:{task.id}",
