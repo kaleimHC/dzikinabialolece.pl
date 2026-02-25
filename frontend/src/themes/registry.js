@@ -34,7 +34,7 @@ export const themes = {
       forest: "#16A34A",
       building: "#6B7280",
       road: "#F59E0B",
-      boundary: "#60a5fa",
+      boundary: "#BFDBFE",
       river: "#3b82f6",
       encounter: "#10B981",
       encounterCluster: "#059669",
@@ -43,7 +43,7 @@ export const themes = {
       ryjowiskoCluster: "#D97706",
       ryjowiskoLarge: "#B45309",
       osm: {
-        forests: "#16A34A",
+        forests: "#166534",
         scrub: "#65A30D",
         meadows: "#84CC16",
         parks: "#06B6D4",
