@@ -140,6 +140,7 @@ export const themes = {
       "border-width": "1px",
     },
     map: {
+      riskLowTransparent: true,
       water: "#B8B2B0",
       forest: "#C8C2BA",
       building: "#D6CFC9",
@@ -250,6 +251,7 @@ export const themes = {
       "border-width": "1px",
     },
     map: {
+      riskLowTransparent: true,
       water: "#1A3548",
       forest: "#1A2A1C",
       building: "#222621",
@@ -361,6 +363,7 @@ export const themes = {
       "border-width": "1px",
     },
     map: {
+      riskLowTransparent: true,
       water: "#1B1138",
       forest: "#170824",
       building: "#1A1024",
@@ -472,6 +475,7 @@ export const themes = {
       "border-width": "1px",
     },
     map: {
+      riskLowTransparent: true,
       water: "#A8BFC5",
       forest: "#C8C99A",
       building: "#C9B68A",
@@ -583,6 +587,7 @@ export const themes = {
       "border-width": "2px",
     },
     map: {
+      riskLowTransparent: true,
       water: "#A89F91",
       forest: "#9CAF88",
       building: "#C9B8A2",
@@ -694,6 +699,7 @@ export const themes = {
       "border-width": "1px",
     },
     map: {
+      riskLowTransparent: true,
       water: "#7088B8",
       forest: "#A8B898",
       building: "#2A3245",

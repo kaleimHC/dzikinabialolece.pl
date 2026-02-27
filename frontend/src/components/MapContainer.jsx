@@ -14,6 +14,12 @@ import { hookMapLibre } from "../utils/qaLogger";
 
 const MAP_STYLE = "/styles/dark-wildlife.json?v=1766865415694";
 
+const riskOpacity = (lowTransparent) =>
+  lowTransparent
+    ? ["interpolate", ["linear"], ["get", "risk"],
+        0.0, 0.15, 0.35, 0.38, 0.6, 0.62, 1.0, 0.82]
+    : 0.65;
+
 export default function MapContainer() {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -350,7 +356,7 @@ export default function MapContainer() {
             1.0,
             tk.heatmap.risk.s7,
           ],
-          "fill-opacity": 0.65,
+          "fill-opacity": riskOpacity(tk.riskLowTransparent),
         },
       });
       map.addLayer({
@@ -789,7 +795,7 @@ export default function MapContainer() {
       if (m.getLayer(id)) m.setPaintProperty(id, prop, val);
     });
 
-    if (m.getLayer("risk-fill"))
+    if (m.getLayer("risk-fill")) {
       m.setPaintProperty("risk-fill", "fill-color", [
         "interpolate",
         ["linear"],
@@ -811,6 +817,8 @@ export default function MapContainer() {
         1.0,
         tk.heatmap.risk.s7,
       ]);
+      m.setPaintProperty("risk-fill", "fill-opacity", riskOpacity(tk.riskLowTransparent));
+    }
 
     if (m.getLayer("population-fill")) {
       m.setPaintProperty("population-fill", "fill-color", [

@@ -64,6 +64,7 @@ export function getTokens(themeName = "current-dark") {
         s4: "#991b1b",
       },
     },
+    riskLowTransparent: m.riskLowTransparent ?? false,
     boundary: m.boundary || "#60a5fa",
     river: m.river || "#3b82f6",
     wmatrix: rgb(p["color-layer-wmatrix"]),
