@@ -70,7 +70,7 @@ const fetchComputedResearchGeometry = async () => {
 const MODES = [
   { id: "fast", label: "fastPython" },
   { id: "publication", label: "voronoiGrids" },
-  { id: "research", label: "spatialWarsaw" },
+  { id: "research", label: "spatialModel" },
 ];
 
 export default function RecalcPanel({ embedded = false }) {
@@ -217,7 +217,7 @@ export default function RecalcPanel({ embedded = false }) {
         }
       } else {
         // PUB or RESEARCH mode - async R pipeline
-        // PUB = voronoi grid, RESEARCH = research grid (spatialWarsaw experiments)
+        // PUB = voronoi grid, RESEARCH = research grid (spatialModel experiments)
         const pipelineMode = isResearchMode ? "RESEARCH" : "PUB";
         const res = await fetch("/api/analytics/pipeline/", {
           method: "POST",

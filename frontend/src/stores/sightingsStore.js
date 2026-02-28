@@ -167,7 +167,7 @@ export const useSightingsStore = create(
         },
       })),
 
-    // Display mode: 'fast' (heuristic), 'publication' (voronoi), or 'research' (spatialWarsaw)
+    // Display mode: 'fast' (heuristic), 'publication' (voronoi), or 'research' (spatialModel)
     displayMode: "fast",
     setDisplayMode: (mode) =>
       set((state) => {

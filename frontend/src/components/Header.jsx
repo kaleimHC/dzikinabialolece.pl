@@ -102,7 +102,7 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-0">
-          {/* Macierz W — tylko w trybie research/spatialWarsaw */}
+          {/* Macierz W — tylko w trybie research/spatialModel */}
           <AnimatePresence>
             {!isMobile && displayMode === "research" && (
               <motion.button

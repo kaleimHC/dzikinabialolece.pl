@@ -1,7 +1,7 @@
 /**
  * ResearchPanel - Tryb Badawczy
  *
- * Fullscreen modal dokumentujący metodologię spatialWarsaw.
+ * Fullscreen modal dokumentujący metodologię spatialModel.
  *
  * @version 2.0.0
  * @date 2026-01-18
@@ -51,7 +51,7 @@ const ResearchPanel = () => {
             <div>
               <h1 className="text-xl font-bold">Tryb Badawczy</h1>
               <p className="text-sm text-gray-400">
-                Metodologia: spatialWarsaw
+                Metodologia: spatialModel
               </p>
             </div>
           </div>

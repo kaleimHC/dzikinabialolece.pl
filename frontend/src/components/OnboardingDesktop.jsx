@@ -28,7 +28,7 @@ const TARGETS = [
     title: "Oblicz strefy ryzyka",
     body: (
       <>
-        Wybierz algorytm (fastPython, voronoiGrids, spatialWarsaw)
+        Wybierz algorytm (fastPython, voronoiGrids, spatialModel)
         <br />i przelicz - wynik pojawia się na mapie.
       </>
     ),

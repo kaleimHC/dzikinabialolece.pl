@@ -113,9 +113,9 @@ export const ETA = {
   status: "verified",
   statusEmoji: "✅",
   description: `
-    Dla geolokalnych wzorców punktowych obliczany jest stopień aglomeracji.
-    Jest wyrażony jako względna entropia Shannona względnych powierzchni
-    kafelków teselacji wyprowadzonych jako poligony Voronoi.
+    ETA mierzy stopień aglomeracji geolokalnych wzorców punktowych.
+    Wyraża go względna entropia Shannona udziałów powierzchni
+    kafelków teselacji Voronoi.
 
     ETA przyjmuje wartości między 0 a 1:
     - Wartości bliskie 1 odzwierciedlają silnie rozproszone punkty i przestrzennie równomierny rozkład
@@ -236,7 +236,7 @@ export const SAR = {
   statusEmoji: "✅",
   description: `
     Model autoregresji przestrzennej (Spatial Lag Model). Część zmiennej
-    zależnej jest wyjaśniana przez wartości sąsiadów (spatial lag).
+    zależnej wyjaśniają wartości sąsiadów (spatial lag).
 
     Wzór: y = ρWy + Xβ + ε
 
@@ -351,8 +351,8 @@ export const SEM = {
   status: "verified",
   statusEmoji: "✅",
   description: `
-    Model błędów przestrzennych. Błędy modelu są skorelowane przestrzennie,
-    co odzwierciedla pominięte zmienne o charakterze przestrzennym.
+    Model błędów przestrzennych. Błędy modelu korelują przestrzennie
+    - odzwierciedlają pominięte zmienne o charakterze przestrzennym.
 
     Wzór: y = Xβ + u, gdzie u = λWu + ε
 
@@ -640,7 +640,7 @@ export const INVERSE_AREA_ARCHITECTURE = {
     - Duży relative_area → niskie intensity → niskie ryzyko
     - Mały relative_area → wysokie intensity → wysokie ryzyko
 
-    To pozwala ominąć problem danych zliczeniowych (count data) — brak wariancji, założenie Gaussa nie obowiązuje —
+    To pozwala ominąć problem danych zliczeniowych (count data) - brak wariancji, założenie Gaussa nie obowiązuje -
     zachowując zgodność z duchem metodyki Kopczewskiej.
   `.trim(),
 
