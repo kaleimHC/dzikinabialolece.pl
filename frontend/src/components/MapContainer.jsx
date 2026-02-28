@@ -17,7 +17,7 @@ const MAP_STYLE = "/styles/dark-wildlife.json?v=1766865415694";
 const riskOpacity = (lowTransparent) =>
   lowTransparent
     ? ["interpolate", ["linear"], ["get", "risk"],
-        0.0, 0.15, 0.35, 0.38, 0.6, 0.62, 1.0, 0.82]
+        0.0, 0.12, 0.08, 0.68, 1.0, 0.85]
     : 0.65;
 
 export default function MapContainer() {
