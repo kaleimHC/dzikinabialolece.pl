@@ -109,12 +109,21 @@ class Command(BaseCommand):
                 WITH bialoleka AS (
                     SELECT geom FROM boundaries WHERE name = 'bialoleka'
                 ),
+                bounds AS (
+                    SELECT
+                        floor((ST_XMin(ST_Extent(geom)) - 0.002) / 0.001) * 0.001 AS x_min,
+                        floor((ST_YMin(ST_Extent(geom)) - 0.002) / 0.001) * 0.001 AS y_min,
+                        ceil( (ST_XMax(ST_Extent(geom)) + 0.002) / 0.001) * 0.001 AS x_max,
+                        ceil( (ST_YMax(ST_Extent(geom)) + 0.002) / 0.001) * 0.001 AS y_max
+                    FROM boundaries WHERE name = 'bialoleka'
+                ),
                 raw_grid AS (
                     SELECT
                         ROW_NUMBER() OVER () as id,
                         ST_SetSRID(ST_MakeEnvelope(x, y, x + 0.001, y + 0.001, 4326), 4326) as geom
-                    FROM generate_series(20.92, 21.09, 0.001) x,
-                         generate_series(52.28, 52.37, 0.001) y
+                    FROM bounds,
+                         generate_series(x_min::numeric, x_max::numeric, 0.001::numeric) x,
+                         generate_series(y_min::numeric, y_max::numeric, 0.001::numeric) y
                 ),
                 grid_in_bialoleka AS (
                     SELECT g.id, ST_Intersection(g.geom, b.geom) as geom

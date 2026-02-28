@@ -1,4 +1,4 @@
-Package: spatialModel
+Package: spatialWarsaw
 Type: Package
 Date: 2024-06-13
 Title: Spatial analysis on geolocalised point data including clustering measures and bootstrap methods 

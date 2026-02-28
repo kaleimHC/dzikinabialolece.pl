@@ -60,9 +60,12 @@ config/pgbouncer/userlist.txt
 *.pem
 *.key
 
-# Internal process docs
-REFACTOR_LOG.md
+# Documentation (non-functional, tracked locally only)
+docs/
 docs_internal/
+DECISIONS.md
+REFACTOR_LOG.md
+TESTING.md
 
 # Claude Code state
 .claude/
@@ -72,9 +75,9 @@ MASTER_PROMPT_DZIKI_CEO.md
 manifestClaudeCEO.txt
 manifestNotebooka.txt
 
-# PII-adjacent / full DB dumps — never track
-fixtures/sightings_raw.json
-fixtures/snapshots/
+# Runtime / research data
+data/
+fixtures/
 
 # QA / tmp artifacts
 /tmp/qa_*

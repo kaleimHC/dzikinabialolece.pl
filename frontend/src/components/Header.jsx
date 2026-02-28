@@ -74,6 +74,7 @@ export default function Header() {
           {/* Logo — cycles through themes on click */}
           <motion.button
             data-qa="header.theme-cycle"
+            data-onboard="theme-cycle"
             onClick={cycleTheme}
             whileHover={{ scale: 1.12, rotate: 8 }}
             whileTap={{ scale: 0.82, rotate: -18 }}
@@ -102,7 +103,7 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-0">
-          {/* Macierz W — tylko w trybie research/spatialModel */}
+          {/* Macierz W — tylko w trybie research */}
           <AnimatePresence>
             {!isMobile && displayMode === "research" && (
               <motion.button

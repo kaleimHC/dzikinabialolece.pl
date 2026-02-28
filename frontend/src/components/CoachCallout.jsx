@@ -5,6 +5,7 @@ import { computeAnchor } from "../utils/computeAnchor";
 export function CoachCallout({
   selector,
   anchor,
+  offsetY = 0,
   n,
   label,
   title,
@@ -14,7 +15,7 @@ export function CoachCallout({
   const rect = useElementRect(selector);
   if (!rect) return null;
 
-  const pos = computeAnchor(rect, anchor);
+  const pos = computeAnchor(rect, anchor, offsetY);
 
   return (
     <motion.div

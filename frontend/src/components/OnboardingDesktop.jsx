@@ -6,16 +6,23 @@ import { CoachCallout } from "./CoachCallout";
 
 const TARGETS = [
   {
-    id: "layers",
+    id: "theme",
     n: 1,
+    label: "Motyw kolorystyczny",
+    title: "Zmień paletę kolorów",
+    body: "Przełączaj między motywami mapy - znajdź najczytelniejszy.",
+    selector: '[data-onboard="theme-cycle"]',
+    anchor: "below-left",
+  },
+  {
+    id: "layers",
+    n: 2,
     label: "Warstwy mapy",
     title: "12 warstw OpenStreetMap",
     body: (
       <>
         Lasy, woda, zabudowa, drogi
-        <br />- włącz kontekst środowiskowy
-        <br />
-        na tle danych obserwacji.
+        <br />- włącz kontekst środowiskowy.
       </>
     ),
     selector: '[data-onboard="mode-toggle"]',
@@ -23,22 +30,18 @@ const TARGETS = [
   },
   {
     id: "calc",
-    n: 2,
+    n: 3,
     label: "Model ryzyka",
     title: "Oblicz strefy ryzyka",
-    body: (
-      <>
-        Wybierz algorytm (fastPython, voronoiGrids, spatialModel)
-        <br />i przelicz - wynik pojawia się na mapie.
-      </>
-    ),
+    body: "Wybierz wielkość próby oraz algorytm i przelicz - wynik pojawia się na mapie.",
     selector: '[data-onboard="calc-panel"]',
     anchor: "right-of",
+    offsetY: 80,
   },
   {
     id: "report",
-    n: 3,
-    label: "Zgłoszenie",
+    n: 4,
+    label: "Zgłoszenie obserwacji",
     title: "Widziałeś dzika?",
     body: "Kliknij +, ustaw pin na miejscu spotkania i wyślij. Obserwacja trafia do modelu od razu.",
     selector: '[data-onboard="report-fab"]',

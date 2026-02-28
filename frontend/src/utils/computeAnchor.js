@@ -3,7 +3,7 @@ const CALLOUT_W = 264;
 const CALLOUT_H = 145;
 const MARGIN = 10;
 
-export function computeAnchor(rect, anchor) {
+export function computeAnchor(rect, anchor, offsetY = 0) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
@@ -31,6 +31,7 @@ export function computeAnchor(rect, anchor) {
       left = rect.left;
   }
 
+  top += offsetY;
   top = Math.max(MARGIN, Math.min(vh - CALLOUT_H - MARGIN, top));
   left = Math.max(MARGIN, Math.min(vw - CALLOUT_W - MARGIN, left));
 

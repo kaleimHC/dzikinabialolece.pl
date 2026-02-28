@@ -817,7 +817,12 @@ export default function MapContainer() {
         1.0,
         tk.heatmap.risk.s7,
       ]);
-      m.setPaintProperty("risk-fill", "fill-opacity", riskOpacity(tk.riskLowTransparent));
+      // Guard: don't overwrite opacity=0 managed by useGridTransition when toggle is OFF.
+      // Population-fill has the same guard (see below). Both: colour can always change,
+      // opacity must not resurrect a layer the user explicitly hid.
+      if (m.getPaintProperty("risk-fill", "fill-opacity") !== 0) {
+        m.setPaintProperty("risk-fill", "fill-opacity", riskOpacity(tk.riskLowTransparent));
+      }
     }
 
     if (m.getLayer("population-fill")) {

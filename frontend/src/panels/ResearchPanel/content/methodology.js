@@ -1,5 +1,5 @@
 /**
- * methodology.js - Dokumentacja metodologii spatialModel
+ * methodology.js - Dokumentacja metodologii spatialWarsaw
  *
  * Źródło prawdy dla tessW i ETA.
  * Używane przez DocsTab.jsx do renderowania dokumentacji.
@@ -17,7 +17,7 @@ export const TESSW = {
   fullName:
     "Contiguity spatial weight matrix for point data based on Voronoi tessellation",
   source: {
-    package: "spatialModel",
+    package: "spatialWarsaw",
     file: "R/W_matrix.R",
     lines: "42-103",
     author: "Katarzyna Kopczewska",
@@ -95,7 +95,7 @@ export const ETA = {
   name: "ETA",
   fullName: "Entropy and Tessellation for Agglomeration",
   source: {
-    package: "spatialModel",
+    package: "spatialWarsaw",
     file: "R/eta.R",
     lines: "68-142",
     author: "Katarzyna Kopczewska",
@@ -182,7 +182,7 @@ ETA <- function(points_sf, region_sf, sample_size) {
       type: "critical",
       message: "ETA jest wartością GLOBALNĄ dla całego zbioru punktów",
       detail:
-        'NIE istnieje "eta_local" ani "eta per cell" w oryginalnym spatialModel',
+        'NIE istnieje "eta_local" ani "eta per cell" w oryginalnym spatialWarsaw',
     },
     {
       type: "info",
@@ -408,7 +408,7 @@ export const REMOVED_HALLUCINATIONS = [
     formula: "M(n) = 0.015 × log(n) + 0.8957",
     where: "Stary 02_compute_tessw_eta.R, linie 161-167",
     why: `
-      Ta formuła NIE ISTNIEJE w oryginalnym spatialModel.
+      Ta formuła NIE ISTNIEJE w oryginalnym spatialWarsaw.
       Została prawdopodobnie wygenerowana przez LLM jako "poprawa"
       porównywalności między zbiorami o różnej liczbie obserwacji.
       W rzeczywistości ETA jest już znormalizowana przez H_max = log(n),
@@ -423,9 +423,9 @@ export const REMOVED_HALLUCINATIONS = [
     formula: "eta_local = 1 - (tile_area / mean(tile_area))",
     where: "Stary 02_compute_tessw_eta.R, linie 237-240",
     why: `
-      ETA w oryginalnym spatialModel jest wartością GLOBALNĄ.
+      ETA w oryginalnym spatialWarsaw jest wartością GLOBALNĄ.
       "eta_local" to wymysł - nie ma takiego pojęcia w literaturze
-      Kopczewskiej ani w kodzie pakietu spatialModel.
+      Kopczewskiej ani w kodzie pakietu spatialWarsaw.
     `.trim(),
     evidence:
       'grep -n "eta_local" /opt/dziki/spatialModel/R/*.R → brak wyników',
@@ -479,7 +479,7 @@ export const CURRENT_VALUES_FALLBACK = {
 export const PHASE_G_DISCOVERIES = {
   title: "Odkrycia Fazy G - Problemy metodologiczne",
   date: "2026-01-19",
-  summary: "Audyt zgodności z spatialModel ujawnił fundamentalne problemy.",
+  summary: "Audyt zgodności z spatialWarsaw ujawnił fundamentalne problemy.",
 
   discoveries: [
     {
@@ -528,7 +528,7 @@ export const PHASE_G_DISCOVERIES = {
     },
     {
       id: "G4",
-      title: "spatialModel NIE MA modeli dla count data",
+      title: "spatialWarsaw NIE MA modeli dla count data",
       status: "limitation",
       statusEmoji: "❌",
       description: `
@@ -554,7 +554,7 @@ export const PHASE_G_DISCOVERIES = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const SPATIALWARSAW_FUNCTIONS = {
-  title: "Funkcje spatialModel - mapa użycia w projekcie",
+  title: "Funkcje spatialWarsaw - mapa użycia w projekcie",
 
   used: [
     {
@@ -633,7 +633,7 @@ export const INVERSE_AREA_ARCHITECTURE = {
   date: "2026-01-19",
 
   rationale: `
-    ETA() z spatialModel używa relative_area = area_tile / sum(area) do entropii.
+    ETA() z spatialWarsaw używa relative_area = area_tile / sum(area) do entropii.
     Mały Voronoi tile = gęste obserwacje = wysokie ryzyko.
 
     Odwracając logikę ETA: intensity = 1 / relative_area
@@ -740,7 +740,7 @@ export const METHODOLOGY_SUMMARY = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const COUNT_DATA_PROBLEM = {
-  title: "Problem count data w kontekście spatialModel",
+  title: "Problem count data w kontekście spatialWarsaw",
 
   kopczewskaApproach: {
     data: "firms_sf - dane firmowe z atrybutami",
