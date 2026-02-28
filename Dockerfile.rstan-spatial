@@ -55,11 +55,11 @@ RUN R -e "install.packages(c( \
 # Working directory
 WORKDIR /app
 
-# Copy spatialWarsaw package (local)
-COPY spatialWarsaw/ /app/spatialWarsaw/
+# Copy spatialModel package (local adaptation)
+COPY spatialModel/ /app/spatialModel/
 
-# Install spatialWarsaw from local source
-RUN R -e "install.packages('/app/spatialWarsaw', repos=NULL, type='source')"
+# Install spatialModel from local source
+RUN R -e "install.packages('/app/spatialModel', repos=NULL, type='source')"
 
 # Copy R scripts
 COPY r_scripts/ /app/r_scripts/

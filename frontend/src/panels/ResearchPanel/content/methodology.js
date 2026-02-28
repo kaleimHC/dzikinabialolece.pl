@@ -1,5 +1,5 @@
 /**
- * methodology.js - Dokumentacja metodologii spatialWarsaw
+ * methodology.js - Dokumentacja metodologii spatialModel
  *
  * Źródło prawdy dla tessW i ETA.
  * Używane przez DocsTab.jsx do renderowania dokumentacji.
@@ -17,7 +17,7 @@ export const TESSW = {
   fullName:
     "Contiguity spatial weight matrix for point data based on Voronoi tessellation",
   source: {
-    package: "spatialWarsaw",
+    package: "spatialModel",
     file: "R/W_matrix.R",
     lines: "42-103",
     author: "Katarzyna Kopczewska",
@@ -95,7 +95,7 @@ export const ETA = {
   name: "ETA",
   fullName: "Entropy and Tessellation for Agglomeration",
   source: {
-    package: "spatialWarsaw",
+    package: "spatialModel",
     file: "R/eta.R",
     lines: "68-142",
     author: "Katarzyna Kopczewska",
@@ -182,7 +182,7 @@ ETA <- function(points_sf, region_sf, sample_size) {
       type: "critical",
       message: "ETA jest wartością GLOBALNĄ dla całego zbioru punktów",
       detail:
-        'NIE istnieje "eta_local" ani "eta per cell" w oryginalnym spatialWarsaw',
+        'NIE istnieje "eta_local" ani "eta per cell" w oryginalnym spatialModel',
     },
     {
       type: "info",
@@ -230,7 +230,7 @@ export const SAR = {
     authors: "Bivand, R.S., Pebesma, E., Gómez-Rubio, V.",
     year: 2013,
     publisher: "Springer",
-    note: "Metodologia zgodna z bootspatreg.R w spatialWarsaw",
+    note: "Metodologia zgodna z bootspatreg.R w spatialWarsaw (upstream)",
   },
   status: "verified",
   statusEmoji: "✅",
@@ -408,13 +408,13 @@ export const REMOVED_HALLUCINATIONS = [
     formula: "M(n) = 0.015 × log(n) + 0.8957",
     where: "Stary 02_compute_tessw_eta.R, linie 161-167",
     why: `
-      Ta formuła NIE ISTNIEJE w oryginalnym spatialWarsaw.
+      Ta formuła NIE ISTNIEJE w oryginalnym spatialModel.
       Została prawdopodobnie wygenerowana przez LLM jako "poprawa"
       porównywalności między zbiorami o różnej liczbie obserwacji.
       W rzeczywistości ETA jest już znormalizowana przez H_max = log(n),
       więc dodatkowy rescaling jest matematycznie nieuzasadniony.
     `.trim(),
-    evidence: 'grep -n "0.015" /opt/dziki/spatialWarsaw/R/*.R → brak wyników',
+    evidence: 'grep -n "0.015" /opt/dziki/spatialModel/R/*.R → brak wyników',
     fixed: "2026-01-18",
     fixedIn: "01_generate_voronoi.R",
   },
@@ -423,12 +423,12 @@ export const REMOVED_HALLUCINATIONS = [
     formula: "eta_local = 1 - (tile_area / mean(tile_area))",
     where: "Stary 02_compute_tessw_eta.R, linie 237-240",
     why: `
-      ETA w oryginalnym spatialWarsaw jest wartością GLOBALNĄ.
+      ETA w oryginalnym spatialModel jest wartością GLOBALNĄ.
       "eta_local" to wymysł - nie ma takiego pojęcia w literaturze
-      Kopczewskiej ani w kodzie pakietu spatialWarsaw.
+      Kopczewskiej ani w kodzie pakietu spatialModel.
     `.trim(),
     evidence:
-      'grep -n "eta_local" /opt/dziki/spatialWarsaw/R/*.R → brak wyników',
+      'grep -n "eta_local" /opt/dziki/spatialModel/R/*.R → brak wyników',
     fixed: "2026-01-18",
     fixedIn: "01_generate_voronoi.R",
   },
@@ -441,7 +441,7 @@ export const REMOVED_HALLUCINATIONS = [
       Nie ma podstaw teoretycznych w metodologii Kopczewskiej.
     `.trim(),
     evidence:
-      'grep -n "eta_weighted" /opt/dziki/spatialWarsaw/R/*.R → brak wyników',
+      'grep -n "eta_weighted" /opt/dziki/spatialModel/R/*.R → brak wyników',
     fixed: "2026-01-18",
     fixedIn: "01_generate_voronoi.R",
   },
@@ -479,7 +479,7 @@ export const CURRENT_VALUES_FALLBACK = {
 export const PHASE_G_DISCOVERIES = {
   title: "Odkrycia Fazy G - Problemy metodologiczne",
   date: "2026-01-19",
-  summary: "Audyt zgodności z spatialWarsaw ujawnił fundamentalne problemy.",
+  summary: "Audyt zgodności z spatialModel ujawnił fundamentalne problemy.",
 
   discoveries: [
     {
@@ -528,7 +528,7 @@ export const PHASE_G_DISCOVERIES = {
     },
     {
       id: "G4",
-      title: "spatialWarsaw NIE MA modeli dla count data",
+      title: "spatialModel NIE MA modeli dla count data",
       status: "limitation",
       statusEmoji: "❌",
       description: `
@@ -544,7 +544,7 @@ export const PHASE_G_DISCOVERIES = {
         - lagsarlm() → Gaussian assumption
         - errorsarlm() → Gaussian assumption
       `.trim(),
-      reference: "spatialWarsaw/R/bootspatreg.R - eq<-roa~empl+dummy.prod+...",
+      reference: "spatialModel/R/bootspatreg.R - eq<-roa~empl+dummy.prod+...",
     },
   ],
 };
@@ -554,12 +554,12 @@ export const PHASE_G_DISCOVERIES = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const SPATIALWARSAW_FUNCTIONS = {
-  title: "Funkcje spatialWarsaw - mapa użycia w projekcie",
+  title: "Funkcje spatialModel - mapa użycia w projekcie",
 
   used: [
     {
       name: "tessW()",
-      file: "spatialWarsaw/R/W_matrix.R:38-103",
+      file: "spatialModel/R/W_matrix.R:38-103",
       purpose: "Macierz wag W z Voronoi tessellation",
       ourFile: "r_scripts/01_generate_voronoi.R",
       status: "implemented",
@@ -567,7 +567,7 @@ export const SPATIALWARSAW_FUNCTIONS = {
     },
     {
       name: "ETA()",
-      file: "spatialWarsaw/R/eta.R:68-142",
+      file: "spatialModel/R/eta.R:68-142",
       purpose: "Miara aglomeracji (względna entropia Shannona)",
       ourFile: "r_scripts/01_generate_voronoi.R",
       status: "implemented",
@@ -575,7 +575,7 @@ export const SPATIALWARSAW_FUNCTIONS = {
     },
     {
       name: "bestW()",
-      file: "spatialWarsaw/R/W_matrix.R:156-263",
+      file: "spatialModel/R/W_matrix.R:156-263",
       purpose: "Optymalizacja knn dla macierzy W",
       ourFile: "r_scripts/01_generate_voronoi.R",
       status: "simplified",
@@ -586,23 +586,23 @@ export const SPATIALWARSAW_FUNCTIONS = {
   notUsed: [
     {
       name: "BootSpatReg()",
-      file: "spatialWarsaw/R/bootspatreg.R:67-224",
+      file: "spatialModel/R/bootspatreg.R:67-224",
       reason:
         "Zakłada continuous Y (ROA firm) - nasze Y to count/point pattern",
     },
     {
       name: "SPAG()",
-      file: "spatialWarsaw/R/spag.R",
+      file: "spatialModel/R/spag.R",
       reason: "Wymaga size_var (wielkość punktu) - brak dla dzików",
     },
     {
       name: "QDC()",
-      file: "spatialWarsaw/R/qdc.R",
+      file: "spatialModel/R/qdc.R",
       reason: "Clustering, nie regresja - inne zastosowanie",
     },
     {
       name: "rastClustGWR()",
-      file: "spatialWarsaw/R/rastclust.R",
+      file: "spatialModel/R/rastclust.R",
       reason: "GWR na coefficients - wymaga continuous Y",
     },
   ],
@@ -610,15 +610,15 @@ export const SPATIALWARSAW_FUNCTIONS = {
   potential: [
     {
       name: "FLE()",
-      file: "spatialWarsaw/R/fle.R",
+      file: "spatialModel/R/fle.R",
       purpose: "Focal Local Entropy - rasteryzuje i liczy punkty",
       note: "Mogłoby być użyte dla square grid (liczy count w cells)",
     },
     {
       name: "ssr()",
-      file: "spatialWarsaw/R/ssr.R",
+      file: "spatialModel/R/ssr.R",
       purpose: "GLM z family parameter (np. poisson)",
-      note: "Bez spatial autocorrelation, ale poprawny rozkład",
+      note: "Bez autokorelacji przestrzennej, ale poprawny rozkład",
     },
   ],
 };
@@ -633,14 +633,14 @@ export const INVERSE_AREA_ARCHITECTURE = {
   date: "2026-01-19",
 
   rationale: `
-    ETA() z spatialWarsaw używa relative_area = area_tile / sum(area) do entropii.
+    ETA() z spatialModel używa relative_area = area_tile / sum(area) do entropii.
     Mały Voronoi tile = gęste obserwacje = wysokie ryzyko.
 
     Odwracając logikę ETA: intensity = 1 / relative_area
     - Duży relative_area → niskie intensity → niskie ryzyko
     - Mały relative_area → wysokie intensity → wysokie ryzyko
 
-    To pozwala ominąć problem count data (brak wariancji, Gaussian assumption)
+    To pozwala ominąć problem danych zliczeniowych (count data) — brak wariancji, założenie Gaussa nie obowiązuje —
     zachowując zgodność z duchem metodyki Kopczewskiej.
   `.trim(),
 
@@ -660,7 +660,7 @@ export const INVERSE_AREA_ARCHITECTURE = {
 
   sourceInspiration: {
     function: "ETA()",
-    file: "spatialWarsaw/R/eta.R:121-122",
+    file: "spatialModel/R/eta.R:121-122",
     code: `
 tess_area <- st_area(tess_result)
 tess_area_rel <- tess_area / sum(tess_area)  # ← nasza inspiracja
@@ -685,11 +685,11 @@ export const METHODOLOGY_SUMMARY = {
     rationale: `
       Mała komórka Voronoi = gęste obserwacje = wysokie ryzyko.
       Duża komórka = rzadkie obserwacje = niskie ryzyko.
-      Metoda nie wymaga count data ani założenia Gaussian.
+      Metoda nie wymaga danych zliczeniowych (count data) ani założenia Gaussa.
     `.trim(),
   },
 
-  spatialWarsawRelation: [
+  spatialModelRelation: [
     {
       element: "SAR/SEM",
       status: "not_used",
@@ -740,7 +740,7 @@ export const METHODOLOGY_SUMMARY = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const COUNT_DATA_PROBLEM = {
-  title: "Problem count data w kontekście spatialWarsaw",
+  title: "Problem count data w kontekście spatialModel",
 
   kopczewskaApproach: {
     data: "firms_sf - dane firmowe z atrybutami",
@@ -749,7 +749,7 @@ export const COUNT_DATA_PROBLEM = {
     yVariable:
       "ROA (Return on Assets) - continuous, może być ujemna i dodatnia",
     assumption: "Gaussian errors - ε ~ N(0, σ²)",
-    file: "spatialWarsaw/R/bootspatreg.R:53",
+    file: "spatialModel/R/bootspatreg.R:53",
   },
 
   ourData: {
